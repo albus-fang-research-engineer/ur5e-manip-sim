@@ -1,0 +1,80 @@
+# manip-sim: two isolated wings sharing one workspace mount.
+#
+#   sim         main dev env  (MuJoCo 3.3 + robosuite 1.5)   -> default
+#   sim-cpu     same image, forced OSMesa, no GPU reservation
+#   libero      Open6DOR V2 wing (robosuite 1.4 + LIBERO)    -> profile "phase3"
+#
+# Usage:
+#   docker compose build sim
+#   docker compose run --rm sim python scripts/smoke_test.py
+#   docker compose run --rm sim-cpu python scripts/smoke_test.py     # no GPU host
+#   docker compose --profile phase3 build libero                     # later
+#
+# The Jetson/arm64 note: these images are amd64 (nvidia/cuda base). This
+# compose file targets the x86 workstation, not the AGX Orin.
+
+services:
+  sim:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: manip-sim:latest
+    working_dir: /workspace
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./:/workspace                # code lives on host, editable live
+      - sim-data:/data               # rollouts, logs, datasets
+    environment:
+      - DISPLAY=${DISPLAY}
+      - MUJOCO_GL=egl
+      - PYOPENGL_PLATFORM=egl
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    stdin_open: true
+    tty: true
+
+  sim-cpu:
+    image: manip-sim:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+      - sim-data:/data
+    environment:
+      - MUJOCO_GL=osmesa
+      - PYOPENGL_PLATFORM=osmesa
+    stdin_open: true
+    tty: true
+
+  libero:
+    profiles: ["phase3"]
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.libero
+    image: manip-sim-libero:latest
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+      - sim-data:/data
+    environment:
+      - MUJOCO_GL=egl
+      - PYOPENGL_PLATFORM=egl
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    stdin_open: true
+    tty: true
+
+volumes:
+  sim-data:

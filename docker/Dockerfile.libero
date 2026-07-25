@@ -1,0 +1,63 @@
+# =============================================================================
+# manip-sim-libero : LIBERO + robosuite 1.4 stack (Open6DOR V2 wing) — PHASE 3
+#
+# Open6DOR V2 (SOFAR, NeurIPS'25) migrates the Open6DOR scenes into a
+# robosuite-based environment following the LIBERO task interface. LIBERO pins
+# robosuite==1.4.0, which is API-incompatible with robosuite 1.5 (composite
+# controllers, mujoco>=3.3). Hence a SEPARATE image rather than a shared venv:
+# the two wings never fight over versions, and results in one wing can never
+# be silently perturbed by an upgrade in the other.
+#
+# Status: provided for reproducibility of the Phase-3 plan; build it when the
+# benchmark work actually starts. The main image is the day-to-day dev env.
+# =============================================================================
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3.10 python3.10-venv python3-pip python3-dev \
+        build-essential git curl ca-certificates \
+        libegl1 libgles2 libopengl0 libosmesa6 \
+        libglfw3 libglew-dev libgl1-mesa-glx libglib2.0-0 \
+        ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /usr/share/glvnd/egl_vendor.d && \
+    printf '{\n  "file_format_version" : "1.0.0",\n  "ICD" : {\n    "library_path" : "libEGL_nvidia.so.0"\n  }\n}\n' \
+    > /usr/share/glvnd/egl_vendor.d/10_nvidia.json
+
+WORKDIR /workspace
+RUN python3.10 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# LIBERO-era pins. mujoco 2.3.7 is the last of the 2.3 line robosuite 1.4
+# was developed against. numpy kept <1.24 for numba/robomimic-0.2 era code.
+RUN pip install --upgrade pip && \
+    pip install \
+        "mujoco==2.3.7" \
+        "robosuite==1.4.0" \
+        "numpy==1.23.5" \
+        "torch==2.2.2" "torchvision==0.17.2" \
+        "robomimic==0.2.0" \
+        "bddl==1.0.1" \
+        "gym==0.25.2" \
+        "hydra-core==1.2.0" "easydict" "einops" "matplotlib" "cloudpickle" \
+        "opencv-python-headless" "Pillow" "imageio[ffmpeg]" "h5py" "pyyaml"
+
+# LIBERO itself, installed editable so task suites are hackable.
+RUN git clone --depth 1 https://github.com/Lifelong-Robot-Learning/LIBERO.git /opt/LIBERO && \
+    pip install -e /opt/LIBERO
+
+# Open6DOR V2: released alongside SOFAR. Clone manually once you start the
+# benchmark work and pin the commit here for reproducibility, e.g.:
+# RUN git clone https://github.com/qizekun/SoFar.git /opt/SoFar && cd /opt/SoFar && git checkout <commit>
+
+ENV MUJOCO_GL=egl PYOPENGL_PLATFORM=egl \
+    NVIDIA_DRIVER_CAPABILITIES=graphics,compute,utility
+
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]
