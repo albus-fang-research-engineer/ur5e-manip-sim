@@ -2,7 +2,7 @@
 
 Same viewer plumbing as view_live.py, but the deterministic pour stage:
 1.2 m table, teapot and mug pinned 0.5 m apart, teapot spout (body +x,
-minus the yaw offset) yawed to face the mug.
+minus SPOUT_YAW_OFFSET) yawed to face the mug.
 
   left-drag   orbit camera        right-drag   pan
   scroll      zoom                double-click select a body
@@ -12,16 +12,7 @@ minus the yaw offset) yawed to face the mug.
 Run INSIDE the container:
 
   PYTHONPATH=. python scripts/view_pour_tea.py
-  PYTHONPATH=. python scripts/view_pour_tea.py --yaw-offset-deg 45
   PYTHONPATH=. python scripts/view_pour_tea.py --jiggle
-
-Calibrating the spout offset WITHOUT editing files:
-  run with --yaw-offset-deg 0, then 90 (a quarter turn -- unmistakable),
-  then bisect. The console prints BOTH the commanded yaw and the yaw
-  measured back from the settled physics state; if you change the flag and
-  the MEASURED number doesn't move, you are not running the file/process
-  you think you are. Once found, bake the value into SPOUT_YAW_OFFSET here
-  and in demo_pour_tea.py (stored in radians).
 
 One-time on the HOST (not the container):  xhost +local:docker
 """
@@ -42,8 +33,9 @@ from manip_sim.envs.tabletop import TableTop
 TABLE_SIZE = (1.2, 1.2, 0.05)
 TABLE_TOP_Z = 0.8
 TEAPOT_XY = np.array([0.0, -0.25])
-MUG_XY = np.array([0.0, 0.25])           # 0.5 m from the teapot
-SPOUT_YAW_OFFSET = 0.3                    # rad; default for --yaw-offset-deg
+MUG_XY = np.array([0.0, 0.25])            # 0.5 m from the teapot
+SPOUT_YAW_OFFSET = 2.7                    # rad; set to YOUR calibrated value
+                                          # and keep demo_pour_tea.py in sync
 DROP_HEIGHT = 0.06
 SETTLE_STEPS = 20
 
@@ -80,9 +72,6 @@ register_env(PourTeaSceneLive)
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--robot", default=os.environ.get("ROBOT", "UR5e"))
-    ap.add_argument("--yaw-offset-deg", type=float,
-                    default=float(np.rad2deg(SPOUT_YAW_OFFSET)),
-                    help="spout yaw offset in DEGREES (overrides the file constant)")
     ap.add_argument("--jiggle", action="store_true",
                     help="apply small sinusoidal eef motion instead of holding still")
     ap.add_argument("--steps", type=int, default=100000)
@@ -102,9 +91,8 @@ def main() -> None:
         else:
             print(f"[view_pour_tea] skipping '{name}' (not converted yet: {path})")
 
-    offset = np.deg2rad(args.yaw_offset_deg)
     bearing = MUG_XY - TEAPOT_XY
-    teapot_yaw = float(np.arctan2(bearing[1], bearing[0])) - offset
+    teapot_yaw = float(np.arctan2(bearing[1], bearing[0])) - SPOUT_YAW_OFFSET
     z0 = TABLE_TOP_Z + DROP_HEIGHT
     fixed_poses = {
         "teapot": (np.array([*TEAPOT_XY, z0]), yaw_quat_wxyz(teapot_yaw)),
@@ -127,16 +115,16 @@ def main() -> None:
     )
     env.reset()
 
-    # settle, then measure the yaw actually realized in physics
+    # settle, then report the yaw actually realized in physics
     for _ in range(SETTLE_STEPS):
         env.step(np.zeros(env.action_dim))
         env.render()
     if "teapot" in objs:
         q = env.sim.data.body_xquat[env.obj_body_ids["teapot"]]
         measured = R.from_quat(q, scalar_first=True).as_euler("zyx")[0]
-        print(f"[view_pour_tea] offset {args.yaw_offset_deg:+.1f} deg -> "
+        print(f"[view_pour_tea] offset {np.rad2deg(SPOUT_YAW_OFFSET):+.1f} deg -> "
               f"commanded yaw {np.rad2deg(teapot_yaw):+.1f} deg, "
-              f"MEASURED settled yaw {np.rad2deg(measured):+.1f} deg")
+              f"measured settled yaw {np.rad2deg(measured):+.1f} deg")
 
     sep = np.linalg.norm(MUG_XY - TEAPOT_XY)
     print(f"[view_pour_tea] teapot->mug {sep:.2f} m. Space pauses, Esc quits.")
