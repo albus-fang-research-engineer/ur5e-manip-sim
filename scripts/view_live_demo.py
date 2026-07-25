@@ -72,6 +72,7 @@ def main() -> None:
         has_offscreen_renderer=False,
         use_camera_obs=False,
         control_freq=20,
+        ignore_done=True
     )
     env.reset()
     print("[view_live] window up — drag to orbit, Space to pause, Esc to quit.")

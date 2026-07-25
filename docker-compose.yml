@@ -28,13 +28,14 @@ services:
       - DISPLAY=${DISPLAY}
       - MUJOCO_GL=egl
       - PYOPENGL_PLATFORM=egl
+      - NVIDIA_DRIVER_CAPABILITIES=all
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities: [gpu, graphics, display, compute, utility]
     stdin_open: true
     tty: true
 
@@ -72,7 +73,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities: [gpu, graphics, display, compute, utility]
     stdin_open: true
     tty: true
 

@@ -49,9 +49,9 @@ RUN pip install --upgrade pip && \
 ENV MUJOCO_GL=egl \
     PYOPENGL_PLATFORM=egl \
     NVIDIA_DRIVER_CAPABILITIES=graphics,compute,utility
-
+RUN pip install trimesh coacd manifold3d 
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-
+ENV PYTHONPATH=/workspace
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]
