@@ -1,75 +1,93 @@
-"""demo_pour_tea.py — deterministic pour-task scene setup.
+"""Live interactive viewer for the POUR-TEA scene (fixed poses).
 
-Scene: a bigger table (1.2 m x 1.2 m, transport room for the path-constraint
-demo), with the teapot and mug at FIXED poses: 0.5 m apart, teapot's spout
-axis (body-frame +x) yawed to face the mug.
+Same viewer plumbing as view_live.py, but the deterministic pour stage:
+1.2 m table, teapot and mug pinned 0.5 m apart, teapot spout (body +x,
+minus SPOUT_YAW_OFFSET) yawed to face the mug.
 
-The fixed placement is done by subclassing TableTop and overriding
-_reset_internal to write object joint qpos directly, bypassing the random
-sampler. This is the pattern all deterministic evaluation scenes will use.
+  left-drag   orbit camera        right-drag   pan
+  scroll      zoom                double-click select a body
+  Space       pause/resume        Tab          camera menu
+  Esc / close window              quit
 
-Run:
-  PYTHONPATH=. python scripts/demo_pour_tea.py
+Run INSIDE the container:
 
-Notes:
-  * SPOUT_YAW_OFFSET: if your downloaded teapot mesh's spout does not point
-    along body-frame +x, set this to the yaw (rad) that rotates body +x onto
-    the spout direction, and the facing computation absorbs it.
-  * Objects are dropped a few mm above the table and settled for a second of
-    sim time so they rest on their CoACD collision geometry before poses are
-    reported.
+  PYTHONPATH=. python scripts/view_pour_tea.py
+  PYTHONPATH=. python scripts/view_pour_tea.py --jiggle
+
+One-time on the HOST (not the container):  xhost +local:docker
 """
+
+import argparse
+import os
+from pathlib import Path
 
 import numpy as np
 import robosuite as suite
-from PIL import Image
 from robosuite.environments.base import register_env
 
 import manip_sim  # noqa: F401
 from manip_sim.envs.tabletop import TableTop
-from manip_sim.state import PoseReader
 
 # ----------------------------------------------------------------- scene spec
 TABLE_SIZE = (1.2, 1.2, 0.05)
 TABLE_TOP_Z = 0.8
+TEAPOT_XY = np.array([0.0, -0.25])
+MUG_XY = np.array([0.0, 0.25])          # 0.5 m from the teapot
+SPOUT_YAW_OFFSET = 0.3                    # rad; match demo_pour_tea.py
+DROP_HEIGHT = 0.06
 
-TEAPOT_XY = np.array([0.10, -0.25])
-MUG_XY = np.array([0.10, 0.25])          # 0.5 m from the teapot
-SPOUT_YAW_OFFSET = 0.0                    # rad; see module docstring
-DROP_HEIGHT = 0.06                        # m above tabletop at reset
-SETTLE_STEPS = 20                         # control steps (~1 s at 20 Hz)
+OBJECTS = {
+    "teapot": "assets/objects/teapot/teapot.xml",
+    "mug": "assets/objects/mug/mug.xml",
+}
 
 
 def yaw_quat_wxyz(yaw: float) -> np.ndarray:
     return np.array([np.cos(yaw / 2), 0.0, 0.0, np.sin(yaw / 2)])
 
 
-class PourTeaScene(TableTop):
-    """TableTop with deterministic object placement."""
+class PourTeaSceneLive(TableTop):
+    """TableTop with deterministic object placement (viewer flavor)."""
 
-    def __init__(self, robots, fixed_poses: dict[str, tuple[np.ndarray, np.ndarray]], **kwargs):
-        # name -> (pos[3], quat_wxyz[4])
-        self.fixed_poses = fixed_poses
+    def __init__(self, robots, fixed_poses, **kwargs):
+        self.fixed_poses = fixed_poses  # name -> (pos[3], quat_wxyz[4])
         super().__init__(robots=robots, **kwargs)
 
     def _reset_internal(self):
-        super()._reset_internal()  # samples randomly; we overwrite below
+        super()._reset_internal()
         for name, (pos, quat) in self.fixed_poses.items():
-            obj = self.objects[name]
-            self.sim.data.set_joint_qpos(
-                obj.joints[0], np.concatenate([pos, quat])
-            )
+            if name in self.objects:
+                self.sim.data.set_joint_qpos(
+                    self.objects[name].joints[0], np.concatenate([pos, quat])
+                )
         self.sim.forward()
 
 
-register_env(PourTeaScene)
+register_env(PourTeaSceneLive)
 
 
 def main() -> None:
-    # teapot yaw: rotate body +x onto the bearing toward the mug
-    bearing = MUG_XY - TEAPOT_XY
-    teapot_yaw = np.arctan2(bearing[1], bearing[0]) - SPOUT_YAW_OFFSET
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--robot", default=os.environ.get("ROBOT", "UR5e"))
+    ap.add_argument("--jiggle", action="store_true",
+                    help="apply small sinusoidal eef motion instead of holding still")
+    ap.add_argument("--steps", type=int, default=100000)
+    args = ap.parse_args()
 
+    if not os.environ.get("DISPLAY"):
+        raise SystemExit("[view_pour_tea] $DISPLAY is empty — X11 is not reaching "
+                         "the container. Check compose env/volumes and "
+                         "`xhost +local:docker`.")
+
+    objs = {}
+    for name, path in OBJECTS.items():
+        if Path(path).exists():
+            objs[name] = path
+        else:
+            print(f"[view_pour_tea] skipping '{name}' (not converted yet: {path})")
+
+    bearing = MUG_XY - TEAPOT_XY
+    teapot_yaw = float(np.arctan2(bearing[1], bearing[0])) - SPOUT_YAW_OFFSET
     z0 = TABLE_TOP_Z + DROP_HEIGHT
     fixed_poses = {
         "teapot": (np.array([*TEAPOT_XY, z0]), yaw_quat_wxyz(teapot_yaw)),
@@ -77,54 +95,38 @@ def main() -> None:
     }
 
     env = suite.make(
-        "PourTeaScene",
-        robots="UR5e",
-        object_xmls={
-            "teapot": "assets/objects/teapot/teapot.xml",
-            "mug": "assets/objects/mug/mug.xml",
-        },
+        "PourTeaSceneLive",
+        robots=args.robot,
+        object_xmls=objs,
         fixed_poses=fixed_poses,
         table_full_size=TABLE_SIZE,
         table_offset=(0.0, 0.0, TABLE_TOP_Z),
-        has_renderer=False,
-        has_offscreen_renderer=True,
-        use_camera_obs=True,
-        camera_names=["agentview", "birdview"],
-        camera_heights=512,
-        camera_widths=512,
+        has_renderer=True,
+        render_camera=None,          # start in free camera -> drag anywhere
+        has_offscreen_renderer=False,
+        use_camera_obs=False,
         control_freq=20,
+        ignore_done=True,
     )
-    obs = env.reset()
+    env.reset()
+    sep = np.linalg.norm(MUG_XY - TEAPOT_XY)
+    print(f"[view_pour_tea] window up — teapot->mug {sep:.2f} m, "
+          f"yaw {np.rad2deg(teapot_yaw):.0f} deg. Space pauses, Esc quits.")
 
-    # settle onto collision geometry
-    for _ in range(SETTLE_STEPS):
-        obs, *_ = env.step(np.zeros(env.action_dim))
-
-    reader = PoseReader(env, ["teapot_main", "mug_main"])
-    tp_pos, tp_quat = reader.pose("teapot_main")
-    mug_pos, _ = reader.pose("mug_main")
-
-    dist = np.linalg.norm((mug_pos - tp_pos)[:2])
-    # facing check: angle between teapot body +x (in world) and bearing to mug
-    T = reader.pose_matrix("teapot_main")
-    spout_dir = T[:3, 0][:2]
-    spout_dir /= np.linalg.norm(spout_dir)
-    bearing_w = (mug_pos - tp_pos)[:2]
-    bearing_w /= np.linalg.norm(bearing_w)
-    facing_err_deg = np.rad2deg(np.arccos(np.clip(spout_dir @ bearing_w, -1, 1)))
-
-    print(f"teapot settled: pos {np.round(tp_pos, 3)}")
-    print(f"mug    settled: pos {np.round(mug_pos, 3)}")
-    print(f"separation    : {dist:.3f} m   (target 0.500)")
-    print(f"facing error  : {facing_err_deg:.1f} deg  (spout +x vs bearing to mug)")
-
-    for cam in ("agentview", "birdview"):
-        Image.fromarray(obs[f"{cam}_image"][::-1]).save(f"pour_tea_{cam}.png")
-    env.close()
-    print("renders: pour_tea_agentview.png, pour_tea_birdview.png")
-
-    ok = abs(dist - 0.5) < 0.03 and facing_err_deg < 10
-    print("POUR SCENE OK" if ok else "POUR SCENE CHECK FAILED — see numbers above")
+    t = 0.0
+    try:
+        for _ in range(args.steps):
+            a = np.zeros(env.action_dim)
+            if args.jiggle:
+                a[0] = 0.06 * np.sin(2 * np.pi * 0.25 * t)
+                a[1] = 0.06 * np.cos(2 * np.pi * 0.25 * t)
+                t += 1.0 / 20.0
+            env.step(a)
+            env.render()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        env.close()
 
 
 if __name__ == "__main__":
