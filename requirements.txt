@@ -1,0 +1,22 @@
+# Main simulation stack — tested combination (2026-07).
+#
+# IMPORTANT: mujoco is pinned BELOW 3.9. robosuite 1.5.2 declares mujoco>=3.3.0
+# but breaks against mujoco>=3.10 (mj_fullM signature change: the sparse mass
+# matrix API was reworked, and robosuite's OSC controller calls the old
+# 3-arg form). 3.3.7 is the last patch of the series robosuite CI targets.
+mujoco==3.3.7
+robosuite==1.5.2
+robosuite_models>=1.0.0   # extra robot models (UR5e variants, grippers, ...)
+
+# IK / QP stack (robosuite pulls mink==0.0.5 itself; listed for transparency)
+mink==0.0.5
+qpsolvers[quadprog]>=4.3.1
+
+# utilities
+numpy<2.0        # numba + LIBERO-era tooling still expect numpy 1.x
+scipy>=1.10
+Pillow
+imageio[ffmpeg]  # rollout videos
+opencv-python-headless
+h5py             # trajectory logging
+pyyaml

@@ -1,2 +1,6 @@
 __pycache__
 __init__.py
+meshes/
+*.obj
+*.png
+
