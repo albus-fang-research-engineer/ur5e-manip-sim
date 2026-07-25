@@ -20,10 +20,16 @@ services:
       dockerfile: docker/Dockerfile
     image: manip-sim:latest
     working_dir: /workspace
+    privileged: true
+    ipc: host                      # MIT-SHM with the host's Xorg
+    devices:                       # DRI3 buffer sharing
+      - /dev/dri:/dev/dri
+    shm_size: '8gb'                # unrelated, but you'll want it later
+
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
-      - ./:/workspace                # code lives on host, editable live
-      - sim-data:/data               # rollouts, logs, datasets
+      - ./:/workspace
+      - sim-data:/data
     environment:
       - DISPLAY=${DISPLAY}
       - MUJOCO_GL=egl
