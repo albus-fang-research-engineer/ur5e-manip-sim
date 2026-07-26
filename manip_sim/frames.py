@@ -1,35 +1,34 @@
-"""Object task frames from per-asset sidecar files (frames.json).
+"""Grounding symbol tables and task-frame composition.
 
-Each converted asset directory carries a frames.json declaring named
-interaction frames as (point, primary axis) pairs in the object's *body*
-coordinates (the frame of the mjcf body named "object", i.e. what
-PoseReader returns for that object). A task frame is completed to a
-right-handed basis by Gram-Schmidt of a secondary direction against the
-primary axis, with the primary axis mapped to +z — exactly the frame
-construction the grounding pipeline (mesh candidates -> canonical renders
--> VLM multiple choice + PointSO axes) will eventually emit. Keeping the
-schema identical means the VLM later becomes a *producer of this same
-artifact* and nothing downstream changes; the hand-authored sidecars in
-assets/ double as the ground-truth arm of the emission ablation.
+Each converted asset directory carries a frames.json declaring the object's
+grounded interaction symbols in *body* coordinates (the frame of the mjcf
+body named "object" -- i.e. exactly what state.PoseReader returns; the body
+frame is arbitrary and never assumed canonical, only CONSISTENT with the
+pose source):
 
-Schema:
+    points      named interaction points  (spout_tip, opening_center, ...)
+    axes        named semantic axes       (pour_axis, up_axis, tilt_axis, ...)
+    quantities  compiler-owned scalars    (rim_radius, cavity_depth, ...)
 
-{
-  "object": "teapot",
-  "frames": {
-    "handle":    {"point": [x,y,z], "axis": [x,y,z],
-                  "secondary": [x,y,z] | null,      # null -> body -z
-                  "status": "calibrated" | "placeholder",
-                  "comment": "free text"},
-    ...
-  }
-}
+Points and axes are INDEPENDENT tables, mirroring the grounding pipeline
+(point candidates -> VLM multiple choice; axes -> PointSO) and the emission
+DSL, whose frame declarations compose them by reference:
+
+    active teapot frame(origin=spout_tip, axis=pour_axis)
+        -> symbols.frame("spout_tip", "pour_axis")
+
+The hand-authored sidecars in assets/ are the ground-truth arm of the
+emission ablation; the VLM grounding pipeline later becomes a *producer of
+this same artifact* and nothing downstream changes.
+
+Frame convention: axis -> +z; +x by Gram-Schmidt of a secondary direction
+(default body -z) against the axis; +y = z cross x.
 """
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -61,30 +60,69 @@ class Frame:
             n = np.linalg.norm(x)
         x = x / n
         y = np.cross(z, x)
-        Rm = np.column_stack([x, y, z])
-        return make_pose(self.point, Rm)
+        return make_pose(self.point, np.column_stack([x, y, z]))
 
     def world_T(self, T0_body: np.ndarray) -> np.ndarray:
         """World pose of this frame given the object's body world pose."""
         return T0_body @ self.T()
 
 
-def load_frames(asset_dir: str | Path) -> dict[str, Frame]:
+@dataclass
+class Symbols:
+    """One object's grounded symbol table."""
+
+    object: str
+    points: dict[str, np.ndarray]
+    axes: dict[str, np.ndarray]
+    quantities: dict[str, float] = field(default_factory=dict)
+    statuses: dict[str, str] = field(default_factory=dict)
+
+    def frame(self, origin: str, axis: str,
+              secondary=None) -> Frame:
+        """DSL-style composition: frame(origin=<point>, axis=<axis>).
+        `secondary` may name another axis symbol, be a raw vector, or be
+        None (body -z)."""
+        if isinstance(secondary, str):
+            sec = self.axes[secondary]
+        elif secondary is None:
+            sec = np.array([0.0, 0.0, -1.0])
+        else:
+            sec = np.asarray(secondary, dtype=float)
+        status = "placeholder" if (
+            self.statuses.get(f"points.{origin}") == "placeholder"
+            or self.statuses.get(f"axes.{axis}") == "placeholder"
+        ) else "calibrated"
+        return Frame(
+            name=f"{self.object}.frame({origin},{axis})",
+            point=self.points[origin].copy(),
+            axis=self.axes[axis].copy(),
+            secondary=sec.copy(),
+            status=status,
+        )
+
+
+def load_symbols(asset_dir):
     path = Path(asset_dir) / "frames.json"
     spec = json.loads(path.read_text())
-    out: dict[str, Frame] = {}
-    for name, f in spec["frames"].items():
-        sec = f.get("secondary")
-        out[name] = Frame(
-            name=name,
-            point=np.asarray(f["point"], dtype=float),
-            axis=np.asarray(f["axis"], dtype=float),
-            secondary=np.asarray(sec if sec is not None else [0.0, 0.0, -1.0], float),
-            status=f.get("status", "calibrated"),
-            comment=f.get("comment", ""),
-        )
-    placeholders = [n for n, fr in out.items() if fr.status == "placeholder"]
-    if placeholders:
-        print(f"[frames] {spec.get('object', path)}: PLACEHOLDER frames "
-              f"needing calibration: {placeholders}")
-    return out
+    statuses = {}
+
+    def _table(section):
+        out = {}
+        for name, entry in spec.get(section, {}).items():
+            out[name] = np.asarray(entry["xyz"], dtype=float).reshape(3)
+            statuses[f"{section}.{name}"] = entry.get("status", "calibrated")
+        return out
+
+    sym = Symbols(
+        object=spec.get("object", Path(asset_dir).name),
+        points=_table("points"),
+        axes=_table("axes"),
+        quantities={k: float(v["value"])
+                    for k, v in spec.get("quantities", {}).items()},
+        statuses=statuses,
+    )
+    ph = [k for k, v in statuses.items() if v == "placeholder"]
+    if ph:
+        print(f"[frames] {sym.object}: PLACEHOLDER symbols needing "
+              f"viewer calibration: {ph}")
+    return sym

@@ -221,3 +221,49 @@ def test_pour_path_rejects_wrong_direction_tilt():
     T[:3, :3] = Rot
     T[:3, 3] = tip_w - Rot @ tip_w
     assert pair.path.contains(T @ T0_teapot, tol=1e-6)
+
+
+# ------------------------------------------------------------- symbol sidecars
+
+
+def test_load_symbols_and_compose(tmp_path):
+    import json
+    from manip_sim.frames import load_symbols
+    spec = {
+        "object": "teapot",
+        "points": {"spout_tip": {"xyz": [-0.09, 0.043, 0.08],
+                                 "status": "placeholder"}},
+        "axes": {"pour_axis": {"xyz": [-0.9041, 0.4274, 0.0]},
+                 "up_axis": {"xyz": [0, 0, 1]},
+                 "tilt_axis": {"xyz": [-0.4274, -0.9041, 0.0]}},
+        "quantities": {"spout_len": {"value": 0.05}},
+    }
+    (tmp_path / "frames.json").write_text(json.dumps(spec))
+    sym = load_symbols(tmp_path)
+    f = sym.frame("spout_tip", "pour_axis")
+    T = f.T()
+    # +z of the frame is the pour axis
+    assert np.allclose(T[:3, 2], spec["axes"]["pour_axis"]["xyz"], atol=1e-4)
+    assert np.allclose(T[:3, 3], spec["points"]["spout_tip"]["xyz"])
+    # orthonormal, right-handed
+    Rm = T[:3, :3]
+    assert np.allclose(Rm @ Rm.T, np.eye(3), atol=1e-9)
+    assert np.linalg.det(Rm) == pytest.approx(1.0)
+    # placeholder status propagates through composition
+    assert f.status == "placeholder"
+    assert sym.quantities["spout_len"] == 0.05
+    # tilt frame with pour_axis as secondary: +x = pour direction
+    ft = sym.frame("spout_tip", "tilt_axis", secondary="pour_axis")
+    assert np.allclose(ft.T()[:3, 0], spec["axes"]["pour_axis"]["xyz"], atol=1e-4)
+
+
+def test_shipped_sidecars_load():
+    from manip_sim.frames import load_symbols
+    teapot = load_symbols("assets/objects/teapot")
+    mug = load_symbols("assets/objects/mug")
+    assert {"spout_tip", "handle_center"} <= set(teapot.points)
+    assert {"pour_axis", "up_axis", "tilt_axis"} <= set(teapot.axes)
+    assert "opening_center" in mug.points
+    # tilt axis really is up x pour (the positive-roll-pours convention)
+    assert np.allclose(np.cross(teapot.axes["up_axis"], teapot.axes["pour_axis"]),
+                       teapot.axes["tilt_axis"], atol=1e-3)

@@ -2,28 +2,21 @@
   "object": "teapot",
   "units": "meters",
   "coordinates": "body frame of mjcf body 'object' (what PoseReader returns)",
-  "frame_convention": "primary 'axis' -> frame +z; +x from Gram-Schmidt of 'secondary' (null = body -z) against axis; +y = z cross x",
-  "frames": {
-    "spout_tip": {
-      "point": [-0.09, 0.043, 0.08],
-      "axis": [-0.9041, 0.4274, 0.0],
-      "secondary": null,
-      "status": "placeholder",
-      "comment": "Axis = spout pour direction, derived from SPOUT_YAW_OFFSET = 2.7 rad (yaw of spout from body +x, per view_pour_tea.py calibration). POINT is a guess -- calibrate by double-click-selecting the spout tip in the live viewer and reading body-frame coords, then set status: calibrated. Replaces the SPOUT_YAW_OFFSET constants duplicated across scripts."
-    },
-    "handle": {
-      "point": [0.09, -0.043, 0.07],
-      "axis": [0.0, 0.0, 1.0],
-      "secondary": [0.9041, -0.4274, 0.0],
-      "status": "placeholder",
-      "comment": "Axis = handle long axis (assumed vertical loop handle opposite the spout; if the handle is a top bail, change axis to the horizontal grip direction). Grasp TSR allows sliding along this axis. POINT is a guess."
-    },
-    "tilt_axis": {
-      "point": [-0.09, 0.043, 0.08],
-      "axis": [-0.4274, -0.9041, 0.0],
-      "secondary": [-0.9041, 0.4274, 0.0],
-      "status": "placeholder",
-      "comment": "Pour pivot axis = z cross spout_dir, anchored at the spout tip, signed so POSITIVE rotation tips the spout DOWN. Point must track spout_tip.point. The pour TSR frame is built from this entry."
-    }
+  "schema": "grounding symbol table: independent interaction POINTS and semantic AXES; frames are composed downstream as frame(origin=<point>, axis=<axis>), matching the emission DSL. Axis -> frame +z, completed by Gram-Schmidt.",
+  "points": {
+    "spout_tip":     {"xyz": [-0.09, 0.043, 0.08], "status": "placeholder",
+                      "comment": "calibrate: double-click spout tip in viewer, read body coords"},
+    "handle_center": {"xyz": [0.09, -0.043, 0.07], "status": "placeholder",
+                      "comment": "mid-grip point of the handle"}
+  },
+  "axes": {
+    "pour_axis":   {"xyz": [-0.9041, 0.4274, 0.0], "status": "calibrated",
+                    "comment": "spout direction = yaw +2.7 rad from body +x (SPOUT_YAW_OFFSET calibration, view_pour_tea.py); retires that constant"},
+    "up_axis":     {"xyz": [0.0, 0.0, 1.0], "status": "calibrated",
+                    "comment": "lid direction at rest"},
+    "handle_axis": {"xyz": [0.0, 0.0, 1.0], "status": "placeholder",
+                    "comment": "handle long axis; vertical loop assumed. Grasp TSR slides along this"},
+    "tilt_axis":   {"xyz": [-0.4274, -0.9041, 0.0], "status": "calibrated",
+                    "comment": "up_axis x pour_axis, signed so POSITIVE rotation tips the spout DOWN; derivable, kept explicit for auditability"}
   }
 }

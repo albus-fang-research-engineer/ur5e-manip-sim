@@ -2,14 +2,16 @@
   "object": "mug",
   "units": "meters",
   "coordinates": "body frame of mjcf body 'object' (what PoseReader returns)",
-  "frame_convention": "primary 'axis' -> frame +z; +x from Gram-Schmidt of 'secondary' (null = body -z) against axis; +y = z cross x",
-  "frames": {
-    "opening": {
-      "point": [0.0, 0.0, 0.1],
-      "axis": [0.0, 0.0, 1.0],
-      "secondary": [1.0, 0.0, 0.0],
-      "status": "placeholder",
-      "comment": "Center of the rim plane, +z out of the opening. POINT z is a guess at rim height; calibrate in the viewer. rim_radius lives in pour_stages.py margins for now; move it here once measured."
-    }
+  "schema": "grounding symbol table: independent interaction POINTS and semantic AXES; frames composed downstream as frame(origin=<point>, axis=<axis>).",
+  "points": {
+    "opening_center": {"xyz": [0.0, 0.0, 0.1], "status": "placeholder",
+                       "comment": "center of rim plane; calibrate rim height in viewer"}
+  },
+  "axes": {
+    "up_axis": {"xyz": [0.0, 0.0, 1.0], "status": "calibrated", "comment": "out of the opening"}
+  },
+  "quantities": {
+    "rim_radius": {"value": 0.04, "status": "placeholder",
+                   "comment": "compiler-owned geometric quantity for centered()/inside(); measure from mesh"}
   }
 }
