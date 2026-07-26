@@ -184,13 +184,18 @@ class TSR:
                 best_cost, best_d = excess_sq, d
         return best_d
 
+    def excess(self, T0_e: np.ndarray) -> np.ndarray:
+        """Per-axis signed excess of the displacement outside Bw (zeros iff
+        contained). This 6-vector is the constraint residual the planner's
+        projection operator drives to zero."""
+        d = self.displacement(T0_e)
+        return np.array([_interval_excess(d[i], *self.Bw[i]) for i in range(6)])
+
     def distance(self, T0_e: np.ndarray) -> float:
         """Norm of the per-axis excess outside Bw (0 iff contained).
         Note: mixes meters and radians; fine as a feasibility check,
         weight the axes if you need a calibrated metric."""
-        d = self.displacement(T0_e)
-        exc = np.array([_interval_excess(d[i], *self.Bw[i]) for i in range(6)])
-        return float(np.linalg.norm(exc))
+        return float(np.linalg.norm(self.excess(T0_e)))
 
     def contains(self, T0_e: np.ndarray, tol: float = 1e-9) -> bool:
         return self.distance(T0_e) <= tol
