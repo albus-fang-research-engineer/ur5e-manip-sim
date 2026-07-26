@@ -85,7 +85,7 @@ def main() -> None:
     teapot_yaw = float(np.arctan2(bearing[1], bearing[0])) - spout_yaw_body
     z0 = TABLE_TOP_Z + DROP_HEIGHT
 
-    from scripts.view_pour_tea import PourTeaSceneLive, yaw_quat_wxyz  # reuse env
+    from scripts.demos.demo_pour_tea import PourTeaSceneLive, yaw_quat_wxyz  # reuse env
 
     fixed_poses = {
         "teapot": (np.array([*TEAPOT_XY, z0]), yaw_quat_wxyz(teapot_yaw)),
