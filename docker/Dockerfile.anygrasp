@@ -1,0 +1,60 @@
+# =============================================================================
+# manip-grasp : AnyGrasp SDK sidecar (grasp wing)
+#
+# Isolated from the sim wings because MinkowskiEngine pins torch/numpy hard
+# and needs the CUDA *devel* toolchain (nvcc) to compile.
+# Runs with network_mode: host -> license feature ID binds to eno1's real MAC.
+#
+# Interface: ZMQ REP on tcp://*:${GRASP_PORT:-5555}
+#   in : {points Nx3 f32, colors Nx3 f32, lims [6]}
+#   out: {translations, rotations, widths, depths, scores}
+# =============================================================================
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3.10 python3.10-venv python3-dev \
+        build-essential ninja-build git curl ca-certificates \
+        libopenblas-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3.10 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH" \
+    CUDA_HOME=/usr/local/cuda
+
+# Torch first — MinkowskiEngine compiles against it. cu121 wheels run fine
+# on the 12.4 runtime.
+RUN pip install --upgrade pip && \
+    pip install torch --index-url https://download.pytorch.org/whl/cu121 && \
+    pip install "numpy<1.23" ninja
+
+# Patched MinkowskiEngine, cuda-12-1 branch (per anygrasp_sdk README).
+# TORCH_CUDA_ARCH_LIST: check yours with `nvidia-smi --query-gpu=compute_cap --format=csv`
+# (8.6 = RTX 30xx/A-series, 8.9 = RTX 40xx/Ada). Trimming to one arch speeds the build.
+ENV TORCH_CUDA_ARCH_LIST="8.6;8.9+PTX" \
+    MAX_JOBS=4
+RUN git clone https://github.com/chenxi-wang/MinkowskiEngine.git /tmp/ME && \
+    cd /tmp/ME && git checkout cuda-12-1 && \
+    python setup.py install --blas=openblas --force_cuda && \
+    rm -rf /tmp/ME
+
+# AnyGrasp SDK. TODO: pin to a commit hash once working (same discipline as
+# the mujoco pin) — replace `main` below.
+RUN git clone --branch main https://github.com/graspnet/anygrasp_sdk.git /opt/anygrasp && \
+    cd /opt/anygrasp && pip install -r requirements.txt && \
+    cd pointnet2 && python setup.py install
+
+# The SDK ships per-Python-version prebuilt binaries; select the 3.10 one.
+RUN cd /opt/anygrasp/grasp_detection && \
+    cp gsnet_versions/gsnet.cpython-310-x86_64-linux-gnu.so gsnet.so
+
+RUN pip install pyzmq
+
+# gsnet resolves `license/` relative to cwd, next to gsnet.so — so this
+# workdir is load-bearing. license/ and checkpoints/ arrive via volume mounts.
+WORKDIR /opt/anygrasp/grasp_detection
+
+CMD ["python", "/opt/grasp_server/server.py"]

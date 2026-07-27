@@ -25,7 +25,8 @@ services:
     devices:                       # DRI3 buffer sharing
       - /dev/dri:/dev/dri
     shm_size: '8gb'                # unrelated, but you'll want it later
-
+    extra_hosts:
+      - "grasp:host-gateway"
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ./:/workspace
@@ -35,6 +36,7 @@ services:
       - MUJOCO_GL=egl
       - PYOPENGL_PLATFORM=egl
       - NVIDIA_DRIVER_CAPABILITIES=all
+      - ANYGRASP_ADDR=tcp://grasp:5666
     deploy:
       resources:
         reservations:
@@ -80,6 +82,31 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu, graphics, display, compute, utility]
+    stdin_open: true
+    tty: true
+  
+  # grasp   AnyGrasp sidecar (ME/torch pins isolated) -> profile "grasp"
+  grasp:
+    profiles: ["grasp"]
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.anygrasp
+    image: manip-grasp:latest
+    network_mode: host
+    privileged: true
+    volumes:
+      - ./grasp_server:/opt/grasp_server
+      - ./anygrasp_runtime/license:/opt/anygrasp/grasp_detection/license
+      - ./anygrasp_runtime/checkpoints:/opt/anygrasp/checkpoints
+    environment:
+      - GRASP_PORT=5666
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, compute, utility]
     stdin_open: true
     tty: true
 
