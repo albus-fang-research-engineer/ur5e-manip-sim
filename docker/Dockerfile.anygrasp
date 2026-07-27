@@ -28,8 +28,12 @@ ENV PATH="/opt/venv/bin:$PATH" \
 # Torch first — MinkowskiEngine compiles against it. cu121 wheels run fine
 # on the 12.4 runtime.
 RUN pip install --upgrade pip && \
-    pip install torch --index-url https://download.pytorch.org/whl/cu121 && \
+    pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cu121 && \
     pip install "numpy<1.23" ninja
+# gcc-11 <-> CUDA libcu++ __to_address ambiguity (anygrasp_sdk README fix,
+# documented for CUDA 12.8 but bites on 12.4 as well)
+RUN sed -i 's/\bauto __raw = __to_address(__r.get());/auto __raw = std::__to_address(__r.get());/' \
+    /usr/include/c++/11/bits/shared_ptr_base.h
 
 # Patched MinkowskiEngine, cuda-12-1 branch (per anygrasp_sdk README).
 # TORCH_CUDA_ARCH_LIST: check yours with `nvidia-smi --query-gpu=compute_cap --format=csv`
