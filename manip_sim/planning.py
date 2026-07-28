@@ -53,8 +53,15 @@ class ArmKinematics:
         self.model = _raw_model(env)
         self.data = mujoco.MjData(self.model)
         # start scratch state from the live sim so free objects sit where
-        # they really are (matters for collision checking)
+        # they really are (matters for collision checking); clamp into joint
+        # limits -- robosuite leaves gripper fingers epsilon outside their
+        # ranges at reset, which otherwise makes mink warn on every solve
         self.data.qpos[:] = env.sim.data.qpos
+        for j in range(self.model.njnt):
+            if self.model.jnt_limited[j]:
+                adr = self.model.jnt_qposadr[j]
+                lo, hi = self.model.jnt_range[j]
+                self.data.qpos[adr] = np.clip(self.data.qpos[adr], lo, hi)
         mujoco.mj_forward(self.model, self.data)
 
         self.site_id = mujoco.mj_name2id(
@@ -89,9 +96,15 @@ class ArmKinematics:
         return T
 
     def in_collision(self, q: np.ndarray, depth_tol: float = 1e-4,
+                     robot_prefixes=("robot0", "gripper0", "mount0"),
                      allowed_prefix_pairs=(("gripper0", "gripper0"),)) -> bool:
-        """True if any contact penetrates deeper than depth_tol, excluding
-        body-name-prefix pairs in allowed_prefix_pairs."""
+        """True if any contact INVOLVING THE ROBOT penetrates deeper than
+        depth_tol. Contacts between free objects and the scene (mug resting
+        on the table, etc.) are configuration-independent facts about the
+        world, not collisions the arm caused, and are ignored -- counting
+        them would veto every configuration. Pairs matching
+        allowed_prefix_pairs (default: gripper internal contacts) are also
+        ignored."""
         self.set_q(q)
         for i in range(self.data.ncon):
             con = self.data.contact[i]
@@ -101,6 +114,8 @@ class ArmKinematics:
                                    self.model.geom_bodyid[con.geom1]) or ""
             b2 = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_BODY,
                                    self.model.geom_bodyid[con.geom2]) or ""
+            if not (b1.startswith(robot_prefixes) or b2.startswith(robot_prefixes)):
+                continue                       # scene<->scene contact
             if any((b1.startswith(p) and b2.startswith(q_)) or
                    (b1.startswith(q_) and b2.startswith(p))
                    for p, q_ in allowed_prefix_pairs):

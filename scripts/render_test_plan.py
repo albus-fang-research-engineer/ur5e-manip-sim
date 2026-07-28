@@ -85,6 +85,13 @@ def main() -> None:
         jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, jname)
         teapot_qadr = model.jnt_qposadr[jid]
 
+    # robosuite convention: group 0 = collision hulls, group 1 = visual
+    # meshes. Its viewer hides group 0; mujoco.Renderer shows everything by
+    # default, which renders the green primitive collision skeleton over the
+    # real meshes. Replicate the viewer's setting.
+    vis_opt = mujoco.MjvOption()
+    vis_opt.geomgroup[0] = 0
+
     model.vis.global_.offwidth = max(model.vis.global_.offwidth, args.width)
     model.vis.global_.offheight = max(model.vis.global_.offheight, args.height)
     renderer = mujoco.Renderer(model, args.height, args.width)
@@ -114,7 +121,7 @@ def main() -> None:
         tip = (T_body @ spout.T())[:3, 3]
         trace.append(tip.copy())
 
-        renderer.update_scene(data, camera=cam)
+        renderer.update_scene(data, camera=cam, scene_option=vis_opt)
         if not args.no_markers:
             scene = renderer.scene
             for p in trace[:-1][::2]:

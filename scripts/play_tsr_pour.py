@@ -118,15 +118,17 @@ def main() -> None:
 
     teapot_joint = env.objects["teapot"].joints[0]
 
-    def pin(T_body: np.ndarray, steps: int):
-        """Teleport-and-hold: set qpos + zero qvel every step so gravity
-        cannot pull the pose off while we look at it."""
+    def pin(T_body, steps):
         q = pose_to_qpos(T_body)
         for _ in range(steps):
             env.sim.data.set_joint_qpos(teapot_joint, q)
             env.sim.data.set_joint_qvel(teapot_joint, np.zeros(6))
             env.sim.forward()
-            env.render()
+            try:
+                env.render()
+            except Exception:
+                return False        # viewer closed
+        return True
 
     rng = np.random.default_rng(args.seed)
 
@@ -167,7 +169,12 @@ def main() -> None:
     assert ppair.subgoal.contains(T_body, tol=1e-6), \
         "sweep endpoint should satisfy the pour subgoal TSR"
     print("[play_tsr_pour] endpoint inside pour subgoal TSR. Holding; Esc quits.")
-    pin(T_body, 100000)
+    try:
+        pin(T_body, 100000)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        env.close()
 
 
 if __name__ == "__main__":

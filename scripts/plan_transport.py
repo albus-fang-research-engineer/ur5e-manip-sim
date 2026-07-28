@@ -27,22 +27,21 @@ import time
 from pathlib import Path
 
 import numpy as np
-import robosuite as suite
-from robosuite.environments.base import register_env
+import mujoco
+import robosuite as suite  # noqa: F401  (env built via the scene factory)
 from scipy.spatial.transform import Rotation as R
 
-from manip_sim.envs.tabletop import TableTop
+from scripts.demos.demo_pour_tea import MUG_XY, make_env
 from manip_sim.frames import load_symbols
 from manip_sim.planning import ArmKinematics, AttachedObject, MinkIK, plan_constrained
 from manip_sim.pour_stages import transport_pair
 from manip_sim.tsr import make_pose, pose_from_pos_quat_wxyz, sample_intersection
 
-register_env(TableTop)
-
-TABLE_SIZE = (1.2, 1.2, 0.05)
 TABLE_TOP_Z = 0.8
-MUG_XY = (0.0, 0.25)
-HANG = 0.16                       # teapot body this far below the grip site
+HANG = 0.12                       # teapot body this far below the grip site
+                                  # (0.16 clipped the pot ~2 cm into the
+                                  #  table: mesh extends ~4 cm below its
+                                  #  body origin, eef home z is 0.982)
 
 
 def main() -> None:
@@ -56,20 +55,9 @@ def main() -> None:
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
 
-    # objects only if their meshes are converted
-    objs = {}
-    for name in ("teapot", "mug"):
-        d = Path(f"assets/objects/{name}")
-        if (d / "meshes").exists():
-            objs[name] = str(d / f"{name}.xml")
-
-    env = suite.make(
-        "TableTop", robots=args.robot, object_xmls=objs,
-        table_full_size=TABLE_SIZE, table_offset=(0.0, 0.0, TABLE_TOP_Z),
-        has_renderer=args.view, has_offscreen_renderer=False,
-        use_camera_obs=False, control_freq=20, ignore_done=True,
-    )
-    env.reset()
+    # THE canonical scene: meshes, fixed poses, calibrated spout yaw --
+    # built by the same factory as the demos so nothing can drift.
+    env, objs = make_env(robot=args.robot, has_renderer=args.view)
 
     teapot_sym = load_symbols("assets/objects/teapot")
     mug_sym = load_symbols("assets/objects/mug")
@@ -79,6 +67,7 @@ def main() -> None:
     if "mug" in objs:
         from manip_sim.state import PoseReader
         T0_mug = pose_from_pos_quat_wxyz(*PoseReader(env, ["mug"]).pose("mug"))
+        print(f"[plan_transport] mug pose from sim: {np.round(T0_mug[:3, 3], 3)}")
     else:
         T0_mug = make_pose([*MUG_XY, TABLE_TOP_Z + 0.06])
         print("[plan_transport] mug mesh absent -> synthetic mug pose "
@@ -93,6 +82,19 @@ def main() -> None:
     attached = AttachedObject(np.linalg.inv(T0_ee_home) @ T0_body_home)
     print(f"[plan_transport] fake grasp: teapot body at "
           f"{np.round(T0_body_home[:3, 3], 3)} (eef {np.round(T0_ee_home[:3, 3], 3)})")
+    # the real teapot is now "in hand": park its mesh far ABOVE the scene in
+    # the planner's scratch world so it isn't a phantom obstacle at its old
+    # table spot. Above, not below: the floor is an infinite plane, and a
+    # body parked under it is in permanent deep contact at every arm config,
+    # which turned in_collision() into constant-True on machines with the
+    # mesh loaded. (The attached copy itself still has no collision geometry
+    # -- the known v1 gap until the weld lands.)
+    if "teapot" in objs:
+        jname = env.objects["teapot"].joints[0]
+        jid = mujoco.mj_name2id(kin.model, mujoco.mjtObj.mjOBJ_JOINT, jname)
+        adr = kin.model.jnt_qposadr[jid]
+        kin.data.qpos[adr: adr + 3] = [0.0, 0.0, 5.0]
+        mujoco.mj_forward(kin.model, kin.data)
 
     # ---- stage-2 TSR pair + goal funnel -----------------------------------
     pair = transport_pair(
@@ -100,7 +102,7 @@ def main() -> None:
         teapot_body_pos_now=T0_body_home[:3, 3],
         rim_margin=mug_sym.quantities.get("rim_radius", 0.04) * 0.5,
         # start hangs at the frame origin: corridor must contain z=0
-        z_corridor=(-0.02, 0.45),
+        z_corridor=(-0.01, 0.45),
     )
     rep = sample_intersection(pair.subgoal, [pair.path],
                               n=args.n_goal_samples, rng=rng)
@@ -132,6 +134,9 @@ def main() -> None:
     if not goals:
         raise SystemExit("[plan_transport] no feasible goal configs -- widen "
                          "bounds, add IK seeds, or check reachability.")
+    # prefer the goal config nearest home: distant IK branches make RRT find
+    # legal but silly paths that swing the arm the long way around
+    goals.sort(key=lambda q: float(np.linalg.norm(q - q_home)))
 
     # ---- constrained plan --------------------------------------------------
     res = plan_constrained(kin, attached, [pair.path], q_home, goals[0],

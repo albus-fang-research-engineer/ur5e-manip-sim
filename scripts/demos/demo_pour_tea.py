@@ -69,6 +69,64 @@ class PourTeaSceneLive(TableTop):
 register_env(PourTeaSceneLive)
 
 
+def _try_make(robot, objs, fixed_poses, has_renderer):
+    try:
+        return suite.make(
+            "PourTeaSceneLive",
+            robots=robot,
+            object_xmls=objs,
+            fixed_poses=fixed_poses,
+            table_full_size=TABLE_SIZE,
+            table_offset=(0.0, 0.0, TABLE_TOP_Z),
+            has_renderer=has_renderer,
+            render_camera=None,
+            has_offscreen_renderer=False,
+            use_camera_obs=False,
+            control_freq=20,
+            ignore_done=True,
+        )
+    except ValueError as e:
+        if objs and ("No such file" in str(e) or "Error opening file" in str(e)):
+            return None
+        raise
+
+
+def make_env(robot: str = "UR5e", has_renderer: bool = True,
+             settle: bool = True):
+    """Build the canonical pour-tea scene: meshes, fixed poses, calibrated
+    spout yaw, physics settle. THE single scene factory -- planners,
+    renderers, and demos all build here so scene setup cannot drift.
+    Returns (env, objs); objs maps loaded object names to xml paths."""
+    objs = {}
+    for name, path in OBJECTS.items():
+        if Path(path).exists():
+            objs[name] = path
+        else:
+            print(f"[pour_tea] skipping '{name}' (not converted yet: {path})")
+
+    bearing = MUG_XY - TEAPOT_XY
+    teapot_yaw = float(np.arctan2(bearing[1], bearing[0])) - SPOUT_YAW_OFFSET
+    z0 = TABLE_TOP_Z + DROP_HEIGHT
+    fixed_poses = {
+        "teapot": (np.array([*TEAPOT_XY, z0]), yaw_quat_wxyz(teapot_yaw)),
+        "mug": (np.array([*MUG_XY, z0]), yaw_quat_wxyz(0.0)),
+    }
+
+    env = _try_make(robot, objs, fixed_poses, has_renderer)
+    if env is None:                     # xmls present but mesh files absent
+        print("[pour_tea] mesh files missing -> building object-free scene")
+        objs = {}
+        env = _try_make(robot, {}, {}, has_renderer)
+    env.reset()
+    if settle:
+        for _ in range(SETTLE_STEPS):
+            env.step(np.zeros(env.action_dim))
+            if has_renderer:
+                env.render()
+    return env, objs
+
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--robot", default=os.environ.get("ROBOT", "UR5e"))
@@ -84,41 +142,11 @@ def main() -> None:
 
     print(f"[view_pour_tea] running: {Path(__file__).resolve()}")
 
-    objs = {}
-    for name, path in OBJECTS.items():
-        if Path(path).exists():
-            objs[name] = path
-        else:
-            print(f"[view_pour_tea] skipping '{name}' (not converted yet: {path})")
-
+    env, objs = make_env(robot=args.robot, has_renderer=True)
     bearing = MUG_XY - TEAPOT_XY
     teapot_yaw = float(np.arctan2(bearing[1], bearing[0])) - SPOUT_YAW_OFFSET
-    z0 = TABLE_TOP_Z + DROP_HEIGHT
-    fixed_poses = {
-        "teapot": (np.array([*TEAPOT_XY, z0]), yaw_quat_wxyz(teapot_yaw)),
-        "mug": (np.array([*MUG_XY, z0]), yaw_quat_wxyz(0.0)),
-    }
 
-    env = suite.make(
-        "PourTeaSceneLive",
-        robots=args.robot,
-        object_xmls=objs,
-        fixed_poses=fixed_poses,
-        table_full_size=TABLE_SIZE,
-        table_offset=(0.0, 0.0, TABLE_TOP_Z),
-        has_renderer=True,
-        render_camera=None,          # start in free camera -> drag anywhere
-        has_offscreen_renderer=False,
-        use_camera_obs=False,
-        control_freq=20,
-        ignore_done=True,
-    )
-    env.reset()
-
-    # settle, then report the yaw actually realized in physics
-    for _ in range(SETTLE_STEPS):
-        env.step(np.zeros(env.action_dim))
-        env.render()
+    # factory already settled physics; report the realized yaw
     if "teapot" in objs:
         q = env.sim.data.body_xquat[env.obj_body_ids["teapot"]]
         measured = R.from_quat(q, scalar_first=True).as_euler("zyx")[0]
