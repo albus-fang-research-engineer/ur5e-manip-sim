@@ -56,7 +56,9 @@ RUN cd /opt/anygrasp/grasp_detection && \
     cp gsnet_versions/gsnet.cpython-310-x86_64-linux-gnu.so gsnet.so
 
 RUN pip install pyzmq
-
+# gsnet.get_feature_id()/license check shell out to `ifconfig` (net-tools)
+RUN apt-get update && apt-get install -y --no-install-recommends net-tools \
+    && rm -rf /var/lib/apt/lists/*
 # gsnet resolves `license/` relative to cwd, next to gsnet.so — so this
 # workdir is load-bearing. license/ and checkpoints/ arrive via volume mounts.
 WORKDIR /opt/anygrasp/grasp_detection
