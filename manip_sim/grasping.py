@@ -60,6 +60,12 @@ def nominal_grip_in_handle(
 ) -> np.ndarray:
     """Nominal gripper pose expressed IN THE HANDLE FRAME (this is Tw_e).
 
+    Default elevation 35 deg: the shallowest broadly IK-reachable band at
+    the calibrated handle pose (pure horizontal approaches are outside the
+    UR5e wrist's workspace with the handle ~0.83 m from the base), and far
+    enough from vertical that the bar seats between the fingers instead of
+    being pinched end-on.
+
     approach_h  horizontal approach direction in handle-frame coordinates
                 (component along the handle axis is dropped); by convention
                 it points from outside the handle toward the object body.
@@ -96,7 +102,7 @@ def handle_grasp_tsr(
     T0_body: np.ndarray,
     handle: Frame,
     approach_h: np.ndarray,
-    elevation: float = np.deg2rad(60.0),
+    elevation: float = np.deg2rad(35.0),
     slide: float = 0.02,
     lateral_tol: float = 0.005,
     wrap_rot: tuple[float, float] = (-np.pi / 4, np.pi / 4),

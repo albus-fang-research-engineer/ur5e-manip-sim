@@ -34,7 +34,7 @@ TABLE_SIZE = (1.2, 1.2, 0.05)
 TABLE_TOP_Z = 0.8
 TEAPOT_XY = np.array([0.0, -0.25])
 MUG_XY = np.array([0.0, 0.25])            # 0.5 m from the teapot
-SPOUT_YAW_OFFSET = 2.7                    # rad; set to YOUR calibrated value
+SPOUT_YAW_OFFSET = 2.381                    # rad; set to YOUR calibrated value
                                           # and keep demo_pour_tea.py in sync
 DROP_HEIGHT = 0.06
 SETTLE_STEPS = 20

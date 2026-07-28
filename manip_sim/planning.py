@@ -134,6 +134,74 @@ class AttachedObject:
         return T0_ee @ self.T_ee_body
 
 
+class AttachedArmKinematics(ArmKinematics):
+    """ArmKinematics whose scratch world CARRIES THE GRASPED OBJECT: on
+    every set_q the object's free joint is re-pinned to ride the eef via
+    the measured T_ee_body, so collision checks see the object where the
+    plan puts it. This closes the v1 gap ('the attached object's mesh is
+    not welded into the model, so attached-object collisions are
+    unchecked') without model surgery — the object already exists as a
+    free body with collision hulls; it just moves with the arm now
+    instead of being parked out of the scene.
+
+    in_collision() semantics widen accordingly: contacts involving the
+    ATTACHED OBJECT count too (object<->mug, object<->table — exactly the
+    class of hit the transport used to sail through), while
+    gripper<->object contact is whitelisted because it IS the grasp.
+    Scene<->scene contacts (mug resting on the table) stay ignored.
+
+    Costs one extra mj_forward per set_q (site pose first, then object
+    placement); fk() and project_config() inherit the ride for free.
+    """
+
+    def __init__(self, env, attached: AttachedObject, object_joint: str,
+                 object_prefix: str, **kw):
+        super().__init__(env, **kw)
+        self.attached = attached
+        jid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT,
+                                object_joint)
+        assert jid >= 0, f"joint '{object_joint}' not in model"
+        assert self.model.jnt_type[jid] == mujoco.mjtJoint.mjJNT_FREE
+        self.obj_qadr = self.model.jnt_qposadr[jid]
+        self.object_prefix = object_prefix
+
+    def set_q(self, q: np.ndarray) -> None:
+        self.data.qpos[self.qpos_ids] = q
+        mujoco.mj_forward(self.model, self.data)          # eef site pose
+        T0_ee = np.eye(4)
+        T0_ee[:3, :3] = self.data.site_xmat[self.site_id].reshape(3, 3)
+        T0_ee[:3, 3] = self.data.site_xpos[self.site_id]
+        T_body = self.attached.body_pose(T0_ee)
+        quat = R.from_matrix(T_body[:3, :3]).as_quat(scalar_first=True)
+        self.data.qpos[self.obj_qadr: self.obj_qadr + 7] = \
+            np.concatenate([T_body[:3, 3], quat])
+        mujoco.mj_forward(self.model, self.data)          # object placed
+
+    def in_collision(self, q: np.ndarray, depth_tol: float = 1e-4,
+                     robot_prefixes=("robot0", "gripper0", "mount0"),
+                     allowed_prefix_pairs=((("gripper0", "gripper0")),)) -> bool:
+        self.set_q(q)
+        watched = tuple(robot_prefixes) + (self.object_prefix,)
+        allowed = tuple(allowed_prefix_pairs) + \
+            (("gripper0", self.object_prefix),)
+        for i in range(self.data.ncon):
+            con = self.data.contact[i]
+            if con.dist > -depth_tol:
+                continue
+            b1 = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_BODY,
+                                   self.model.geom_bodyid[con.geom1]) or ""
+            b2 = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_BODY,
+                                   self.model.geom_bodyid[con.geom2]) or ""
+            if not (b1.startswith(watched) or b2.startswith(watched)):
+                continue                       # scene<->scene contact
+            if any((b1.startswith(p) and b2.startswith(q_)) or
+                   (b1.startswith(q_) and b2.startswith(p))
+                   for p, q_ in allowed):
+                continue
+            return True
+        return False
+
+
 # ---------------------------------------------------------------------- IK
 
 
