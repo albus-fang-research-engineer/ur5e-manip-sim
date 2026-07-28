@@ -214,6 +214,7 @@ def main() -> None:
         T0_mug_body=T0_mug, mug_opening=opening, spout_tip=spout_tip,
         teapot_body_pos_now=T0_teapot[:3, 3],
         rim_margin=mug_sym.quantities.get("rim_radius", 0.04) * 0.5,
+        upright_tol=np.deg2rad(5.0),
         z_corridor=(-0.02, 0.45))
     rep2p = sample_intersection(tpair_probe.subgoal, [tpair_probe.path],
                                 n=args.n_probe, rng=rng)
@@ -283,6 +284,7 @@ def main() -> None:
         teapot_body_pos_now=T0_teapot[:3, 3],
         rim_margin=mug_sym.quantities.get("rim_radius", 0.04) * 0.5,
         # start sits at the frame origin: corridor must contain z = 0
+        upright_tol=np.deg2rad(2.0),
         z_corridor=(-0.02, 0.45))
     rep2 = sample_intersection(pair.subgoal, [pair.path],
                                n=args.n_goal_samples, rng=rng)
