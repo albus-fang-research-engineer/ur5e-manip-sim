@@ -221,7 +221,7 @@ def main() -> None:
     # pour probes are built over SEVERAL candidate entries, not one: the
     # pour's feasibility depends strongly on the transport approach azimuth
     # (the UR5e reach scan shows only a band of azimuths admits the full
-    # tilt), and a single unlucky entry would zero every candidate's score
+    # tilt), and a single lucky entry would zero every candidate's score
     pour_samples = []
     for entry_probe in rep2p.accepted[: max(1, args.n_probe // 2)]:
         ppair_probe = pour_pair(entry_probe, tilt_frame,
