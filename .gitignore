@@ -4,3 +4,6 @@ meshes/
 *.obj
 *.png
 *.TXT
+anygrasp_runtime/
+*.mp4
+*.npz
