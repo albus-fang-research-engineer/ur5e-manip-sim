@@ -4,14 +4,32 @@
   "coordinates": "body frame of mjcf body 'object' (what PoseReader returns)",
   "schema": "grounding symbol table: independent interaction POINTS and semantic AXES; frames composed downstream as frame(origin=<point>, axis=<axis>).",
   "points": {
-    "opening_center": {"xyz": [0.0, 0.0, 0.1], "status": "placeholder",
-                       "comment": "center of rim plane; calibrate rim height in viewer"}
+    "opening_center": {
+      "xyz": [
+        -0.0118,
+        -0.0,
+        0.0404
+      ],
+      "status": "calibrated",
+      "comment": "auto-calibrated from mesh (calibrate_frames_from_mesh.py)"
+    }
   },
   "axes": {
-    "up_axis": {"xyz": [0.0, 0.0, 1.0], "status": "calibrated", "comment": "out of the opening"}
+    "up_axis": {
+      "xyz": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "status": "calibrated",
+      "comment": "out of the opening"
+    }
   },
   "quantities": {
-    "rim_radius": {"value": 0.04, "status": "placeholder",
-                   "comment": "compiler-owned geometric quantity for centered()/inside(); measure from mesh"}
+    "rim_radius": {
+      "value": 0.0441,
+      "status": "calibrated",
+      "comment": "auto-calibrated from mesh (calibrate_frames_from_mesh.py)"
+    }
   }
 }
