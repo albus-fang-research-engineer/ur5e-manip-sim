@@ -72,9 +72,15 @@ def nominal_grip_in_handle(
     elevation   downward pitch of the approach from horizontal, radians
                 (0 = horizontal, pi/2 = straight down).
 
-    Gripper axes: +z = approach (grip-site convention: out of the palm),
-    +y = closing axis, kept horizontal and perpendicular to the handle bar,
-    +x = y cross z (completes right-handed). Origin at the handle center.
+    Gripper axes, measured on robosuite's Robotiq85 (finger bodies sit at
+    site-frame x = +-0.069 and displace along x when closing): +z =
+    approach (grip-site convention: out of the palm), +x = CLOSING axis,
+    kept horizontal and perpendicular to the handle bar so the pads
+    straddle the bar, +y = z cross x. An earlier revision assumed the
+    closing axis was +y; the resulting 90-deg-rotated closing plane is
+    exactly the 'grasping it vertically' artifact — at steep elevations
+    the pads still happened to catch the bar, at side-grasp elevations
+    they sweep past it. Origin at the handle center.
     """
     z = np.asarray(approach_h, dtype=float).copy()
     z[2] = 0.0
@@ -82,9 +88,10 @@ def nominal_grip_in_handle(
     if n < 1e-9:
         raise ValueError("approach direction is parallel to the handle axis")
     z /= n
-    y = np.cross(z, np.array([0.0, 0.0, 1.0]))     # horizontal, perp to bar
-    z = R.from_rotvec(-elevation * y).apply(z)     # pitch approach downward
-    x = np.cross(y, z)
+    x = np.cross(z, np.array([0.0, 0.0, 1.0]))     # closing axis: horizontal,
+    x /= np.linalg.norm(x)                         # perpendicular to the bar
+    z = R.from_rotvec(-elevation * x).apply(z)     # pitch approach downward
+    y = np.cross(z, x)
     return make_pose(np.zeros(3), np.column_stack([x, y, z]))
 
 

@@ -113,6 +113,14 @@ def main() -> None:
                          "smoke test; no grasp, no slip metrics)")
     args = ap.parse_args()
 
+    import os, time as _time
+    age_min = (_time.time() - os.path.getmtime(args.plan)) / 60.0
+    print(f"[execute] plan artifact: {args.plan} "
+          f"(written {age_min:.0f} min ago)")
+    if age_min > 60:
+        print("[execute] WARNING: this plan is over an hour old — if "
+              "planning just failed, you are about to execute a STALE "
+              "plan; check the planner output for a SystemExit.")
     plan = np.load(args.plan)
     path, stage_ids = plan["path"], plan["stage_ids"]
     T_ee_body_plan = plan["T_ee_body"]
@@ -168,6 +176,15 @@ def main() -> None:
     if have_teapot:
         print(f"[grasp] closed: {n_contacts} finger<->teapot contacts")
         if n_contacts == 0:
+            gap, off = arm.nearest_pad_object_gap("teapot")
+            if gap is not None:
+                print(f"[grasp] post-mortem: nearest pad<->teapot hull gap "
+                      f"{gap * 1000:.1f} mm; nearest hull sits at "
+                      f"{np.round(off * 1000, 1)} mm in the grip-site frame "
+                      "(x = closing axis, z = approach). Large |x| means "
+                      "the bar missed the pad plane; large gap everywhere "
+                      "means the collision hulls diverge from the visual "
+                      "mesh the symbols were calibrated on.")
             raise SystemExit("[grasp] the fingers closed on nothing — check "
                              "handle symbol calibration and hull geometry "
                              "around the handle bar.")

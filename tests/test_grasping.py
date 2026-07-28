@@ -35,8 +35,9 @@ def test_nominal_frame_is_right_handed_and_pitched():
     z = Rm[:, 2]
     assert np.isclose(z[2], -np.sin(np.deg2rad(60.0)), atol=1e-9)
     assert z[0] > 0 and np.isclose(z[1], 0.0, atol=1e-9)
-    # closing axis stays horizontal
-    assert np.isclose(Rm[2, 1], 0.0, atol=1e-9)
+    # closing axis (+x, per the measured Robotiq85 convention) stays
+    # horizontal so the pads straddle a vertical bar
+    assert np.isclose(Rm[2, 0], 0.0, atol=1e-9)
 
 
 def test_nominal_frame_rejects_vertical_approach():

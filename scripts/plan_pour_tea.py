@@ -189,12 +189,14 @@ def main() -> None:
     for p in survivors:
         if len(candidates) >= args.max_grasp_candidates:
             break
+        # both wrist-flip branches are the same physical grasp but reach
+        # the handle through different joint configurations and approach
+        # sweeps — keep each that solves as its own candidate
         for T in (p.T0_ee, wrist_flip(p.T0_ee)):
             q, ok = ik.solve_multiseed(T, seeds)
             if ok and not kin.in_collision(
                     q, allowed_prefix_pairs=grasp_allowed):
                 candidates.append((q, kin.fk(q)))
-                break
     print(f"[grasp] IK + collision: {len(survivors)} classified -> "
           f"{len(candidates)} reachable candidates")
     if not candidates:
@@ -233,31 +235,73 @@ def main() -> None:
           f"({time.time() - t0:.1f}s):")
     for sc, q_g, _, rep in scored:
         print(f"    {rep.summary()}")
-    best_score, q_grasp, T0_ee_grasp, best_rep = scored[0]
-    if best_score <= 0.0:
-        raise SystemExit("[grasp] every candidate scored 0 on the lookahead "
-                         "probe — downstream stages unreachable from any "
-                         "surviving grasp; widen wrap_rot or move the scene.")
-    print(f"[grasp] selected grasp: {best_rep.summary()}")
+    def _offender(allowed):
+        """Name the first non-whitelisted deep contact at the config the
+        scratch data currently holds (call right after in_collision=True)."""
+        import mujoco as _mj
+        for i in range(kin.data.ncon):
+            con = kin.data.contact[i]
+            if con.dist > -1e-4:
+                continue
+            b1 = _mj.mj_id2name(kin.model, _mj.mjtObj.mjOBJ_BODY,
+                                kin.model.geom_bodyid[con.geom1]) or ""
+            b2 = _mj.mj_id2name(kin.model, _mj.mjtObj.mjOBJ_BODY,
+                                kin.model.geom_bodyid[con.geom2]) or ""
+            if not (b1.startswith(("robot0", "gripper0", "mount0"))
+                    or b2.startswith(("robot0", "gripper0", "mount0"))):
+                continue
+            if any((b1.startswith(p_) and b2.startswith(q_)) or
+                   (b1.startswith(q_) and b2.startswith(p_))
+                   for p_, q_ in allowed):
+                continue
+            return f"{b1} <-> {b2}"
+        return "?"
 
-    # pre-grasp back along the approach axis; free plan home -> pre-grasp
-    T_pre = T0_ee_grasp.copy()
-    T_pre[:3, 3] -= PREGRASP_STANDOFF * T0_ee_grasp[:3, 2]
-    q_pre, ok = ik.solve_multiseed(T_pre, [q_grasp] + seeds)
-    if not ok or kin.in_collision(q_pre):
-        raise SystemExit("[grasp] pre-grasp pose infeasible.")
+    # walk the probe ranking: the best-scoring grasp whose pre-grasp,
+    # reach plan, and approach sweep are all feasible wins. Hard-aborting
+    # on the top candidate's approach was the wrong funnel shape — an
+    # approach collision is just attrition, and the next azimuth or wrist
+    # flip usually clears it.
     attached_none = AttachedObject(np.eye(4))
-    res1 = plan_constrained(kin, attached_none, [free_tsr()], q_home, q_pre,
-                            timeout=args.timeout)
-    if not res1.ok:
-        raise SystemExit(f"[grasp] reach planning failed: {res1.reason}")
-    # straight approach segment, teapot contact allowed at the fingers
-    approach = [q_pre + (q_grasp - q_pre) * k / APPROACH_STEPS
-                for k in range(1, APPROACH_STEPS + 1)]
-    for q in approach:
-        if kin.in_collision(q, allowed_prefix_pairs=grasp_allowed):
-            raise SystemExit("[grasp] approach segment collides — increase "
-                             "the standoff or pick the next candidate.")
+    chosen = None
+    for cand_score, q_grasp, T0_ee_grasp, cand_rep in scored:
+        if cand_score <= 0.0:
+            break                       # ranked: everything after is 0 too
+        T_pre = T0_ee_grasp.copy()
+        T_pre[:3, 3] -= PREGRASP_STANDOFF * T0_ee_grasp[:3, 2]
+        q_pre, ok = ik.solve_multiseed(T_pre, [q_grasp] + seeds)
+        if not ok:
+            print("[grasp]   candidate skipped: pre-grasp IK failed")
+            continue
+        if kin.in_collision(q_pre):
+            print(f"[grasp]   candidate skipped: pre-grasp collides "
+                  f"({_offender((('gripper0', 'gripper0'),))})")
+            continue
+        approach = [q_pre + (q_grasp - q_pre) * k / APPROACH_STEPS
+                    for k in range(1, APPROACH_STEPS + 1)]
+        bad = None
+        for q in approach:
+            if kin.in_collision(q, allowed_prefix_pairs=grasp_allowed):
+                bad = _offender(grasp_allowed)
+                break
+        if bad is not None:
+            print(f"[grasp]   candidate skipped: approach collides ({bad})")
+            continue
+        res1 = plan_constrained(kin, attached_none, [free_tsr()],
+                                q_home, q_pre, timeout=args.timeout)
+        if not res1.ok:
+            print(f"[grasp]   candidate skipped: reach planning failed "
+                  f"({res1.reason})")
+            continue
+        chosen = (q_grasp, T0_ee_grasp, cand_rep, res1, approach)
+        break
+    if chosen is None:
+        raise SystemExit("[grasp] no candidate survived pre-grasp/approach/"
+                         "reach feasibility — the skip reasons above name "
+                         "each blocker; more --n-proposals widens the "
+                         "azimuth pool.")
+    q_grasp, T0_ee_grasp, best_rep, res1, approach = chosen
+    print(f"[grasp] selected grasp: {best_rep.summary()}")
     path1 = np.vstack([res1.path, approach])
     print(f"[grasp] reach {res1.stats['n_waypoints']} waypoints in "
           f"{res1.solve_time:.2f}s + {APPROACH_STEPS} approach steps")

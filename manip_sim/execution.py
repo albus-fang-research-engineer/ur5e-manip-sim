@@ -133,6 +133,42 @@ class LiveArm:
                 return T
         raise KeyError(f"no body with prefix '{name_prefix}'")
 
+    def nearest_pad_object_gap(self, obj_prefix: str,
+                               pad_keyword: str = "inner_finger",
+                               distmax: float = 1.0):
+        """Minimum geom-geom distance from the finger pads to the object,
+        plus the site-frame offset to the nearest object geom — the
+        closed-on-nothing post-mortem: distinguishes 'bar is 30 mm to the
+        -x of the pads' (aim/convention error) from 'nearest hull is 40 mm
+        away' (hull<->visual divergence) at a glance."""
+        pad_bodies = [b for b in range(self.model.nbody)
+                      if pad_keyword in (mujoco.mj_id2name(
+                          self.model, mujoco.mjtObj.mjOBJ_BODY, b) or "")]
+        obj_bodies = [b for b in range(self.model.nbody)
+                      if (mujoco.mj_id2name(self.model,
+                          mujoco.mjtObj.mjOBJ_BODY, b) or ""
+                          ).startswith(obj_prefix)]
+        pad_geoms = [g for g in range(self.model.ngeom)
+                     if self.model.geom_bodyid[g] in pad_bodies]
+        obj_geoms = [g for g in range(self.model.ngeom)
+                     if self.model.geom_bodyid[g] in obj_bodies
+                     and self.model.geom_contype[g]]
+        if not pad_geoms or not obj_geoms:
+            return None, None
+        best, best_g = distmax, None
+        fromto = np.zeros(6)
+        for gp in pad_geoms:
+            for go in obj_geoms:
+                dist = mujoco.mj_geomDistance(
+                    self.model, self.data, gp, go, distmax, fromto)
+                if dist < best:
+                    best, best_g = dist, go
+        T = np.eye(4)
+        T[:3, :3] = self.data.site_xmat[self.site_id].reshape(3, 3)
+        T[:3, 3] = self.data.site_xpos[self.site_id]
+        off = np.linalg.inv(T) @ np.append(self.data.geom_xpos[best_g], 1.0)
+        return best, off[:3]
+
     def contacts_between(self, prefix_a: str, prefix_b: str,
                          depth_tol: float = 0.0) -> int:
         """Count live contacts between bodies matching the two prefixes

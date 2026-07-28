@@ -219,6 +219,19 @@ def main() -> None:
     for name in ("handle_axis", "tilt_axis"):
         cur = tp_spec["axes"][name]["xyz"]
         print(f"  axes.{name:17s} {_fmt(cur)} -> {_fmt(tp[name])}")
+    # cross-check against the COLLISION hulls: the symbols are computed on
+    # the visual mesh, but the fingers grasp the hulls; VHACD can blob or
+    # displace thin features like the handle bar
+    col_files = sorted((TEAPOT_DIR / "meshes").glob("*col*.obj"))
+    if col_files:
+        Vc = np.vstack([load_obj_vertices(f) for f in col_files])
+        for name in ("handle_center", "spout_tip"):
+            dmin = float(np.min(np.linalg.norm(Vc - tp[name], axis=1)))
+            flag = ("  <-- WARNING: nearest collision geometry is far from "
+                    "the visual feature; the fingers may close on air here"
+                    if dmin > 0.015 else "")
+            print(f"  hull cross-check {name:14s}: nearest collision vertex "
+                  f"{dmin * 1000:.1f} mm away{flag}")
     lo, hi = tp["_handle_extent_z"]
     print(f"  handle bar z extent [{lo:.3f}, {hi:.3f}] "
           f"({(hi - lo) * 1000:.0f} mm of bar; grasp TSR slide is +-20 mm)")

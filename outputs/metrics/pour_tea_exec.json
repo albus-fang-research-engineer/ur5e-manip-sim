@@ -1,0 +1,32 @@
+{
+  "plan": "outputs/plans/pour_tea_full.npz",
+  "meshfree": false,
+  "stage1_track": {
+    "n_targets": 121,
+    "n_env_steps": 390,
+    "max_track_err": 0.012260086595678787,
+    "mean_track_err": 0.008629626784678249
+  },
+  "grasp_contacts": 4,
+  "T_ee_body_delta_mm": 29.88947526202918,
+  "transport_track": {
+    "n_targets": 26,
+    "n_env_steps": 156,
+    "max_track_err": 0.05148884021308131,
+    "mean_track_err": 0.040915192147760675
+  },
+  "transport_measured_excess": 0.0,
+  "pour_track": {
+    "n_targets": 127,
+    "n_env_steps": 372,
+    "max_track_err": 0.03156695890660943,
+    "mean_track_err": 0.00906105510317866
+  },
+  "pour_measured_excess": 0.4783862505800777,
+  "tilt_measured_deg": -8.496290113168975,
+  "tilt_target_deg": 95.0,
+  "tip_to_opening_mm": 58.3871978787058,
+  "slip_max_mm": 171.49177540743295,
+  "slip_max_deg": 117.47896435008131,
+  "grasp_retained": false
+}
