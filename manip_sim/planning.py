@@ -453,7 +453,10 @@ def plan_constrained(
                                    check_collision)
         if seg and np.linalg.norm(seg[-1] - path[j]) <= 1e-9 and \
            len(seg) < (j - i):
-            path = np.vstack([path[: i + 1], seg[:-1], path[j:]])
+            # seg[:-1] may be empty (single-config shortcut): reshape keeps
+            # vstack well-formed instead of passing a shape-(0,) list
+            mid = np.asarray(seg[:-1], dtype=float).reshape(-1, path.shape[1])
+            path = np.vstack([path[: i + 1], mid, path[j:]])
 
     # densify to n_interp and verify the manifold held
     dense = [path[0]]
