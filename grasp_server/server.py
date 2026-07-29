@@ -1,7 +1,7 @@
 import os, pickle, argparse
 import numpy as np
 import zmq
-from gsnet import AnyGrasp
+from gsnet import create_detector
 
 def main():
     p = argparse.ArgumentParser()
@@ -13,10 +13,11 @@ def main():
     cfgs = p.parse_args()
     cfgs.max_gripper_width = max(0.0, min(0.1, cfgs.max_gripper_width))
 
-    ag = AnyGrasp(cfgs)
-    ag.load_net()
+    detector = create_detector(cfgs)
+    if detector is None:
+        raise RuntimeError("create_detector failed (license validation or checkpoint issue)")
 
-    port = os.environ.get("GRASP_PORT", "5555")
+    port = os.environ.get("GRASP_PORT", "5666")
     sock = zmq.Context().socket(zmq.REP)
     sock.bind(f"tcp://*:{port}")
     print(f"[grasp_server] listening on :{port}", flush=True)
@@ -24,18 +25,37 @@ def main():
     while True:
         req = pickle.loads(sock.recv())
         try:
-            gg, cloud = ag.get_grasp(
-                req["points"].astype(np.float32),
-                req["colors"].astype(np.float32),
-                lims=req.get("lims"),
-                apply_object_mask=req.get("apply_object_mask", True),
-                dense_grasp=req.get("dense_grasp", False),
-                collision_detection=req.get("collision_detection", True),
-            )
+            points = req["points"].astype(np.float32)
+
+            # lims -> region_steering mask (workspace filtering moved into the mask API)
+            region_steering = req.get("region_steering")
+            lims = req.get("lims")
+            if region_steering is None and lims is not None:
+                xmin, xmax, ymin, ymax, zmin, zmax = lims
+                region_steering = (
+                    (points[:, 0] >= xmin) & (points[:, 0] <= xmax) &
+                    (points[:, 1] >= ymin) & (points[:, 1] <= ymax) &
+                    (points[:, 2] >= zmin) & (points[:, 2] <= zmax)
+                )
+
+            optional_params = {
+                "dense_grasp": req.get("dense_grasp", False),
+                "collision_detection": req.get("collision_detection", True),
+                "region_steering": region_steering,
+                "approach_steering": req.get("approach_steering",
+                                             [0, 0, 1] if cfgs.top_down_grasp else None),
+                "approach_thresh": req.get("approach_thresh",
+                                           np.pi / 6 if cfgs.top_down_grasp else np.pi),
+            }
+
+            gg = detector.get_grasp(points, optional_params)
+
             if gg is None or len(gg) == 0:
                 sock.send(pickle.dumps({"ok": True, "n": 0}))
                 continue
-            gg = gg.nms().sort_by_score()
+            if not optional_params["dense_grasp"]:
+                gg = gg.nms()
+            gg = gg.sort_by_score()
             sock.send(pickle.dumps({
                 "ok": True, "n": len(gg),
                 "translations": gg.translations,
