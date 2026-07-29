@@ -235,6 +235,31 @@ def main() -> None:
           f"({time.time() - t0:.1f}s):")
     for sc, q_g, _, rep in scored:
         print(f"    {rep.summary()}")
+    def _track_line(p_to, q_seed, T_rot, steps, allowed, max_dq=0.35):
+        """Straight CARTESIAN segment: lerp the position (orientation
+        held), differential-IK each step seeded from the previous config.
+        A straight line in joint space is NOT a straight line in task
+        space — naive joint interpolation between two IK solutions swings
+        the elbow/wrist through table and self-collisions the endpoint
+        checks never see. Sequential seeding keeps the branch continuous;
+        max_dq rejects tracking that silently hops branches anyway.
+        Returns (configs, fail_reason)."""
+        qs, q = [], np.asarray(q_seed, float)
+        p_from = kin.fk(q)[:3, 3]
+        for k in range(1, steps + 1):
+            T = T_rot.copy()
+            T[:3, 3] = p_from + (p_to - p_from) * k / steps
+            q_new, ok = ik.solve(T, q, iters=60)
+            if not ok:
+                return None, f"IK lost track at step {k}/{steps}"
+            if np.linalg.norm(q_new - q) > max_dq:
+                return None, f"IK branch hop at step {k}/{steps}"
+            if kin.in_collision(q_new, allowed_prefix_pairs=allowed):
+                return None, f"collides ({_offender(allowed)})"
+            qs.append(q_new)
+            q = q_new
+        return qs, None
+
     def _offender(allowed):
         """Name the first non-whitelisted deep contact at the config the
         scratch data currently holds (call right after in_collision=True)."""
@@ -267,26 +292,17 @@ def main() -> None:
     for cand_score, q_grasp, T0_ee_grasp, cand_rep in scored:
         if cand_score <= 0.0:
             break                       # ranked: everything after is 0 too
-        T_pre = T0_ee_grasp.copy()
-        T_pre[:3, 3] -= PREGRASP_STANDOFF * T0_ee_grasp[:3, 2]
-        q_pre, ok = ik.solve_multiseed(T_pre, [q_grasp] + seeds)
-        if not ok:
-            print("[grasp]   candidate skipped: pre-grasp IK failed")
+        # retreat OUT from the grasp config along -approach, Cartesian-
+        # tracked; the approach segment is that retreat reversed, so the
+        # descent is a true straight line on a continuous IK branch
+        p_pre = T0_ee_grasp[:3, 3] - PREGRASP_STANDOFF * T0_ee_grasp[:3, 2]
+        retreat, why = _track_line(p_pre, q_grasp, T0_ee_grasp,
+                                   APPROACH_STEPS, grasp_allowed)
+        if retreat is None:
+            print(f"[grasp]   candidate skipped: approach corridor {why}")
             continue
-        if kin.in_collision(q_pre):
-            print(f"[grasp]   candidate skipped: pre-grasp collides "
-                  f"({_offender((('gripper0', 'gripper0'),))})")
-            continue
-        approach = [q_pre + (q_grasp - q_pre) * k / APPROACH_STEPS
-                    for k in range(1, APPROACH_STEPS + 1)]
-        bad = None
-        for q in approach:
-            if kin.in_collision(q, allowed_prefix_pairs=grasp_allowed):
-                bad = _offender(grasp_allowed)
-                break
-        if bad is not None:
-            print(f"[grasp]   candidate skipped: approach collides ({bad})")
-            continue
+        q_pre = retreat[-1]
+        approach = retreat[-2::-1] + [q_grasp]
         res1 = plan_constrained(kin, attached_none, [free_tsr()],
                                 q_home, q_pre, timeout=args.timeout)
         if not res1.ok:
@@ -323,13 +339,28 @@ def main() -> None:
     # LIFT before transport: the plan starts with the pot resting on the
     # table, which the attached-collision checker rightly flags; retreat
     # straight up first (the mirror of the grasp approach segment)
-    T_lift = kin.fk(q_grasp).copy()
-    T_lift[2, 3] += LIFT_HEIGHT
-    q_lift, ok = ik_att.solve_multiseed(T_lift, [q_grasp] + seeds)
-    if not ok or kin_att.in_collision(q_lift):
-        raise SystemExit("[grasp] post-grasp lift infeasible.")
-    lift = np.array([q_grasp + (q_lift - q_grasp) * k / APPROACH_STEPS
-                     for k in range(1, APPROACH_STEPS + 1)])
+    T_g = kin.fk(q_grasp)
+    p_up = T_g[:3, 3] + np.array([0.0, 0.0, LIFT_HEIGHT])
+    lift_qs, q_prev = [], q_grasp
+    lift_fail = None
+    for k in range(1, APPROACH_STEPS + 1):
+        T = T_g.copy()
+        T[:3, 3] = T_g[:3, 3] + (p_up - T_g[:3, 3]) * k / APPROACH_STEPS
+        q_new, ok = ik_att.solve(T, q_prev, iters=60)
+        if not ok or np.linalg.norm(q_new - q_prev) > 0.35:
+            lift_fail = f"IK lost track at step {k}"
+            break
+        # teapot<->table contact fades as the pot leaves the surface;
+        # tolerate residual grazing for the first steps of the lift
+        if k > 2 and kin_att.in_collision(q_new):
+            lift_fail = f"collides at step {k}"
+            break
+        lift_qs.append(q_new)
+        q_prev = q_new
+    if lift_fail is not None:
+        raise SystemExit(f"[grasp] post-grasp lift infeasible: {lift_fail}")
+    q_lift = lift_qs[-1]
+    lift = np.array(lift_qs)
 
     # ==================================================== STAGE 2: TRANSPORT
     print("\n============== stage 2: transport ==============")
