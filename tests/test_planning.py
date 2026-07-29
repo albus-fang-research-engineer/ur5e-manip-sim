@@ -85,11 +85,16 @@ def test_full_stage2_plan(scene):
     assert res.ok, res.reason
     # manifold held along the densified path
     assert res.max_excess <= 5e-3
-    # endpoint puts the spout tip in the rim band above the opening
+    # endpoint puts the spout tip in the rim band above the opening —
+    # asserted RELATIVE TO THE SIDECAR (hardcoding the opening height
+    # breaks the moment frames.json is calibrated)
     spout = tp.frame("spout_tip", "pour_axis")
+    mg = load_symbols("assets/objects/mug")
+    opening_w = (make_pose([0.0, 0.25, 0.86])
+                 @ mg.frame("opening_center", "up_axis").T())[:3, 3]
     tip = (att.body_pose(kin.fk(res.path[-1])) @ spout.T())[:3, 3]
-    assert abs(tip[0] - 0.0) < 0.03 and abs(tip[1] - 0.25) < 0.03
-    assert 0.96 + 0.02 < tip[2] < 0.96 + 0.09
+    assert np.linalg.norm(tip[:2] - opening_w[:2]) < 0.035
+    assert opening_w[2] + 0.02 < tip[2] < opening_w[2] + 0.09
     # start and end match the requested configs
     assert np.linalg.norm(res.path[0] - q_home) < 0.05
     assert np.linalg.norm(res.path[-1] - q_goal) < 0.05

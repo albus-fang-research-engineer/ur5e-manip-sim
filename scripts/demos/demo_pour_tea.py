@@ -34,7 +34,7 @@ TABLE_SIZE = (1.2, 1.2, 0.05)
 TABLE_TOP_Z = 0.8
 TEAPOT_XY = np.array([0.0, -0.25])
 MUG_XY = np.array([0.0, 0.25])            # 0.5 m from the teapot
-SPOUT_YAW_OFFSET = 2.7                    # rad; set to YOUR calibrated value
+SPOUT_YAW_OFFSET = 2.381                    # rad; set to YOUR calibrated value
                                           # and keep demo_pour_tea.py in sync
 DROP_HEIGHT = 0.06
 SETTLE_STEPS = 20
@@ -69,7 +69,7 @@ class PourTeaSceneLive(TableTop):
 register_env(PourTeaSceneLive)
 
 
-def _try_make(robot, objs, fixed_poses, has_renderer):
+def _try_make(robot, objs, fixed_poses, has_renderer, **make_kwargs):
     try:
         return suite.make(
             "PourTeaSceneLive",
@@ -84,6 +84,7 @@ def _try_make(robot, objs, fixed_poses, has_renderer):
             use_camera_obs=False,
             control_freq=20,
             ignore_done=True,
+            **make_kwargs,
         )
     except ValueError as e:
         if objs and ("No such file" in str(e) or "Error opening file" in str(e)):
@@ -92,7 +93,7 @@ def _try_make(robot, objs, fixed_poses, has_renderer):
 
 
 def make_env(robot: str = "UR5e", has_renderer: bool = True,
-             settle: bool = True):
+             settle: bool = True, **make_kwargs):
     """Build the canonical pour-tea scene: meshes, fixed poses, calibrated
     spout yaw, physics settle. THE single scene factory -- planners,
     renderers, and demos all build here so scene setup cannot drift.
@@ -112,11 +113,11 @@ def make_env(robot: str = "UR5e", has_renderer: bool = True,
         "mug": (np.array([*MUG_XY, z0]), yaw_quat_wxyz(0.0)),
     }
 
-    env = _try_make(robot, objs, fixed_poses, has_renderer)
+    env = _try_make(robot, objs, fixed_poses, has_renderer, **make_kwargs)
     if env is None:                     # xmls present but mesh files absent
         print("[pour_tea] mesh files missing -> building object-free scene")
         objs = {}
-        env = _try_make(robot, {}, {}, has_renderer)
+        env = _try_make(robot, {}, {}, has_renderer, **make_kwargs)
     env.reset()
     if settle:
         for _ in range(SETTLE_STEPS):
