@@ -7,3 +7,5 @@ meshes/
 anygrasp_runtime/
 *.mp4
 *.npz
+*.tar/
+license/
