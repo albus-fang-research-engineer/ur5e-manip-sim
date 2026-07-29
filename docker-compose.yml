@@ -95,6 +95,7 @@ services:
     container_name: AnyGraspServer
     network_mode: host
     privileged: true
+    ipc: host
     volumes:
       - ./grasp_server:/opt/grasp_server
       - ./anygrasp_runtime/license:/opt/anygrasp/grasp_detection/license
