@@ -3,7 +3,7 @@ import zmq
 
 class GraspClient:
     def __init__(self, addr=None, timeout_ms=30000):
-        self.addr = addr or os.environ.get("ANYGRASP_ADDR", "tcp://grasp:5555")
+        self.addr = addr or os.environ.get("ANYGRASP_ADDR", "tcp://grasp:5666")
         self.timeout_ms = timeout_ms
         self._connect()
 

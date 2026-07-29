@@ -106,6 +106,17 @@ def main() -> None:
     ap.add_argument("--robot", default="UR5e")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--n-proposals", type=int, default=80)
+    ap.add_argument("--grasp-source", choices=["synthetic", "anygrasp"],
+                    default="synthetic",
+                    help="synthetic = propose_handle_grasps stand-in; "
+                         "anygrasp = RGB-D cloud -> sidecar (needs "
+                         "'docker compose --profile grasp up -d grasp')")
+    ap.add_argument("--camera", default="agentview",
+                    help="depth camera for --grasp-source anygrasp")
+    ap.add_argument("--tcp-offset", type=float, default=0.0,
+                    help="AnyGrasp grasp-center -> grip-site shift along "
+                         "the approach axis, m (calibrate with "
+                         "scripts/test_anygrasp.py)")
     ap.add_argument("--max-grasp-candidates", type=int, default=6,
                     help="classified grasps to carry through IK + probe")
     ap.add_argument("--n-goal-samples", type=int, default=30)
@@ -170,15 +181,39 @@ def main() -> None:
     gtsr = handle_grasp_tsr(T0_teapot, handle, a_h,
                             elevation=np.deg2rad(args.grasp_elevation))
 
-    proposals = propose_handle_grasps(
-        gtsr, rng, n=args.n_proposals,
-        junk_points=[(T0_teapot @ spout_tip.T())[:3, 3],
-                     T0_teapot[:3, 3] + [0.0, 0.0, 0.12]])
+    if args.grasp_source == "anygrasp":
+        # the real proposer: RGB-D -> cloud -> sidecar -> grip-site poses.
+        # Same list[GraspProposal] contract as the stand-in; classifier and
+        # everything downstream are unchanged.
+        if "teapot" not in objs:
+            raise SystemExit("[grasp] --grasp-source anygrasp needs the "
+                             "converted teapot mesh (nothing to see).")
+        from manip_sim.perception.anygrasp_proposals import (
+            anygrasp_proposals, steer_toward)
+        from manip_sim.perception.cloud import object_workspace, render_cloud
+        from manip_sim.perception.grasp_client import GraspClient
+        pts_cam, pts_world, colors, T_wc = render_cloud(
+            env, camera=args.camera,
+            workspace=object_workspace(T0_teapot[:3, 3], TABLE_TOP_Z))
+        rep = GraspClient().get_grasps(
+            pts_cam, colors, lims=None,
+            region_steering=pts_world[:, 2] > TABLE_TOP_Z + 0.01,
+            approach_steering=steer_toward((gtsr.T0_w @ gtsr.Tw_e)[:3, 2],
+                                           T_wc),
+            approach_thresh=np.deg2rad(60.0))
+        print(f"[grasp] anygrasp: {len(pts_cam)} pts -> {rep['n']} raw "
+              f"grasps from '{args.camera}'")
+        proposals = anygrasp_proposals(rep, T_wc, tcp_offset=args.tcp_offset,
+                                       max_n=args.n_proposals)
+    else:
+        proposals = propose_handle_grasps(
+            gtsr, rng, n=args.n_proposals,
+            junk_points=[(T0_teapot @ spout_tip.T())[:3, 3],
+                         T0_teapot[:3, 3] + [0.0, 0.0, 0.12]])
     survivors, tally = classify_grasps(gtsr, proposals)
+    _t = {k: v for k, v in tally.items() if v}
     print(f"[grasp] classifier: {len(proposals)} proposed -> "
-          f"{len(survivors)} kept "
-          f"(handle {tally['handle_kept']}/{tally['handle_kept'] + tally['handle_rejected']}, "
-          f"junk {tally['junk_kept']}/{tally['junk_kept'] + tally['junk_rejected']})")
+          f"{len(survivors)} kept  {_t}")
     if not survivors:
         raise SystemExit("[grasp] classifier kept nothing — widen the "
                          "proposal spread or check handle frame symbols.")

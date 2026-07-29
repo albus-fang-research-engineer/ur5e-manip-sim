@@ -203,7 +203,8 @@ def classify_grasps(
     for p in proposals:
         p.tsr_distance = tsr.distance(p.T0_ee)
         ok = p.tsr_distance <= tol
-        tally[f"{p.provenance}_{'kept' if ok else 'rejected'}"] += 1
+        key = f"{p.provenance}_{'kept' if ok else 'rejected'}"
+        tally[key] = tally.get(key, 0) + 1     # any provenance, e.g. anygrasp
         if ok:
             kept.append(p)
     return kept, tally
