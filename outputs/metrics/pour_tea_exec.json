@@ -2,31 +2,31 @@
   "plan": "outputs/plans/pour_tea_full.npz",
   "meshfree": false,
   "stage1_track": {
-    "n_targets": 121,
-    "n_env_steps": 390,
-    "max_track_err": 0.012260086595678787,
-    "mean_track_err": 0.008629626784678249
+    "n_targets": 105,
+    "n_env_steps": 355,
+    "max_track_err": 0.011429576837297561,
+    "mean_track_err": 0.008565738123746771
   },
   "grasp_contacts": 4,
-  "T_ee_body_delta_mm": 29.88947526202918,
+  "T_ee_body_delta_mm": 20.380018000874824,
   "transport_track": {
-    "n_targets": 26,
-    "n_env_steps": 156,
-    "max_track_err": 0.05148884021308131,
-    "mean_track_err": 0.040915192147760675
+    "n_targets": 42,
+    "n_env_steps": 117,
+    "max_track_err": 0.011516588998898403,
+    "mean_track_err": 0.00943792816530732
   },
   "transport_measured_excess": 0.0,
   "pour_track": {
-    "n_targets": 127,
-    "n_env_steps": 372,
-    "max_track_err": 0.03156695890660943,
-    "mean_track_err": 0.00906105510317866
+    "n_targets": 155,
+    "n_env_steps": 381,
+    "max_track_err": 0.01167340598280553,
+    "mean_track_err": 0.008611166432111638
   },
-  "pour_measured_excess": 0.4783862505800777,
-  "tilt_measured_deg": -8.496290113168975,
+  "pour_measured_excess": 0.12622760191760268,
+  "tilt_measured_deg": 88.81228105698064,
   "tilt_target_deg": 95.0,
-  "tip_to_opening_mm": 58.3871978787058,
-  "slip_max_mm": 171.49177540743295,
-  "slip_max_deg": 117.47896435008131,
-  "grasp_retained": false
+  "tip_to_opening_mm": 81.66026774093598,
+  "slip_max_mm": 16.030005646828915,
+  "slip_max_deg": 7.129129907471135,
+  "grasp_retained": true
 }
