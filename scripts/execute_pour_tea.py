@@ -53,17 +53,31 @@ from manip_sim.execution import (
 )
 from manip_sim.frames import load_symbols
 from manip_sim.pour_stages import pour_pair, transport_pair
+from manip_sim.viz import DEFAULT_OPENING_LIFT, InteractionMarkers
 
 ARM_OUTPUT_MAX = 0.05             # rad/step commanded delta cap (1 rad/s @20Hz)
 
 
 class VideoTap:
-    """on_step hook: render the LIVE sim every `every` control steps."""
+    """on_step hook: render the LIVE sim every `every` control steps.
+
+    Marker overlay reads the MEASURED object poses each rendered frame, so
+    the red spout tip and green handle ride whatever physics actually did
+    to the teapot — including slip. That is the point of drawing them on
+    the execution video rather than the kinematic playback: the spheres are
+    a visual readout of the same quantities the metrics report.
+    """
 
     def __init__(self, arm: LiveArm, camera: str, width: int, height: int,
-                 every: int, enabled: bool):
+                 every: int, enabled: bool,
+                 markers: InteractionMarkers | None = None,
+                 have_objects: bool = True):
         self.enabled = enabled
         self.frames: list[np.ndarray] = []
+        self.markers = markers
+        self.have_objects = have_objects
+        self.stage = 1                 # main() advances this per stage
+        self.grasped = False           # green handle marker hides after close
         if not enabled:
             return
         self.arm, self.every, self.k = arm, every, 0
@@ -90,6 +104,15 @@ class VideoTap:
             return
         self.renderer.update_scene(self.arm.data, camera=self.cam,
                                    scene_option=self.opt)
+        if self.markers is not None and self.have_objects:
+            T_teapot = self.arm.body_pose("teapot")
+            T_mug = self.arm.body_pose("mug")
+            if self.stage >= 2:
+                self.markers.push_trail(
+                    self.markers.spout_tip(T_teapot), self.stage)
+            self.markers.draw(self.renderer.scene, T_teapot, T_mug,
+                              stage=self.stage,
+                              show_handle=not self.grasped)
         self.frames.append(self.renderer.render().copy())
 
 
@@ -106,6 +129,15 @@ def main() -> None:
     ap.add_argument("--frame-every", type=int, default=2,
                     help="render every Nth control step")
     ap.add_argument("--no-video", action="store_true")
+    ap.add_argument("--no-markers", action="store_true",
+                    help="drop the interaction-point overlay")
+    ap.add_argument("--opening-lift", type=float,
+                    default=DEFAULT_OPENING_LIFT,
+                    help="raise the blue mug-opening marker this far (m) "
+                         "along the mug up_axis; default is the center of "
+                         "the stage-2 standoff band, 0.0 draws the raw "
+                         "calibrated rim symbol. Drawing offset only — the "
+                         "TSR is unaffected.")
     ap.add_argument("--close-steps", type=int, default=50)
     ap.add_argument("--dwell-seconds", type=float, default=2.0)
     ap.add_argument("--allow-meshfree", action="store_true",
@@ -143,8 +175,11 @@ def main() -> None:
 
     arm = LiveArm(env)
     tracker = Tracker(env, arm, output_max=ARM_OUTPUT_MAX)
+    markers = None if args.no_markers else InteractionMarkers(
+        opening_lift=args.opening_lift)
     tap = VideoTap(arm, args.camera, args.width, args.height,
-                   args.frame_every, enabled=not args.no_video)
+                   args.frame_every, enabled=not args.no_video,
+                   markers=markers, have_objects=have_teapot)
     metrics: dict = {"plan": str(args.plan), "meshfree": not have_teapot}
 
     teapot_sym = load_symbols("assets/objects/teapot")
@@ -195,6 +230,7 @@ def main() -> None:
         print(f"[grasp] measured T_ee_body vs planned: {dpos * 1000:.1f} mm "
               f"translation delta (measured value frozen for stages 2-3)")
         slip = SlipMonitor(T_ee_body)
+        tap.grasped = True              # green handle marker has served
         metrics["grasp_contacts"] = n_contacts
         metrics["T_ee_body_delta_mm"] = dpos * 1000
     else:
@@ -237,10 +273,12 @@ def main() -> None:
 
     # ==================================================== stage 2: transport
     print("\n============== stage 2: transport ==============")
+    tap.stage = 2                       # colors the spout-tip trail
     staged_run("transport", p2, tpair.path if have_teapot else None)
 
     # ========================================================= stage 3: pour
     print("\n================= stage 3: pour ================")
+    tap.stage = 3
     ppair = None
     if have_teapot:
         # frozen at the MEASURED entry — where transport actually ended
