@@ -131,6 +131,23 @@ def virtual_camera(cloud_xyz: np.ndarray, azimuth_deg: float,
     return c + offset
 
 
+def camera_frame_rotation(cloud_xyz: np.ndarray, cam: np.ndarray) -> np.ndarray:
+    """Rows of R map body -> OpenCV camera frame (x right, y down,
+    z forward) for a camera at `cam` looking at the cloud centroid.
+
+    PointSO's training input is a segmented single-view cloud expressed in
+    the CAMERA frame; a z-up canonical body frame is out of distribution.
+    Send (p - cam) @ R.T, then map predictions back with R.T @ d.
+    """
+    c = cloud_xyz.mean(axis=0)
+    z = c - cam
+    z = z / np.linalg.norm(z)                      # forward
+    x = np.cross(z, np.array([0.0, 0.0, 1.0]))     # right (world z-up hint)
+    x = x / np.linalg.norm(x)
+    y = np.cross(z, x)                             # down
+    return np.stack([x, y, z])
+
+
 # --------------------------------------------------------------------------
 # ground truth from frames.json
 # --------------------------------------------------------------------------
@@ -212,6 +229,12 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--partial", action="store_true",
                     help="single-viewpoint cloud via hidden point removal")
+    ap.add_argument("--camera-frame", action="store_true",
+                    help="express the cloud in an OpenCV camera frame "
+                         "(y down, z forward) before sending — PointSO's "
+                         "training convention — and rotate predictions "
+                         "back to body frame for scoring. Combine with "
+                         "--partial for the faithful SoFar input.")
     ap.add_argument("--azimuth", type=float, default=30.0)
     ap.add_argument("--elevation", type=float, default=35.0)
     ap.add_argument("--cam-dist", type=float, default=0.6)
@@ -231,23 +254,36 @@ def main():
         frames = load_frames(obj)
         cloud = sample_cloud(mesh, args.n_points, args.seed)
 
+        body_xyz = cloud[:, :3].copy()   # GT geometry stays in body frame
         mode = "full-surface"
         if args.partial:
             cam = virtual_camera(cloud[:, :3], args.azimuth,
                                  args.elevation, args.cam_dist)
             keep = hidden_point_removal(cloud[:, :3], cam)
             cloud = cloud[keep]
+            body_xyz = body_xyz[keep]
             mode = (f"partial az={args.azimuth:g} el={args.elevation:g} "
                     f"({len(cloud)} pts visible)")
 
+        R_bc = None
+        if args.camera_frame:
+            cam = virtual_camera(cloud[:, :3], args.azimuth,
+                                 args.elevation, args.cam_dist)
+            R_bc = camera_frame_rotation(cloud[:, :3], cam)
+            cloud = cloud.copy()
+            cloud[:, :3] = (cloud[:, :3] - cam[None, :]) @ R_bc.T
+            mode += " camera-frame"
+
         instructions = [i for i, _ in INSTRUCTIONS[obj]]
         preds = client.orient_batch(cloud, instructions)
+        if R_bc is not None:
+            preds = preds @ R_bc          # (R_bc.T @ d.T).T back to body
 
         print(f"\n=== {obj}  [{mode}, {len(cloud)} pts] ===")
         print(f"{'instruction':<16} {'prediction (body frame)':<28} "
               f"{'gt':<12} {'ang err':>8}")
         for (ins, gt_spec), pred in zip(INSTRUCTIONS[obj], preds):
-            gt = resolve_gt(gt_spec, frames, mesh, cloud[:, :3])
+            gt = resolve_gt(gt_spec, frames, mesh, body_xyz)
             pstr = "[" + " ".join(f"{x:+.3f}" for x in pred) + "]"
             if gt is None:
                 print(f"{ins:<16} {pstr:<28} {'—':<12} {'—':>8}")
