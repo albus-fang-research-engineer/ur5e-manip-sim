@@ -27,6 +27,7 @@ services:
     shm_size: '8gb'                # unrelated, but you'll want it later
     extra_hosts:
       - "grasp:host-gateway"
+      - "pointso:host-gateway"
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ./:/workspace
@@ -37,6 +38,7 @@ services:
       - PYOPENGL_PLATFORM=egl
       - NVIDIA_DRIVER_CAPABILITIES=all
       - ANYGRASP_ADDR=tcp://grasp:5666
+      - POINTSO_ADDR=tcp://pointso:5668
     deploy:
       resources:
         reservations:
@@ -53,12 +55,15 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     working_dir: /workspace
+    extra_hosts:
+      - "pointso:host-gateway"
     volumes:
       - ./:/workspace
       - sim-data:/data
     environment:
       - MUJOCO_GL=osmesa
       - PYOPENGL_PLATFORM=osmesa
+      - POINTSO_ADDR=tcp://pointso:5668
     stdin_open: true
     tty: true
 
