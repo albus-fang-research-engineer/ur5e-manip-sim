@@ -50,7 +50,7 @@ ENV MUJOCO_GL=egl \
     PYOPENGL_PLATFORM=egl \
     NVIDIA_DRIVER_CAPABILITIES=graphics,compute,utility
 RUN pip install trimesh coacd manifold3d daqp
-RUN pip install pyzmq
+RUN pip install pyzmq msgpack msgpack-numpy
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENV PYTHONPATH=/workspace
