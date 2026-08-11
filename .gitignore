@@ -9,3 +9,5 @@ anygrasp_runtime/
 *.npz
 *.tar/
 license/
+dependencies/
+anygrasp_sdk/
