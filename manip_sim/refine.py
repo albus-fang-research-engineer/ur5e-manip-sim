@@ -241,8 +241,8 @@ def fit_revolution_axis(P: np.ndarray, seed: np.ndarray,
 
 def _fit_revolution_once(P: np.ndarray, seed: np.ndarray,
                          profile_degree: int = 4,
-                         trim_rounds: int = 2) -> tuple[np.ndarray, float,
-                                                        float, int]:
+                         trim_rounds: int = 2,
+                         return_kept: bool = False):
     """Axis-of-revolution fit: find the axis about which the points are
     rotationally symmetric, with the radius free to vary along the axis.
 
@@ -335,7 +335,9 @@ def _fit_revolution_once(P: np.ndarray, seed: np.ndarray,
     # points mis-gated under the tilted seed come back before the
     # profile is released
     keep = _band_gate(P, a_rigid, c_rigid)
-    pts = P[keep] if keep.sum() >= MIN_POINTS else P
+    idx = (np.flatnonzero(keep) if keep.sum() >= MIN_POINTS
+           else np.arange(len(P)))
+    pts = P[idx]
 
     p = np.zeros(4 + profile_degree + 1)
     p[:5] = sol.x
@@ -348,7 +350,8 @@ def _fit_revolution_once(P: np.ndarray, seed: np.ndarray,
         keep = np.abs(res) <= 4.0 * 1.4826 * mad
         if keep.sum() < MIN_POINTS or keep.all():
             break
-        pts = pts[keep]
+        idx = idx[keep]
+        pts = P[idx]
 
     a, _, _ = unpack(sol.x)
     res, rms = data_stats(sol.x, pts)
@@ -364,6 +367,8 @@ def _fit_revolution_once(P: np.ndarray, seed: np.ndarray,
         sigma = float(np.degrees(np.sqrt(max(cov[0, 0] + cov[1, 1], 0.0))))
     except np.linalg.LinAlgError:
         sigma = float("nan")
+    if return_kept:
+        return a, rms, sigma, len(pts), idx
     return a, rms, sigma, len(pts)
 
 
