@@ -49,6 +49,7 @@ import numpy as np
 import trimesh
 
 from manip_sim.perception.pointso_client import PointSOClient
+from manip_sim.refine import refine_axis
 
 ASSETS = Path("assets/objects")
 
@@ -72,6 +73,19 @@ INSTRUCTIONS = {
         ("upright",       ("axis", "up_axis")),
         ("handle",        ("derived", "mug_handle")),
     ],
+}
+
+# --refine: which fitter snaps each instruction's prediction onto the
+# geometry (manip_sim.refine). Only up-type instructions map to a fitter
+# here: both bodies are surfaces of revolution about up_axis, so the
+# whole unsegmented cloud is a valid fit input (robust loss absorbs the
+# handle/spout). Lateral symbols (spout, handle) would need a part-
+# segmented subcloud to fit against — that arrives with the segmentation
+# stage, so they stay unrefined rather than fit against the wrong region.
+REFINE = {
+    "lid": "revolution",
+    "upright": "revolution",
+    "opening": "revolution",
 }
 
 
@@ -321,6 +335,12 @@ def main():
                          "per-query spread (training used SO(3) "
                          "augmentation, so single queries sample a "
                          "pose-dependent answer distribution)")
+    ap.add_argument("--refine", action="store_true",
+                    help="snap each refinable prediction onto a primitive "
+                         "fitted to the same cloud (manip_sim.refine) and "
+                         "score raw vs refined side by side — the "
+                         "semantic layer initializes and signs, the fit "
+                         "supplies the metric direction")
     ap.add_argument("--debug-view", default=None, metavar="DIR",
                     help="save an orthographic HPR debug render per object "
                          "(culled vs visible points, camera position, "
@@ -332,6 +352,7 @@ def main():
     print(f"[pointso-test] server ok at {client.addr}")
 
     overall = []
+    overall_refined = []
     for obj in args.objects:
         mesh = load_visual_mesh(obj)
         frames = load_frames(obj)
@@ -457,6 +478,24 @@ def main():
                 print(f"{ins:<16} {pstr:<28} {gt_name:<12} "
                       f"{err:7.1f}°{sp}{flag}")
                 overall.append((obj, ins, err))
+            if args.refine and ins in REFINE:
+                res = refine_axis(body_xyz, pred, REFINE[ins])
+                rstr = ("[" + " ".join(f"{x:+.3f}" for x in res.direction)
+                        + "]")
+                if res.accepted:
+                    detail = (f"snap {res.snap_deg:4.1f}°  "
+                              f"rms {res.residual_rms * 1000:.1f} mm  "
+                              f"σ {res.sigma_deg:.2f}°")
+                else:
+                    detail = f"REJECTED: {res.note}"
+                if gt is not None:
+                    rerr = angular_error_deg(res.direction, gt)
+                    print(f"{'  └ refined':<16} {rstr:<28} {'':<12} "
+                          f"{rerr:7.1f}°  {detail}")
+                    overall_refined.append((obj, ins, rerr))
+                else:
+                    print(f"{'  └ refined':<16} {rstr:<28} {'—':<12} "
+                          f"{'—':>8}  {detail}")
 
         if args.save_npz:
             out = Path(args.save_npz)
@@ -473,6 +512,16 @@ def main():
               f"mean {errs.mean():.1f}°, median {np.median(errs):.1f}°, "
               f"max {errs.max():.1f}°, <45°: {np.mean(errs < 45):.0%}"
               + (f", near-antipodes: {n_flip}" if n_flip else ""))
+    if overall_refined:
+        raw = {(o, i): e for o, i, e in overall}
+        pairs = [(raw[(o, i)], e) for o, i, e in overall_refined
+                 if (o, i) in raw]
+        r = np.array([a for a, _ in pairs])
+        f = np.array([b for _, b in pairs])
+        print(f"[pointso-test] refined {len(f)} of them: raw mean "
+              f"{r.mean():.1f}° -> refined mean {f.mean():.1f}°, "
+              f"max {r.max():.1f}° -> {f.max():.1f}° (sign errors, if "
+              "any, pass through refinement by design)")
 
 
 if __name__ == "__main__":
