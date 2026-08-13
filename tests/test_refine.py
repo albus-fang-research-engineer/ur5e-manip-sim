@@ -56,6 +56,44 @@ def make_revolution_cloud(axis, n=4000, noise=0.001, arc_deg=360.0,
     return pts @ _rot_from_z(np.asarray(axis, float)).T
 
 
+def make_sphere_body_teapot(axis, n=6000, noise=0.001, seed=0):
+    """The identifiability worst case found on the real teapot mesh: a
+    near-SPHERICAL body (symmetric about every axis through its center,
+    so it votes for no axis at all) plus a fat spout and handle lying on
+    a horizontal line — attachments that elect a wrong, horizontal axis
+    the whole-cloud fit confidently prefers. Only the lid and the body's
+    truncation edges carry true-axis information."""
+    rng = np.random.default_rng(seed)
+    fr = {"body": 0.62, "spout": 0.15, "handle": 0.15, "lid": 0.08}
+    ns = {k: int(n * v) for k, v in fr.items()}
+    ns["body"] += n - sum(ns.values())
+    R = 0.062
+    z = rng.uniform(-0.055, 0.050, ns["body"])
+    th = rng.uniform(0, 2 * np.pi, ns["body"])
+    rr = np.sqrt(np.maximum(R ** 2 - z ** 2, 0))
+    body = np.column_stack([rr * np.cos(th), rr * np.sin(th), z])
+    t = rng.uniform(0, 1, ns["spout"])
+    ang = rng.uniform(0, 2 * np.pi, ns["spout"])
+    cx = 0.055 + t * 0.069
+    cz = -0.02 + t * 0.05
+    rt = 0.016 - 0.008 * t
+    spout = np.column_stack([cx, rt * np.cos(ang), cz + rt * np.sin(ang)])
+    ph = rng.uniform(-1.4, 1.4, ns["handle"])
+    ang = rng.uniform(0, 2 * np.pi, ns["handle"])
+    hx = -(0.045 + 0.042 * np.cos(ph))
+    hz = 0.04 * np.sin(ph)
+    handle = np.column_stack([hx + 0.010 * np.cos(ang),
+                              0.010 * np.sin(ang), hz])
+    u = rng.uniform(0, 1, ns["lid"])
+    th2 = rng.uniform(0, 2 * np.pi, ns["lid"])
+    rl = 0.03 * np.sqrt(u)
+    lid = np.column_stack([rl * np.cos(th2), rl * np.sin(th2),
+                           0.052 + 0.02 * np.cos(rl / 0.03 * np.pi / 2)])
+    P = np.vstack([body, spout, handle, lid])
+    P += rng.normal(scale=noise, size=P.shape)
+    return P @ _rot_from_z(np.asarray(axis, float)).T
+
+
 TRUE = np.array([0.36, -0.48, 0.8])
 TRUE = TRUE / np.linalg.norm(TRUE)
 
@@ -86,6 +124,38 @@ def test_partial_arc_and_handle_clutter():
     assert res.accepted
     err = np.degrees(np.arccos(np.clip(res.direction @ TRUE, -1, 1)))
     assert err < 2.5
+
+
+def test_sphere_body_degenerate_class():
+    """The real-teapot failure class: a spherical body determines no
+    axis by itself, and the horizontal spout-handle line elects a
+    wrong one the whole-cloud objective confidently prefers (the
+    pre-fix fitter landed ~87 deg off from EVERY seed including a
+    perfect one). The contract on this class is two-tier: small coarse
+    errors refine to sub-3-deg, and through 40 deg the module is NEVER
+    confidently wrong — each outcome is either a correct acceptance or
+    a typed rejection (self-consistent competing modes surfaced as
+    sigma), depending on which modes the multistart happens to
+    discover."""
+    P = make_sphere_body_teapot(TRUE)
+    for tilt in (0.0, 15.0):
+        coarse = TRUE if tilt == 0 else _tilt(TRUE, tilt)
+        res = refine_axis(P, coarse, "revolution")
+        assert res.accepted, (tilt, res.note)
+        err = np.degrees(np.arccos(np.clip(res.direction @ TRUE, -1, 1)))
+        assert err < 3.0, (tilt, err)
+    for tilt in (25.0, 35.0, 40.0):
+        for js in (0, 1, 2):
+            res = refine_axis(P, _tilt(TRUE, tilt, seed=js), "revolution")
+            err = np.degrees(np.arccos(
+                np.clip(res.direction @ TRUE, -1, 1)))
+            # accepted implies correct; otherwise a typed rejection
+            # that hands back the coarse
+            assert (not res.accepted) or err < 3.0, (tilt, js, err)
+            if not res.accepted:
+                assert np.allclose(
+                    res.direction,
+                    _tilt(TRUE, tilt, seed=js)), (tilt, js)
 
 
 def test_sign_follows_coarse_not_fit():

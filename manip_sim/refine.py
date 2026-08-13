@@ -31,12 +31,21 @@ input. If the coarse vector has the wrong sign, refinement faithfully
 preserves that error: sign repair is a discrete, one-token semantic
 edit and deliberately not this module's job.
 
-Convergence: the revolution fit converges from coarse seeds up to ~60 deg
-off the true axis (validated on noisy, partial, cluttered synthetic
-clouds); beyond the basin it can lock onto a wrong feature, so snaps
-larger than max_snap_deg are REJECTED and the coarse direction returned
-with accepted=False — a typed outcome the caller can route, not a
-SystemExit.
+Convergence and identifiability: for well-conditioned revolution bodies
+(cylindrical or profiled, attachments a minority of surface) the fit
+converges from coarse seeds up to ~60 deg off the true axis. For
+DEGENERATE bodies — near-spherical bellies that are symmetric about
+every axis through their center, so the data alone does not determine
+the axis — the multistart + seed-prior machinery keeps the module
+honest through ~40 deg of coarse error: outcomes are correct
+acceptances or typed rejections (competing self-consistent modes
+surfaced as sigma), never confident coin-flips. Snaps larger than
+max_snap_deg and weakly identifiable axes are REJECTED and the coarse
+direction returned with accepted=False — typed outcomes the caller can
+route, not a SystemExit. When a revolution fit rejects on
+identifiability, the discriminating geometry is usually the opening/rim
+circle: fit that (Kasa, as calibrate_frames_from_mesh already does for
+the mug) on the segmented opening region instead.
 
 numpy/scipy only, no simulator dependency — unit-testable in isolation,
 and equally applicable to exact mesh samples (sim) and segmented sensor
@@ -54,6 +63,11 @@ from scipy.optimize import least_squares
 # past ~60 deg start capturing wrong features. Kept a constant, not a
 # flag — it is part of the module's contract, not a tuning knob.
 MAX_SNAP_DEG = 60.0
+# Data-only axis sigma beyond which a fit is considered degenerate: the
+# geometry did not determine the axis (near-spherical body, tiny
+# support) and the returned direction owes too much to the seed prior
+# to be trusted as a refinement.
+MAX_SIGMA_DEG = 10.0
 MIN_POINTS = 50
 
 
@@ -111,14 +125,119 @@ def _angle_deg(u: np.ndarray, v: np.ndarray) -> float:
 # Each fitter returns (axis_unit_unsigned, residual_rms_m, sigma_deg,
 # n_inliers). Sign resolution and basin guarding happen in refine_axis.
 
+def _band_gate(P: np.ndarray, axis: np.ndarray, center: np.ndarray,
+               nbins: int = 12, k: float = 3.5) -> np.ndarray:
+    """Revolution-consistency gate: keep points whose radius is typical
+    for their height band about `axis`. A spout or handle is a gross
+    radial outlier WITHIN its band even under a basin-level (~25-45 deg)
+    axis error, while a legitimate radius profile (belly, shoulder) is
+    the band structure itself — so this removes attachments that global
+    MAD trimming cannot see (their residuals inflate the global MAD that
+    is supposed to catch them)."""
+    d = P - center
+    h = d @ axis
+    radial = np.linalg.norm(d - np.outer(h, axis), axis=1)
+    span = float(h.max() - h.min()) + 1e-9
+    bins = np.clip(((h - h.min()) / span * nbins).astype(int), 0, nbins - 1)
+    keep = np.zeros(len(P), bool)
+    for b in range(nbins):
+        m = bins == b
+        if m.sum() < 10:
+            keep[m] = True
+            continue
+        med = float(np.median(radial[m]))
+        mad = float(np.median(np.abs(radial[m] - med))) + 1e-9
+        keep[m] = np.abs(radial[m] - med) <= k * 1.4826 * mad
+    return keep
+
+
 def fit_revolution_axis(P: np.ndarray, seed: np.ndarray,
                         profile_degree: int = 4,
                         trim_rounds: int = 2) -> tuple[np.ndarray, float,
                                                        float, int]:
+    """Multistart wrapper around _fit_revolution_once. Cluttered bodies
+    with weak identifiability (near-spherical belly + coplanar
+    attachments) have MULTIPLE local minima, and which one captures the
+    solver depends on where inside the basin the seed happens to sit —
+    a 25-deg coarse can land true while a 40-deg coarse from the same
+    distribution locks onto the attachment-elected axis with a small,
+    confidently-wrong sigma. So: run the fit from the seed and from
+    eight tangent-jittered starts, cluster the solutions, and prefer
+    the cluster angularly closest to the seed — the mode-level analogue
+    of the in-fit prior (the semantic direction arbitrates exactly what
+    the data leaves ambiguous). When the data decisively prefers a
+    DIFFERENT mode than the prior, the disagreement is surfaced as
+    sigma and rejected upstream rather than silently resolved either
+    way. Unimodal problems pay only the constant factor: all starts
+    land in one cluster and the answer is unchanged."""
+    a0 = _unit(seed)
+    e1, e2 = _basis_perp(a0)
+    # eight jitter azimuths at 20 deg: enough that from a basin-level
+    # coarse some start lands inside the true attractor for any azimuth
+    # of the true direction. A second, wider ring was tried and removed:
+    # past ~45 deg on degenerate bodies an INTERMEDIATE self-consistent
+    # mode can sit nearer the coarse than the truth, and under prior
+    # arbitration that mode wins no matter how many starts find the
+    # true one — wider coverage only added cost and conservative
+    # rejections inside the trusted regime.
+    j = np.deg2rad(20.0)
+    starts = [a0]
+    for az in np.arange(8) * (np.pi / 4):
+        d = np.cos(az) * e1 + np.sin(az) * e2
+        s = a0 * np.cos(j) + d * np.sin(j)
+        starts.append(s / np.linalg.norm(s))
+    sols = [_fit_revolution_once(P, s, profile_degree, trim_rounds)
+            for s in starts]
+    # sign everything toward the seed, then greedy 10-deg clustering
+    axes = [(a if a @ a0 >= 0 else -a, rms, sig, nin)
+            for a, rms, sig, nin in sols]
+    clusters: list[list[tuple]] = []
+    for s in axes:
+        for cl in clusters:
+            if _angle_deg(s[0], cl[0][0]) < 10.0:
+                cl.append(s)
+                break
+        else:
+            clusters.append([s])
+    # Mode arbitration. A hard fact discovered on the degenerate class:
+    # competing modes can each be SELF-CONSISTENT (the gate carves the
+    # cloud into agreement with whichever axis is being fit — a
+    # near-spherical body supports any axis at noise-level rms, and the
+    # attachment-elected mode even explains MORE geometry), so no
+    # data-side score can arbitrate between well-separated modes. The
+    # arbitration information is exactly the semantic prior. Policy:
+    # drop junk clusters (rms > 2x the best), pick the nearest
+    # survivor to the seed, and if the runner-up survivor is nearly as
+    # close (< 15 deg gap) the prior cannot arbitrate either — report
+    # the inter-mode angle as sigma so refine_axis's identifiability
+    # gate turns it into a typed rejection instead of a coin-flip.
+    def cl_axis(cl):
+        return _unit(np.mean([m[0] for m in cl], axis=0))
+
+    def cl_rms(cl):
+        return min(m[1] for m in cl)
+
+    best_rms = min(cl_rms(cl) for cl in clusters)
+    survivors = [cl for cl in clusters if cl_rms(cl) <= 2.0 * best_rms]
+    survivors.sort(key=lambda cl: _angle_deg(cl_axis(cl), a0))
+    best_cl = survivors[0]
+    a, rms, sig, nin = min(best_cl, key=lambda m: m[1])
+    if len(survivors) > 1:
+        d0 = _angle_deg(cl_axis(survivors[0]), a0)
+        d1 = _angle_deg(cl_axis(survivors[1]), a0)
+        if d1 - d0 < 15.0:
+            sig = max(sig, _angle_deg(a, cl_axis(survivors[1])))
+    return a, rms, sig, nin
+
+
+def _fit_revolution_once(P: np.ndarray, seed: np.ndarray,
+                         profile_degree: int = 4,
+                         trim_rounds: int = 2) -> tuple[np.ndarray, float,
+                                                        float, int]:
     """Axis-of-revolution fit: find the axis about which the points are
     rotationally symmetric, with the radius free to vary along the axis.
 
-    Parametrization (all smooth, one least_squares call per trim round):
+    Parametrization (all smooth, one least_squares call per round):
       axis   a(u,v) = normalize(a0 + u e1 + v e2)   tangent perturbation
       point  c(s,t) = centroid + s e1 + t e2         in the plane perp a0
       radius r(h)   = Chebyshev polynomial of degree `profile_degree` in
@@ -126,18 +245,48 @@ def fit_revolution_axis(P: np.ndarray, seed: np.ndarray,
                       by the seed-frame extent for conditioning
       residual_i = dist(P_i, axis) - r(h_i)
 
-    soft_l1 loss plus MAD trimming between rounds absorbs off-revolution
-    geometry (a mug handle is ~10-15% of surface points and lands far
-    outside the radial band). sigma_deg comes from the (u, v) block of
-    the Gauss-Newton covariance at the solution — for near-unit a0 the
-    tangent coefficients ARE small angles, so their standard deviations
-    read directly as axis angular uncertainty.
+    Three defenses against the failure modes real tableware exhibits:
+
+      band gate    attachments (spout, handle) covering 30%+ of the
+                   surface make their own residuals invisible to global
+                   MAD trimming; the height-banded gate (seed frame,
+                   re-run for re-admission in the fitted frame after the
+                   rigid round) removes them by within-band radial
+                   consistency instead.
+      rigid round  the first solve pins the profile to a constant radius
+                   under a cauchy loss, so a partial shell cannot bend
+                   r(h) around clutter before the axis lands in the
+                   true basin.
+      seed prior   a NEAR-SPHERICAL body is symmetric about every axis
+                   through its center: the data then does not determine
+                   the axis at all and the residual attachments elect a
+                   wrong one. Two weak Tikhonov rows on (u, v) resolve
+                   exactly the directions the data leaves free toward
+                   the semantic seed; in well-conditioned fits their
+                   pull is equivalent to sub-mm residual and vanishes in
+                   the data gradient.
+
+    The reported sigma comes from the DATA-ONLY block of the final
+    Gauss-Newton covariance (prior rows excluded) — degeneracy shows up
+    as a large sigma instead of being masked by the prior, and
+    refine_axis rejects on it.
     """
     P = np.asarray(P, dtype=float)
     a0 = _unit(seed)
     e1, e2 = _basis_perp(a0)
     centroid = P.mean(axis=0)
     h_scale = max(float(np.abs((P - centroid) @ a0).max()), 1e-6)
+    # prior weight: tilting a full basin (~1 rad) off the seed costs as
+    # much as ~0.7 mm rms over all points — decisive in a flat valley,
+    # noise-level against any real curvature gradient. The prior is
+    # split across many rows so each stays within the robust loss's
+    # quadratic regime: a single row of magnitude ~20x f_scale would be
+    # downweighted as an "outlier" by the very machinery meant to
+    # suppress clutter, silently disabling the prior exactly when the
+    # solver drifts (total quadratic stiffness is row-count invariant:
+    # k rows of (w/sqrt(k)) u cost w^2 u^2).
+    n_prior = 64
+    w_prior = 0.7e-3 * np.sqrt(len(P)) / np.sqrt(n_prior)
 
     def unpack(p):
         a = a0 + p[0] * e1 + p[1] * e2
@@ -151,33 +300,33 @@ def fit_revolution_axis(P: np.ndarray, seed: np.ndarray,
         h = (d @ a) / h_scale
         radial = d - np.outer(d @ a, a)
         r = np.linalg.norm(radial, axis=1)
-        return r - np.polynomial.chebyshev.chebval(np.clip(h, -1.5, 1.5),
+        data = r - np.polynomial.chebyshev.chebval(np.clip(h, -1.5, 1.5),
                                                    coef)
+        prior = np.tile([w_prior * p[0], w_prior * p[1]], n_prior)
+        return np.concatenate([data, prior])
 
-    pts = P
+    def data_stats(p, pts):
+        res = residuals(p, pts)[:-2 * n_prior]
+        return res, float(np.sqrt(np.mean(res ** 2)))
+
+    # seed-frame gate, then the rigid constant-radius round
+    keep = _band_gate(P, a0, centroid)
+    pts = P[keep] if keep.sum() >= MIN_POINTS else P
     r0 = float(np.median(np.linalg.norm(
         (pts - centroid) - np.outer((pts - centroid) @ a0, a0), axis=1)))
-
-    # Round 0 is deliberately RIGID: constant radius (degree 0) under a
-    # cauchy loss. With the full profile free from the start, a partial
-    # (single-view) shell plus an off-revolution blob gives the
-    # polynomial enough freedom to absorb the blob into r(h) and drag
-    # the axis; the rigid model cannot bend, so the blob shows up as
-    # gross residuals, the axis lands in the true basin, and the trim
-    # removes the blob before the profile is released.
     p_rigid = np.zeros(5)
     p_rigid[4] = r0
-    sol = least_squares(lambda q, x: residuals(np.r_[q[:4], q[4],
-                                                     np.zeros(profile_degree)],
-                                               x),
+    zpad = np.zeros(profile_degree)
+    sol = least_squares(lambda q, x: residuals(np.r_[q, zpad], x),
                         p_rigid, args=(pts,), loss="cauchy",
                         f_scale=max(0.05 * r0, 1e-4), max_nfev=200)
-    res = residuals(np.r_[sol.x[:4], sol.x[4], np.zeros(profile_degree)],
-                    pts)
-    mad = float(np.median(np.abs(res - np.median(res)))) + 1e-9
-    keep = np.abs(res - np.median(res)) <= 4.0 * 1.4826 * mad
-    if keep.sum() >= MIN_POINTS:
-        pts = pts[keep]
+    a_rigid, c_rigid, _ = unpack(np.r_[sol.x, zpad])
+
+    # re-admission: re-gate ALL points in the fitted frame, so body
+    # points mis-gated under the tilted seed come back before the
+    # profile is released
+    keep = _band_gate(P, a_rigid, c_rigid)
+    pts = P[keep] if keep.sum() >= MIN_POINTS else P
 
     p = np.zeros(4 + profile_degree + 1)
     p[:5] = sol.x
@@ -185,7 +334,7 @@ def fit_revolution_axis(P: np.ndarray, seed: np.ndarray,
         sol = least_squares(residuals, p, args=(pts,), loss="soft_l1",
                             f_scale=max(0.05 * r0, 1e-4), max_nfev=200)
         p = sol.x
-        res = residuals(p, pts)
+        res, _ = data_stats(p, pts)
         mad = float(np.median(np.abs(res - np.median(res)))) + 1e-9
         keep = np.abs(res) <= 4.0 * 1.4826 * mad
         if keep.sum() < MIN_POINTS or keep.all():
@@ -193,13 +342,14 @@ def fit_revolution_axis(P: np.ndarray, seed: np.ndarray,
         pts = pts[keep]
 
     a, _, _ = unpack(sol.x)
-    res = residuals(sol.x, pts)
-    rms = float(np.sqrt(np.mean(res ** 2)))
+    res, rms = data_stats(sol.x, pts)
 
-    # covariance of the tangent parameters from the final Jacobian
-    J = sol.jac
+    # covariance of the tangent parameters from the DATA rows of the
+    # final Jacobian — the prior rows would clamp exactly the
+    # degeneracy the sigma is supposed to expose
+    J = sol.jac[:-2 * n_prior]
     dof = max(len(res) - len(sol.x), 1)
-    s2 = 2.0 * sol.cost / dof
+    s2 = float(np.sum(res ** 2)) / dof
     try:
         cov = s2 * np.linalg.pinv(J.T @ J)
         sigma = float(np.degrees(np.sqrt(max(cov[0, 0] + cov[1, 1], 0.0))))
@@ -278,6 +428,12 @@ def refine_axis(points: np.ndarray, coarse: np.ndarray, feature: str,
     if np.dot(axis, c) < 0.0:                   # sign from semantics
         axis = -axis
     snap = _angle_deg(axis, c)
+    if np.isfinite(sigma) and sigma > MAX_SIGMA_DEG:
+        return RefineResult(c, c, feature, False, snap, rms, sigma, n_in,
+                            f"axis weakly identifiable (sigma "
+                            f"{sigma:.1f} deg > {MAX_SIGMA_DEG:.0f}) — "
+                            "the geometry does not determine this axis; "
+                            "coarse direction kept")
     if snap > max_snap_deg:
         return RefineResult(c, c, feature, False, snap, rms, sigma, n_in,
                             f"snap {snap:.1f} deg exceeds the "
