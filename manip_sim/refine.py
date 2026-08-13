@@ -397,8 +397,47 @@ def fit_pca_axis(P: np.ndarray) -> tuple[np.ndarray, float, float, int]:
     return a, rms, sigma, len(P)
 
 
+def fit_rim_axis(P: np.ndarray, seed: np.ndarray) -> tuple[np.ndarray,
+                                                           float, float,
+                                                           int]:
+    """Opening/rim circle fit — the terminal route for vessels whose
+    whole-cloud revolution fit is degenerate or inconsistent (verified
+    on the real teapot mesh: attachments span every height band, so no
+    gating recovers a clean body, but the opening rim is a 3D circle
+    whose normal IS the up axis regardless of what the rest of the
+    object looks like).
+
+    Requires PRE-SEGMENTED rim points — finding the rim is the caller's
+    job (mesh-side: the opening-boundary extraction the calibration
+    script uses for the mug; sensor-side: the opening mask + depth
+    crop once segmentation lands). Plane normal via SVD gives the
+    axis; Kasa in-plane gives center/radius; the reported residual is
+    the full 3D distance to the fitted circle, so handing this fitter
+    a blob that is not actually a rim fails the relative-rms quality
+    gate instead of returning a plausible-looking normal. Axis sigma
+    is the plane-normal propagation (in-plane radial error does not
+    tilt the normal)."""
+    P = np.asarray(P, dtype=float)
+    n, _, sigma, N = fit_plane_normal(P)
+    c0 = P.mean(axis=0)
+    e1, e2 = _basis_perp(n)
+    xy = np.column_stack([(P - c0) @ e1, (P - c0) @ e2])
+    A = np.column_stack([2.0 * xy, np.ones(len(xy))])
+    b = (xy ** 2).sum(axis=1)
+    sol, *_ = np.linalg.lstsq(A, b, rcond=None)
+    cx, cy = sol[0], sol[1]
+    R = float(np.sqrt(max(sol[2] + cx ** 2 + cy ** 2, 0.0)))
+    center = c0 + cx * e1 + cy * e2
+    d = P - center
+    z = d @ n
+    r = np.sqrt(np.maximum((d ** 2).sum(axis=1) - z ** 2, 0.0))
+    rms = float(np.sqrt(np.mean((r - R) ** 2 + z ** 2)))
+    return n, rms, sigma, N
+
+
 FITTERS = {
     "revolution": fit_revolution_axis,
+    "rim": fit_rim_axis,
     "plane": lambda P, seed: fit_plane_normal(P),
     "pca": lambda P, seed: fit_pca_axis(P),
 }
@@ -437,20 +476,25 @@ def refine_axis(points: np.ndarray, coarse: np.ndarray, feature: str,
     if np.dot(axis, c) < 0.0:                   # sign from semantics
         axis = -axis
     snap = _angle_deg(axis, c)
-    if feature == "revolution" and np.isfinite(rms):
+    if feature in ("revolution", "rim") and np.isfinite(rms):
+        # same scale-free gate for both: rms against the median radial
+        # distance about the fitted axis (for a rim point set that
+        # median IS the circle radius, so this reads as rms/R)
         d = P - P.mean(axis=0)
         r_med = float(np.median(np.linalg.norm(
             d - np.outer(d @ axis, axis), axis=1)))
         if rms > MAX_REL_RMS * max(r_med, 1e-6):
+            hint = ("fit the segmented opening rim with feature='rim' "
+                    "instead" if feature == "revolution" else
+                    "the provided points do not form a circle — check "
+                    "the rim segmentation")
             return RefineResult(c, c, feature, False, snap, rms, sigma,
                                 n_in,
-                                f"not revolution-consistent: rms "
+                                f"not {feature}-consistent: rms "
                                 f"{rms * 1000:.1f} mm is "
                                 f"{rms / max(r_med, 1e-6):.0%} of the "
-                                f"body's median radius (gate "
-                                f"{MAX_REL_RMS:.0%}) — coarse direction "
-                                "kept; fit a segmented feature (e.g. "
-                                "the opening rim circle) instead")
+                                f"radial scale (gate {MAX_REL_RMS:.0%}) "
+                                f"— coarse direction kept; {hint}")
     if np.isfinite(sigma) and sigma > MAX_SIGMA_DEG:
         return RefineResult(c, c, feature, False, snap, rms, sigma, n_in,
                             f"axis weakly identifiable (sigma "

@@ -248,6 +248,44 @@ def test_plane_and_pca():
         np.clip(res.direction @ bar_axis, -1, 1))) < 2.0
 
 
+def make_rim_cloud(axis, n=800, R=0.055, arc_deg=360.0, noise=0.0015,
+                   seed=0):
+    """A (possibly partial) 3D circle of rim points about `axis`."""
+    rng = np.random.default_rng(seed)
+    th = rng.uniform(0.0, np.deg2rad(arc_deg), n)
+    pts = np.column_stack([R * np.cos(th), R * np.sin(th),
+                           np.zeros(n)])
+    pts += rng.normal(scale=noise, size=pts.shape)
+    return pts @ _rot_from_z(np.asarray(axis, float)).T
+
+
+def test_rim_fit_recovers_axis():
+    """The terminal route for degenerate vessels: a segmented opening
+    rim determines the up axis as its circle normal, regardless of how
+    hopeless the whole-cloud fit is. Full and partial (single-view)
+    rims; sign follows the coarse."""
+    for arc in (360.0, 270.0, 200.0):
+        P = make_rim_cloud(TRUE, arc_deg=arc)
+        res = refine_axis(P, _tilt(TRUE, 30.0), "rim")
+        assert res.accepted, (arc, res.note)
+        err = np.degrees(np.arccos(np.clip(res.direction @ TRUE, -1, 1)))
+        assert err < 1.5, (arc, err)
+    res = refine_axis(make_rim_cloud(TRUE), _tilt(-TRUE, 20.0, seed=3),
+                      "rim")
+    assert res.direction @ TRUE < 0          # sign is the semantic's
+
+
+def test_rim_fit_rejects_non_rim_blob():
+    """Handing the rim fitter a mis-segmented blob must fail the
+    quality gate (3D circle residual vs radius), not return a
+    plausible-looking plane normal."""
+    rng = np.random.default_rng(7)
+    blob = rng.normal(scale=0.02, size=(600, 3))
+    res = refine_axis(blob, TRUE, "rim")
+    assert not res.accepted
+    assert "rim-consistent" in res.note
+
+
 def test_snap_to_candidates_selector():
     cands = np.eye(3)                          # a fitted frame's axes
     i, axis, margin = snap_to_candidates([0.1, -0.15, -0.95], cands)
