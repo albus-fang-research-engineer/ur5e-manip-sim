@@ -298,6 +298,86 @@ MESH_CASES = [(n, Path(f"assets/objects/{n}"))
               for n in ("teapot", "mug")]
 
 
+def make_closed_teapot_mesh():
+    """Constructed trimesh analog of the closed-teapot class: icosphere
+    body (contributes ZERO sharp edges — nothing for the coarse frame
+    to echo), base and lid cylinders whose cap rims are the true
+    circular edges, plus spout and handle cylinders contributing decoy
+    circles (spout tip, handle end caps) whose normals point away from
+    up."""
+    import trimesh
+    parts = [trimesh.creation.icosphere(subdivisions=4, radius=0.062)]
+    base = trimesh.creation.cylinder(radius=0.045, height=0.006,
+                                     sections=64)
+    base.apply_translation([0, 0, -0.058])
+    parts.append(base)
+    lid = trimesh.creation.cylinder(radius=0.040, height=0.008,
+                                    sections=64)
+    lid.apply_translation([0, 0, 0.056])
+    parts.append(lid)
+    spout = trimesh.creation.cylinder(radius=0.012, height=0.08,
+                                      sections=32)
+    spout.apply_transform(trimesh.transformations.rotation_matrix(
+        np.pi / 2.6, [0, 1, 0]))
+    spout.apply_translation([0.075, 0, 0.01])
+    parts.append(spout)
+    handle = trimesh.creation.cylinder(radius=0.009, height=0.09,
+                                       sections=24)
+    handle.apply_translation([-0.075, 0, 0])
+    parts.append(handle)
+    m = trimesh.util.concatenate(parts)
+    m.apply_transform(np.vstack([
+        np.hstack([_rot_from_z(TRUE), np.zeros((3, 1))]), [0, 0, 0, 1]]))
+    return m
+
+
+def test_mesh_ring_route_resolves_degenerate_class():
+    """The full terminal route, end to end: an object whose whole-cloud
+    revolution fit is hopeless still yields a sub-2.5-deg up axis via
+    mesh-edge ring extraction + rim fit, from either side, through
+    40 deg of coarse error — and the extraction must not be fooled by
+    the decoy circles (spout tip, handle caps) sharing the slab: the
+    coarse arbitrates among quality-passing circles by normal
+    direction."""
+    pytest.importorskip("trimesh")
+    from manip_sim.refine import extract_ring_from_mesh
+    mesh = make_closed_teapot_mesh()
+    for tilt in (15.0, 25.0, 40.0):
+        coarse = _tilt(TRUE, tilt)
+        for side in ("top", "bottom"):
+            pts = extract_ring_from_mesh(mesh, coarse, side)
+            assert len(pts) >= 50, (tilt, side, len(pts))
+            res = refine_axis(pts, coarse, "rim")
+            assert res.accepted, (tilt, side, res.note)
+            err = np.degrees(np.arccos(
+                np.clip(res.direction @ TRUE, -1, 1)))
+            assert err < 2.5, (tilt, side, err)
+
+
+@pytest.mark.parametrize("name,obj_dir", MESH_CASES)
+def test_ring_route_on_converted_meshes(name, obj_dir):
+    """Ring route on the real assets, two-tier per side: an accepted
+    rim fit must land within 3 deg of the calibrated axis; sides
+    without a clean circular edge must reject typed."""
+    trimesh = pytest.importorskip("trimesh")
+    from manip_sim.refine import extract_ring_from_mesh
+    mesh_path = obj_dir / "meshes" / f"{name}_visual.obj"
+    if not mesh_path.exists():
+        pytest.skip(f"{mesh_path} not converted")
+    spec = json.loads((obj_dir / "frames.json").read_text())
+    up = np.asarray(spec["axes"]["up_axis"]["xyz"], float)
+    up /= np.linalg.norm(up)
+    mesh = trimesh.load(mesh_path, force="mesh", process=False)
+    coarse = _tilt(up, 25.0)
+    for side in ("top", "bottom"):
+        pts = extract_ring_from_mesh(mesh, coarse, side)
+        if len(pts) < 50:
+            continue
+        res = refine_axis(np.asarray(pts), coarse, "rim")
+        err = np.degrees(np.arccos(np.clip(res.direction @ up, -1, 1)))
+        assert (not res.accepted) or err < 3.0, (side, err, res.note)
+
+
 @pytest.mark.parametrize("name,obj_dir", MESH_CASES)
 def test_refine_on_converted_meshes(name, obj_dir):
     """End-to-end on the real assets: sample the visual mesh, perturb

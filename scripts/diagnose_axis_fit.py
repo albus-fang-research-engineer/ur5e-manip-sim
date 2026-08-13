@@ -81,12 +81,13 @@ def band_table(P, axis, label, nbins=12):
 
 
 def render_fit(P, true_axis, coarse, res, raw_axis, kept_idx, out_path,
-               title=""):
+               ring_results=(), title=""):
     """Three-azimuth 3D render of the cloud and the axis story:
     retained points gray, gated/trimmed points red, TRUE axis green,
-    coarse dashed orange, the raw coarse-seeded fit light blue, and
-    the final verdict axis solid blue (accepted) or dashed red (typed
-    rejection, i.e. the coarse handed back)."""
+    coarse dashed orange, the raw coarse-seeded fit light blue, the
+    verdict axis solid blue (accepted) or dashed red (typed rejection,
+    i.e. the coarse handed back), and — when the ring route ran —
+    extracted ring points purple with an accepted ring axis magenta."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -103,13 +104,20 @@ def render_fit(P, true_axis, coarse, res, raw_axis, kept_idx, out_path,
         if (~kept).any():
             ax.scatter(*P[~kept].T, s=2.5, c="crimson", alpha=0.6,
                        linewidths=0, label="gated/trimmed")
-        for vec, color, style, lw, alpha, lbl in (
-                (true_axis, "green", "-", 5.5, 0.45, "true"),
+        axes = [(true_axis, "green", "-", 5.5, 0.45, "true"),
                 (coarse, "darkorange", "--", 2.0, 1.0, "coarse"),
                 (raw_axis, "deepskyblue", "-", 1.4, 1.0, "raw fit"),
                 (res.direction, "blue" if res.accepted else "red",
                  "-" if res.accepted else "--", 2.2, 1.0,
-                 "refined" if res.accepted else "rejected->coarse")):
+                 "refined" if res.accepted else "rejected->coarse")]
+        for side, rpts, rres, _ in ring_results:
+            ax.scatter(*rpts.T, s=5.0, c="purple", alpha=0.9,
+                       linewidths=0,
+                       label=f"{side} ring" if k == 0 else None)
+            if rres.accepted:
+                axes.append((rres.direction, "magenta", "-", 2.0, 1.0,
+                             f"rim axis ({side})"))
+        for vec, color, style, lw, alpha, lbl in axes:
             seg = np.array([c - 0.5 * L * vec, c + 0.7 * L * vec])
             ax.plot(*seg.T, color=color, ls=style, lw=lw, alpha=alpha,
                     label=lbl)
@@ -192,6 +200,30 @@ def main():
           f"(gate {MAX_REL_RMS:.0%})   sigma {res.sigma_deg:.2f} deg "
           f"(gate {MAX_SIGMA_DEG:.0f})\nnote: {res.note or '—'}")
 
+    ring_results = []
+    if not res.accepted:
+        from manip_sim.refine import extract_ring_from_mesh
+        print("\n-- ring route (mesh-edge extraction + feature='rim') --")
+        for side in ("top", "bottom"):
+            rpts = extract_ring_from_mesh(mesh, coarse, side)
+            if len(rpts) < 50:
+                print(f"{side:6s}: only {len(rpts)} edge points — no ring")
+                continue
+            rres = refine_axis(rpts, coarse, "rim")
+            rerr = angle_deg(rres.direction, true_axis)
+            ring_results.append((side, rpts, rres, rerr))
+            print(f"{side:6s}: n={len(rpts):4d} accepted={rres.accepted} "
+                  f"err_vs_true {rerr:5.2f} deg  rms "
+                  f"{rres.residual_rms * 1e3:.2f} mm  sigma "
+                  f"{rres.sigma_deg:.3f} deg"
+                  + (f"\n        note: {rres.note}" if rres.note else ""))
+        acc = [r for r in ring_results if r[2].accepted]
+        if acc:
+            side, _, rres, rerr = min(acc, key=lambda r: r[2].sigma_deg)
+            print(f"=> ring route resolves the axis via the {side} ring: "
+                  f"err {rerr:.2f} deg, sigma {rres.sigma_deg:.3f} deg "
+                  f"(couples into Bw via couple_rot_bound)")
+
     if args.render:
         raw_axis, raw_rms, _, _, kept_idx = _fit_revolution_once(
             P, coarse, return_kept=True)
@@ -199,6 +231,7 @@ def main():
             raw_axis = -raw_axis
         render_fit(
             P, true_axis, coarse, res, raw_axis, kept_idx, args.render,
+            ring_results=ring_results,
             title=(f"{args.object} / {args.axis}: "
                    f"{'ACCEPTED' if res.accepted else 'REJECTED'} — "
                    f"err {err:.1f} deg, raw fit "

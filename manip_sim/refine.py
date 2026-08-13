@@ -514,6 +514,146 @@ def refine_axis(points: np.ndarray, coarse: np.ndarray, feature: str,
     return RefineResult(axis, c, feature, True, snap, rms, sigma, n_in)
 
 
+def _trim_to_circle(P: np.ndarray, trim_rounds: int = 3) -> np.ndarray:
+    """Robust circle trimming: iteratively fit plane + Kasa circle and
+    peel points by MAD-scaled 3D distance to the fitted circle.
+    Returns indices into P of the surviving set."""
+    idx = np.arange(len(P))
+    for _ in range(trim_rounds):
+        if len(idx) < MIN_POINTS:
+            break
+        n, _, _, _ = fit_plane_normal(P[idx])
+        c0 = P[idx].mean(axis=0)
+        e1, e2 = _basis_perp(n)
+        xy = np.column_stack([(P[idx] - c0) @ e1, (P[idx] - c0) @ e2])
+        A = np.column_stack([2.0 * xy, np.ones(len(xy))])
+        sol, *_ = np.linalg.lstsq(A, (xy ** 2).sum(axis=1), rcond=None)
+        R = np.sqrt(max(sol[2] + sol[0] ** 2 + sol[1] ** 2, 0.0))
+        center = c0 + sol[0] * e1 + sol[1] * e2
+        d = P[idx] - center
+        z = d @ n
+        r = np.sqrt(np.maximum((d ** 2).sum(axis=1) - z ** 2, 0.0))
+        res = np.sqrt((r - R) ** 2 + z ** 2)
+        mad = float(np.median(np.abs(res - np.median(res)))) + 1e-9
+        keep = np.abs(res - np.median(res)) <= 3.5 * 1.4826 * mad
+        if keep.sum() < MIN_POINTS or keep.all():
+            break
+        idx = idx[keep]
+    return idx
+
+
+def extract_ring_from_mesh(mesh, coarse: np.ndarray, side: str = "top",
+                           sharp_deg: float = 35.0,
+                           slab_frac: float = 0.30,
+                           trim_rounds: int = 3) -> np.ndarray:
+    """Extract a horizontal circular EDGE feature — opening rim, lid
+    edge, base foot — from a triangle MESH, as points ready for
+    refine_axis(..., "rim"). This is the mesh-side front half of the
+    terminal route for objects whose whole-cloud revolution fit
+    rejects.
+
+    The mesh knows its edges EXACTLY: creases are face-adjacency
+    dihedral angles above `sharp_deg`, open rims are boundary edges
+    (edges bounding a single face). Anchoring to these is what makes
+    the extraction sound where point-cloud heuristics were not: a
+    slab-and-radius-band extractor echoes the coarse frame back (every
+    planar slice of a sphere is a perfect circle), and pointwise k-NN
+    edge scoring on sampled clouds drowns at realistic densities
+    (measured: 39 true rim points among 4000 samples, out-scored ~5:1
+    by density fluctuations). Dihedral and boundary structure is
+    intrinsic to the surface — a smooth body contributes NO candidate
+    edges, so there is nothing for the coarse frame to echo, and the
+    coarse axis is used only to choose WHICH edge cluster (the
+    top/bottom `slab_frac` of the height extent along it), never its
+    geometry. Sensor-side, this extraction role is played by the
+    opening/part mask once segmentation lands; this function is the
+    calibration-time and simulation counterpart.
+
+    Candidate edges are densified (endpoints + midpoints), slab-
+    selected along the coarse, then robust-circle-trimmed to peel
+    edges belonging to other features (spout lip, handle ridge).
+    Feed the returned points to refine_axis(pts, coarse, "rim") —
+    its quality gate judges whether the surviving set is a circle.
+    """
+    if side not in ("top", "bottom"):
+        raise ValueError("side must be 'top' or 'bottom'")
+    a = _unit(coarse)
+    V = np.asarray(mesh.vertices, dtype=float)
+    F = np.asarray(mesh.faces)
+
+    cand = []
+    adj_edges = np.asarray(mesh.face_adjacency_edges)
+    if len(adj_edges):
+        sharp = np.asarray(mesh.face_adjacency_angles) > np.deg2rad(
+            sharp_deg)
+        cand.append(adj_edges[sharp])
+    all_edges = np.sort(F[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1)
+    uniq, counts = np.unique(all_edges, axis=0, return_counts=True)
+    cand.append(uniq[counts == 1])              # open boundary edges
+    E = np.vstack([e for e in cand if len(e)])
+    if len(E) == 0:
+        return np.empty((0, 3))
+    # densify: endpoints and midpoints of every candidate edge
+    pts = np.vstack([V[E[:, 0]], V[E[:, 1]],
+                     0.5 * (V[E[:, 0]] + V[E[:, 1]])])
+    pts = np.unique(pts, axis=0)
+
+    h = (pts - np.median(V, axis=0)) @ a
+    lo, hi = float(h.min()), float(h.max())
+    if side == "top":
+        sel = h >= hi - slab_frac * (hi - lo)
+    else:
+        sel = h <= lo + slab_frac * (hi - lo)
+    ring = pts[sel]
+    if len(ring) < MIN_POINTS:
+        return ring
+
+    # The slab typically contains SEVERAL genuine circles: a lid's top
+    # and bottom rims, a spout-tip circle, a handle end cap. A single
+    # global trim cannot separate them, so: cluster the candidates into
+    # spatially connected components, circle-fit each, keep the ones
+    # that pass the relative-rms quality bar, and let the COARSE
+    # arbitrate among the survivors — a spout-tip circle is a perfectly
+    # good circle whose normal points ~70+ deg from the coarse, so the
+    # semantic prior is exactly the information that rejects it (the
+    # same arbitration principle as the revolution multistart).
+    # Coaxial pairs (lid top+bottom rims) may merge into one component;
+    # that union is benign — its plane normal is the shared axis.
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+    from scipy.spatial import cKDTree
+    edge_len = float(np.median(np.linalg.norm(V[E[:, 0]] - V[E[:, 1]],
+                                              axis=1)))
+    pairs = cKDTree(ring).query_pairs(3.0 * edge_len, output_type="ndarray")
+    adj = coo_matrix((np.ones(len(pairs)), (pairs[:, 0], pairs[:, 1])),
+                     shape=(len(ring), len(ring)))
+    n_comp, labels = connected_components(adj, directed=False)
+    best = None
+    for comp in range(n_comp):
+        m = np.flatnonzero(labels == comp)
+        if len(m) < MIN_POINTS:
+            continue
+        keep = _trim_to_circle(ring[m])
+        cpts = ring[m][keep]
+        if len(cpts) < MIN_POINTS:
+            continue
+        n_ax, rms, _, _ = fit_rim_axis(cpts, a)
+        d = cpts - cpts.mean(axis=0)
+        r_med = float(np.median(np.linalg.norm(
+            d - np.outer(d @ n_ax, n_ax), axis=1)))
+        if rms > MAX_REL_RMS * max(r_med, 1e-6):
+            continue                            # not actually a circle
+        ang = _angle_deg(n_ax if n_ax @ a >= 0 else -n_ax, a)
+        if best is None or ang < best[0]:
+            best = (ang, cpts)
+    if best is None:
+        # no clean circle in the slab: return the trimmed union so the
+        # caller's quality gate produces the typed rejection with the
+        # evidence attached
+        return ring[_trim_to_circle(ring, trim_rounds)]
+    return best[1]
+
+
 def snap_to_candidates(coarse: np.ndarray,
                        candidates: np.ndarray) -> tuple[int, np.ndarray,
                                                         float]:
