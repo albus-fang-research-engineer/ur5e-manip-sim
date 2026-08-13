@@ -68,6 +68,15 @@ MAX_SNAP_DEG = 60.0
 # support) and the returned direction owes too much to the seed prior
 # to be trusted as a refinement.
 MAX_SIGMA_DEG = 10.0
+# Revolution fits must also pass a QUALITY gate: rms relative to the
+# body's radial scale. Sigma measures the sharpness of the minimum, not
+# its goodness — on geometry that is simply not a revolution surface
+# about any nearby axis, the solver can settle into a well-shaped
+# minimum with enormous residuals (observed on a real teapot mesh:
+# 99% of points retained at rms 34% of median radius, sigma under the
+# identifiability gate, axis 23 deg wrong). Healthy fits run 2-4%;
+# noisy sensor clouds up to ~10%.
+MAX_REL_RMS = 0.12
 MIN_POINTS = 50
 
 
@@ -428,6 +437,20 @@ def refine_axis(points: np.ndarray, coarse: np.ndarray, feature: str,
     if np.dot(axis, c) < 0.0:                   # sign from semantics
         axis = -axis
     snap = _angle_deg(axis, c)
+    if feature == "revolution" and np.isfinite(rms):
+        d = P - P.mean(axis=0)
+        r_med = float(np.median(np.linalg.norm(
+            d - np.outer(d @ axis, axis), axis=1)))
+        if rms > MAX_REL_RMS * max(r_med, 1e-6):
+            return RefineResult(c, c, feature, False, snap, rms, sigma,
+                                n_in,
+                                f"not revolution-consistent: rms "
+                                f"{rms * 1000:.1f} mm is "
+                                f"{rms / max(r_med, 1e-6):.0%} of the "
+                                f"body's median radius (gate "
+                                f"{MAX_REL_RMS:.0%}) — coarse direction "
+                                "kept; fit a segmented feature (e.g. "
+                                "the opening rim circle) instead")
     if np.isfinite(sigma) and sigma > MAX_SIGMA_DEG:
         return RefineResult(c, c, feature, False, snap, rms, sigma, n_in,
                             f"axis weakly identifiable (sigma "
