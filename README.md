@@ -90,3 +90,9 @@ s.send(msgpack.packb({"cmd": "ping"})); print(msgpack.unpackb(s.recv()))
   `/pose_bridge/mask`. In sim, publish the ground-truth instance mask; on
   hardware, front it with your SAM/Florence segmenter (which SoFar already
   bundles if you later widen the pointso image to full SoFar).
+
+
+  To render fit results
+  ```
+  PYTHONPATH=. python scripts/diagnose_axis_fit.py teapot --render teapot_fit.png
+  ```
