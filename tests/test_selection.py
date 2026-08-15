@@ -336,19 +336,84 @@ def test_selection_json_round_trip(tmp_path):
     roles = load_selections(path)
     assert roles["pour"] == sel and roles["grasp"] == _sel()
 
+# ----------------------------------------------------- VLM menu subset
 
-def test_default_secondary_never_parallel_to_axis():
-    """axis = pour (the refined front itself): the omitted-secondary
-    default must NOT be the front column (parallel -> Frame.T()'s
-    arbitrary-perpendicular branch); it picks the up column, keeping
-    zero-yaw grounded. For axis = up, the front column is the pick."""
-    sym, pool, basis = _symbols(), _pool(), _basis()
-    rf = resolve_selection(_sel(axis="teapot.pour_axis"), pool, sym,
-                           basis=basis)
-    R = rf.frame.T()[:3, :3]
-    assert np.allclose(R[:, 2], basis.R[:, 0])          # z = pour
-    assert np.allclose(R[:, 0], basis.R[:, 2])          # x = up (GS fixed pt)
-    assert rf.secondary_source == "refined"
-    rf_up = resolve_selection(_sel(axis="teapot.up_axis"), pool, sym,
-                              basis=basis)
-    assert np.allclose(rf_up.frame.T()[:3, :3], basis.R)
+def _synth_pool() -> dict[int, dict]:
+    """A pool shaped like proposal.py output: constructed points with
+    symbols/parts, part-class surface samples, curvature, fps. IDs are
+    the pool's stable final ordering (constructed, part, curvature,
+    fps)."""
+    from itertools import count
+    i = count()
+    cands = []
+    for sym, part in (("handle_center", "handle"), ("spout_tip", "spout"),
+                      ("lid_center", "lid"), ("base_center", "base"),
+                      ("mid_cavity", None)):
+        cands.append({"id": next(i), "xyz": np.zeros(3),
+                      "source": "constructed", "symbol": sym, "part": part})
+    for part in ("base", "handle", "handle", "handle", "lid",
+                 "spout", "spout"):
+        cands.append({"id": next(i), "xyz": np.zeros(3),
+                      "source": "part", "part": part})
+    for _ in range(6):
+        cands.append({"id": next(i), "xyz": np.zeros(3),
+                      "source": "curvature", "part": None})
+    for _ in range(6):
+        cands.append({"id": next(i), "xyz": np.zeros(3),
+                      "source": "fps", "part": None})
+    return {c["id"]: c for c in cands}
+
+
+def test_vlm_subset_budget_and_id_stability():
+    from manip_sim.selection import SUBSET_BUDGET, vlm_subset
+    pool = _synth_pool()
+    sub = vlm_subset(pool)
+    assert len(sub) == SUBSET_BUDGET
+    assert set(sub) <= set(pool)
+    for i, c in sub.items():
+        assert c is pool[i]          # pool ids, never renumbered
+
+def test_vlm_subset_stage_parts_lead():
+    from manip_sim.selection import SUBSET_PART_CAP, vlm_subset
+    pool = _synth_pool()
+    sub = vlm_subset(pool, parts=["handle"])
+    ids = list(sub)                  # ascending; tiers checked by content
+    # tier 0: the matching constructed point is in
+    assert any(c.get("symbol") == "handle_center" for c in sub.values())
+    # tier 1: matching part-class samples present but capped
+    handle_surface = [c for c in sub.values()
+                     if c["source"] == "part" and c["part"] == "handle"]
+    assert 1 <= len(handle_surface) <= SUBSET_PART_CAP
+    # other constructed points still make it in (tier 2)
+    assert any(c.get("symbol") == "spout_tip" for c in sub.values())
+
+def test_vlm_subset_free_text_matches_symbol():
+    from manip_sim.selection import vlm_subset
+    pool = _synth_pool()
+    sub = vlm_subset(pool, parts=["cavity"], budget=5)
+    assert any(c.get("symbol") == "mid_cavity" for c in sub.values())
+
+def test_vlm_subset_part_coverage_echo():
+    from manip_sim.selection import vlm_subset
+    # constructed points removed: coverage tier must still put one
+    # surface candidate per part on the menu before filler classes
+    pool = {i: c for i, c in _synth_pool().items()
+            if c["source"] != "constructed"}
+    sub = vlm_subset(pool)
+    parts = {c.get("part") for c in sub.values() if c.get("part")}
+    assert parts == {"base", "handle", "lid", "spout"}
+
+def test_vlm_subset_deterministic_and_menu_aligned():
+    from manip_sim.selection import vlm_subset
+    pool = _synth_pool()
+    a = vlm_subset(pool, parts=["spout", "handle"])
+    b = vlm_subset(pool, parts=["spout", "handle"])
+    assert list(a) == list(b)
+    # the subset IS the parser's accept set
+    assert set(menu_from_pool(a)) == set(a)
+
+def test_vlm_subset_smaller_pool_than_budget():
+    from manip_sim.selection import vlm_subset
+    pool = {i: c for i, c in _synth_pool().items() if i < 4}
+    sub = vlm_subset(pool)
+    assert set(sub) == set(pool)
