@@ -33,12 +33,36 @@ Output: outputs/candidates/<name>.png (2x2 montage + legend). No sidecar
 is touched; write candidates.json afterwards with
 scripts/propose_interaction_points.py --write once the pool looks right.
 
+--vlm: the touchpoint-#2 input variant. Three deliberate departures from
+the inspection montage:
+
+  * marks come from the WRITTEN candidates.json (selection.load_pool),
+    not an in-memory regen — the render must mark the same artifact the
+    resolver looks IDs up in and the menu is built from (it raises if
+    the sidecar is missing: --write first);
+  * only the selection.vlm_subset menu subset is marked (<= 8 marks;
+    crowding, not font size, is the dominant legibility threat at the
+    full pool), optionally biased by --parts, the stage's free-text
+    part names from VLM call #1;
+  * eight INDIVIDUAL full-resolution views (1024 px, 20 px labels, the
+    white stroke kept) instead of one downsample-doomed montage, written
+    to outputs/candidates/vlm/<name>/<view>.png plus a manifest.json
+    recording ids, menu tags, and per-view visibility — the artifact
+    the orchestrator turns into Client.select_point_axis view_paths and
+    the menu_from_pool(subset) vocabulary.
+
+Filled/hollow semantics are unchanged and are exactly what the #2 prompt
+explains to the model (constructed points hollow from the side, filled
+from the top, is correct behavior).
+
 Run from the repo root (headless; pick the backend as usual):
 
     MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa \
         PYTHONPATH=. python scripts/render_candidates.py
     MUJOCO_GL=egl PYTHONPATH=. python scripts/render_candidates.py
     ... python scripts/render_candidates.py --object mug
+    ... python scripts/render_candidates.py --object teapot --vlm \
+        --parts handle spout
 """
 
 import argparse
@@ -51,6 +75,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from manip_sim.proposal import load_obj, propose
+from manip_sim.selection import load_pool, menu_from_pool, vlm_subset
 
 OBJECTS = {
     "teapot": Path("assets/objects/teapot"),
@@ -63,6 +88,14 @@ FOVY_DEG = 40.0
 CLASS_COLOR = {"constructed": (230, 57, 70), "part": (69, 123, 157),
                "curvature": (244, 162, 97), "fps": (42, 157, 143)}
 OCCLUSION_TOL_M = 0.004      # depth-buffer agreement tolerance
+
+# VLM-facing mode: individual full-res views sized for the model's tile
+# budget (a montage gets downsampled and the labels degrade first);
+# 18-24 px label band, mark radius scaled with it.
+VLM_VIEW_PX = 1024
+VLM_FONT_PX = 20
+VLM_MARK_R = 9
+VLM_DIR = OUT_DIR / "vlm"
 
 
 # ---------------------------------------------------------------------------
@@ -109,8 +142,8 @@ def canonical_cameras(center: np.ndarray, radius: float) -> dict[str, dict]:
             for name, pos in views.items()}
 
 
-def build_model(name: str, obj_dir: Path,
-                cams: dict[str, dict]) -> mujoco.MjModel:
+def build_model(name: str, obj_dir: Path, cams: dict[str, dict],
+                px: int = VIEW_PX) -> mujoco.MjModel:
     tree = ET.parse(obj_dir / f"{name}.xml")
     root = tree.getroot()
     # visual-only render: drop the collision hulls (mesh assets + geoms)
@@ -124,8 +157,7 @@ def build_model(name: str, obj_dir: Path,
                 parent.remove(child)
     ET.SubElement(root, "compiler", meshdir=str(obj_dir.resolve()))
     vis = ET.SubElement(root, "visual")
-    ET.SubElement(vis, "global", offwidth=str(VIEW_PX),
-                  offheight=str(VIEW_PX))
+    ET.SubElement(vis, "global", offwidth=str(px), offheight=str(px))
     ET.SubElement(vis, "headlight", ambient="0.45 0.45 0.45",
                   diffuse="0.6 0.6 0.6")
     wb = root.find("worldbody")
@@ -140,7 +172,8 @@ def build_model(name: str, obj_dir: Path,
 # pinhole projection matching the MJCF cameras exactly
 # ---------------------------------------------------------------------------
 
-def project(points: np.ndarray, cam: dict) -> tuple[np.ndarray, np.ndarray]:
+def project(points: np.ndarray, cam: dict,
+            px: int = VIEW_PX) -> tuple[np.ndarray, np.ndarray]:
     """(u, v) pixels + camera depth (meters along the view axis) for body
     points, given the same pos/quat written into the MJCF."""
     R = np.empty(9)
@@ -148,9 +181,9 @@ def project(points: np.ndarray, cam: dict) -> tuple[np.ndarray, np.ndarray]:
     R = R.reshape(3, 3)
     pc = (points - cam["pos"]) @ R                 # world -> camera frame
     depth = -pc[:, 2]
-    f = (VIEW_PX / 2.0) / np.tan(np.deg2rad(FOVY_DEG) / 2.0)
-    u = VIEW_PX / 2.0 + f * pc[:, 0] / depth
-    v = VIEW_PX / 2.0 - f * pc[:, 1] / depth
+    f = (px / 2.0) / np.tan(np.deg2rad(FOVY_DEG) / 2.0)
+    u = px / 2.0 + f * pc[:, 0] / depth
+    v = px / 2.0 - f * pc[:, 1] / depth
     return np.column_stack([u, v]), depth
 
 
@@ -166,13 +199,13 @@ def _font(size: int):
 
 
 def draw_marks(img: Image.Image, uv: np.ndarray, visible: np.ndarray,
-               candidates: list[dict]) -> None:
+               candidates: list[dict], px: int = VIEW_PX,
+               font_px: int = 13, r: int = 6) -> None:
     dr = ImageDraw.Draw(img)
-    font = _font(13)
-    r = 6
+    font = _font(font_px)
     for c, (u, v), vis in zip(candidates, uv, visible):
         col = CLASS_COLOR[c["source"]]
-        if not (0 <= u < VIEW_PX and 0 <= v < VIEW_PX):
+        if not (0 <= u < px and 0 <= v < px):
             continue
         if vis:
             dr.ellipse([u - r, v - r, u + r, v + r], fill=col,
@@ -214,20 +247,27 @@ def montage(views: dict[str, Image.Image], name: str) -> Image.Image:
 # main
 # ---------------------------------------------------------------------------
 
-def run(name: str, obj_dir: Path) -> None:
+def load_visual_mesh(name: str, obj_dir: Path) -> tuple[np.ndarray, np.ndarray]:
     mesh = obj_dir / "meshes" / f"{name}_visual.obj"
     if not mesh.exists():
         raise SystemExit(f"[render-candidates] {mesh} missing — run "
                          "scripts/convert_asset.py first.")
-    spec = json.loads((obj_dir / "frames.json").read_text())
-    V, F = load_obj(mesh)
-    pool = propose(name, V, F, spec)
-    X = np.array([c["xyz"] for c in pool.candidates])
+    return load_obj(mesh)
+
+
+def render_views(name: str, obj_dir: Path, V: np.ndarray,
+                 candidates: list[dict], size: int, font_px: int,
+                 mark_r: int
+                 ) -> tuple[dict[str, Image.Image], dict[str, np.ndarray]]:
+    """Eight canonical views with marks drawn — the loop shared by the
+    inspection montage and the VLM variant. Returns the images and the
+    per-view visibility booleans (candidate order preserved)."""
+    X = np.array([c["xyz"] for c in candidates])
 
     center = 0.5 * (V.min(0) + V.max(0))
     radius = float(np.linalg.norm(V - center, axis=1).max())
     cams = canonical_cameras(center, radius)
-    model = build_model(name, obj_dir, cams)
+    model = build_model(name, obj_dir, cams, px=size)
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)
 
@@ -235,9 +275,9 @@ def run(name: str, obj_dir: Path) -> None:
     vopt.geomgroup[0] = 0        # visual mesh only, no collision hulls
     vopt.geomgroup[1] = 1
 
-    renderer = mujoco.Renderer(model, VIEW_PX, VIEW_PX)
+    renderer = mujoco.Renderer(model, size, size)
     views: dict[str, Image.Image] = {}
-    vis_count = np.zeros(len(X), dtype=int)
+    vis: dict[str, np.ndarray] = {}
     for vname, cam in cams.items():
         renderer.disable_depth_rendering()
         renderer.update_scene(data, camera=vname, scene_option=vopt)
@@ -246,42 +286,122 @@ def run(name: str, obj_dir: Path) -> None:
         renderer.update_scene(data, camera=vname, scene_option=vopt)
         depth = renderer.render().copy()
 
-        uv, pdepth = project(X, cam)
-        px = np.clip(uv.round().astype(int), 0, VIEW_PX - 1)
-        buf = depth[px[:, 1], px[:, 0]]
+        uv, pdepth = project(X, cam, px=size)
+        pix = np.clip(uv.round().astype(int), 0, size - 1)
+        buf = depth[pix[:, 1], pix[:, 0]]
         visible = pdepth <= buf + OCCLUSION_TOL_M
-        vis_count += visible.astype(int)
+        vis[vname] = visible
 
         img = Image.fromarray(rgb)
-        draw_marks(img, uv, visible, pool.candidates)
+        draw_marks(img, uv, visible, candidates, px=size,
+                   font_px=font_px, r=mark_r)
         views[vname] = img
     renderer.close()
+    return views, vis
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    out = OUT_DIR / f"{name}.png"
-    montage(views, name).save(out)
 
-    print(f"[render-candidates] {name}: {len(X)} candidates -> {out}")
-    hidden = [c["id"] for c, n in zip(pool.candidates, vis_count) if n == 0]
+def _warn_hidden(candidates: list[dict],
+                 vis: dict[str, np.ndarray]) -> None:
+    count = np.sum([v.astype(int) for v in vis.values()], axis=0)
+    hidden = [c["id"] for c, n in zip(candidates, count) if n == 0]
     if hidden:
         print(f"  note: candidates {hidden} are occluded in ALL eight "
               "views — expected only for interior constructed points "
               "(mid_cavity) or points inside closed cavities; a SURFACE "
               "sample here violates the >=1-view legibility invariant "
               "and needs attention before SoM marking")
+
+
+def run(name: str, obj_dir: Path) -> None:
+    spec = json.loads((obj_dir / "frames.json").read_text())
+    V, F = load_visual_mesh(name, obj_dir)
+    pool = propose(name, V, F, spec)
+    views, vis = render_views(name, obj_dir, V, pool.candidates,
+                              VIEW_PX, 13, 6)
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out = OUT_DIR / f"{name}.png"
+    montage(views, name).save(out)
+
+    print(f"[render-candidates] {name}: {len(pool.candidates)} "
+          f"candidates -> {out}")
+    _warn_hidden(pool.candidates, vis)
     print("  pool matches the dry run of propose_interaction_points.py "
           "exactly (same seed/constants); --write there when satisfied.")
+
+
+def run_vlm(name: str, obj_dir: Path, parts: list[str]) -> None:
+    """Touchpoint-#2 input: marks from the WRITTEN candidates.json,
+    filtered to the vlm_subset menu, one full-resolution PNG per view
+    plus manifest.json. The orchestrator builds the Vocabulary menu with
+    menu_from_pool(vlm_subset(load_pool(...), parts)) — the SAME calls
+    made here — so the marks, the prompt menu, and the parser's accept
+    set are one artifact by construction."""
+    pool = load_pool(obj_dir)                      # raises if not written
+    subset = vlm_subset(pool, parts)
+    menu = menu_from_pool(subset)
+    candidates = [subset[i] for i in sorted(subset)]
+    V, _ = load_visual_mesh(name, obj_dir)
+    views, vis = render_views(name, obj_dir, V, candidates,
+                              VLM_VIEW_PX, VLM_FONT_PX, VLM_MARK_R)
+
+    out_dir = VLM_DIR / name
+    out_dir.mkdir(parents=True, exist_ok=True)
+    font = _font(22)
+    manifest_views: dict[str, dict] = {}
+    for vname, img in views.items():
+        ImageDraw.Draw(img).text((14, 10), f"{name} — {vname}",
+                                 fill=(30, 30, 30), font=font,
+                                 stroke_width=2, stroke_fill=(255, 255, 255))
+        path = out_dir / f"{vname.replace('+', 'p').replace('-', 'n')}.png"
+        img.save(path)
+        manifest_views[vname] = {
+            "path": str(path),
+            "visible_ids": [c["id"] for c, v in zip(candidates, vis[vname])
+                            if bool(v)],
+        }
+
+    manifest = {
+        "object": name,
+        "source": str(obj_dir / "candidates.json"),
+        "parts_filter": list(parts),
+        "ids": sorted(subset),
+        "menu": {str(i): tag for i, tag in menu.items()},
+        "views": manifest_views,
+    }
+    mpath = out_dir / "manifest.json"
+    mpath.write_text(json.dumps(manifest, indent=2) + "\n")
+
+    print(f"[render-candidates] {name} (--vlm): {len(candidates)} of "
+          f"{len(pool)} marks"
+          + (f", parts filter {parts}" if parts else "")
+          + f" -> {out_dir}/<view>.png + {mpath}")
+    for i, tag in menu.items():
+        print(f"    [{i}] {tag}")
+    _warn_hidden(candidates, vis)
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--object", choices=sorted(OBJECTS),
                     help="restrict to one object (default: both)")
+    ap.add_argument("--vlm", action="store_true",
+                    help="touchpoint-#2 variant: individual full-res "
+                         "views of the filtered menu subset, from the "
+                         "written candidates.json")
+    ap.add_argument("--parts", nargs="*", default=[],
+                    help="(--vlm only) stage part names biasing the "
+                         "subset, e.g. --parts handle spout")
     args = ap.parse_args()
+    if args.parts and not args.vlm:
+        raise SystemExit("--parts only applies to --vlm")
     for name, obj_dir in OBJECTS.items():
         if args.object and name != args.object:
             continue
-        run(name, obj_dir)
+        if args.vlm:
+            run_vlm(name, obj_dir, args.parts)
+        else:
+            run(name, obj_dir)
 
 
 if __name__ == "__main__":

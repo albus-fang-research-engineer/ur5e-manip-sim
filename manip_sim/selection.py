@@ -123,6 +123,13 @@ POINT_SIGMA_M = 0.002
 # segmented spout mask; selection along the COARSE front on purpose —
 # selection is the semantic layer's job and must survive its error).
 SLIVER_FRAC = 0.22
+# VLM-facing menu subset: at most this many marks reach the touchpoint-#2
+# render and menu (5-8 per plan; crowding at the full 48-mark pool is a
+# bigger legibility threat than font size). Surface samples of a
+# stage-matching part are capped so one part cannot flood the menu that
+# the constructed points and coverage tiers must share.
+SUBSET_BUDGET = 8
+SUBSET_PART_CAP = 2
 
 
 class ResolutionError(ValueError):
@@ -167,6 +174,97 @@ def menu_from_pool(pool: dict[int, dict]) -> dict[int, str]:
     """The Vocabulary menu for touchpoint #2, from the SAME pool this
     module resolves against — single ID space, no drift."""
     return {i: menu_tag(c) for i, c in sorted(pool.items())}
+
+
+def _part_match(token: str, cand: dict) -> bool:
+    """Free-text stage part name vs. a candidate's part tag / symbol.
+    Stage parts are free text by design (vlm.StageSpec); pool tags are
+    the fixed band names — bidirectional substring on normalized
+    lowercase covers 'spout' vs 'spout_tip' and 'cavity' vs
+    'mid_cavity' without a synonym table."""
+    t = token.strip().lower()
+    if not t:
+        return False
+    for tag in (cand.get("part"), cand.get("symbol")):
+        if not tag:
+            continue
+        g = str(tag).strip().lower()
+        if t == g or t in g or g in t:
+            return True
+    return False
+
+
+def vlm_subset(pool: dict[int, dict],
+               parts: list[str] | tuple[str, ...] | None = None,
+               budget: int = SUBSET_BUDGET) -> dict[int, dict]:
+    """The <= budget candidates offered to VLM touchpoint #2, chosen from
+    the full pool by semantic priority. IDs are the POOL ids, never
+    renumbered — this subset must feed BOTH menu_from_pool (the parser's
+    accept set) and the marked render (what the VLM sees), so drawn
+    marks and licensed IDs cannot drift apart. Filtering in the render
+    script alone would leave the menu offering unmarked IDs.
+
+    Stopgap ranking, replaced (not re-plumbed) when step-5 TSR
+    pre-scoring lands: the pre-scorer will prune zero-admittance
+    candidates and reorder the survivors; the contract — one subset,
+    consumed by menu and renderer alike — is the durable part, and this
+    heuristic remains the semantic prior when no scores exist.
+
+    Tiers, each in ascending-ID order, filled until the budget:
+
+      0  constructed candidates matching a stage part (free text)
+      1  surface part-class candidates of matching parts, capped at
+         SUBSET_PART_CAP per part
+      2  remaining constructed (primitive-derived points — cavity and
+         base centers — that surface sampling cannot produce)
+      3  one part-class candidate per part not yet represented (the
+         pool's coverage guarantee, echoed at menu scale)
+      4  curvature, then 5 fps, as saliency/coverage filler
+
+    With no stage parts, tiers 0-1 are empty and the ordering degrades
+    to constructed -> per-part coverage -> curvature -> fps.
+    """
+    tokens = [p for p in (parts or []) if p and p.strip()]
+
+    def match(c: dict) -> bool:
+        return any(_part_match(t, c) for t in tokens)
+
+    ordered = [pool[i] for i in sorted(pool)]
+    chosen: dict[int, dict] = {}
+    per_part: dict[str, int] = {}
+
+    def take(c: dict) -> None:
+        if len(chosen) < budget and c["id"] not in chosen:
+            chosen[c["id"]] = c
+
+    for c in ordered:                                    # tier 0
+        if c["source"] == "constructed" and match(c):
+            take(c)
+    for c in ordered:                                    # tier 1
+        if c["source"] == "part" and match(c):
+            part = c.get("part") or ""
+            if per_part.get(part, 0) < SUBSET_PART_CAP:
+                before = len(chosen)
+                take(c)
+                if len(chosen) > before:
+                    per_part[part] = per_part.get(part, 0) + 1
+    for c in ordered:                                    # tier 2
+        if c["source"] == "constructed":
+            take(c)
+    covered = {c.get("part") for c in chosen.values() if c.get("part")}
+    for c in ordered:                                    # tier 3
+        part = c.get("part")
+        if c["source"] == "part" and part and part not in covered:
+            before = len(chosen)
+            take(c)
+            if len(chosen) > before:
+                covered.add(part)
+    for source in ("curvature", "fps"):                  # tiers 4, 5
+        for c in ordered:
+            if c["source"] == source:
+                take(c)
+
+    return {i: chosen[i] for i in sorted(chosen)}
 
 
 # ------------------------------------------------------- basis construction
