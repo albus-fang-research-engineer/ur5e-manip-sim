@@ -1,0 +1,10 @@
+{
+  "grasp":             {"candidate_id": 1, "axis": "teapot.handle_axis", "sign": "+", "secondary": null,
+                        "rationale": "grasp the handle bar along its axis"},
+  "transport_active":  {"candidate_id": 3, "axis": "teapot.pour_axis",   "sign": "+", "secondary": null,
+                        "rationale": "spout tip leads toward the mug"},
+  "pour":              {"candidate_id": 3, "axis": "teapot.tilt_axis",   "sign": "+", "secondary": "teapot.pour_axis",
+                        "rationale": "pivot about the tilt axis at the spout tip"},
+  "transport_passive": {"candidate_id": 1, "axis": "mug.up_axis",        "sign": "+", "secondary": null,
+                        "rationale": "receive along the opening normal"}
+}

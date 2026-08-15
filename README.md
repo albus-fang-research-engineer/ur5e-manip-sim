@@ -101,3 +101,58 @@ s.send(msgpack.packb({"cmd": "ping"})); print(msgpack.unpackb(s.recv()))
   ```
   python scripts/demo_refine_frame.py teapot --render outputs/refine_frame/teapot_frame.png
   ```
+
+
+  VLM in-the-loop planning and execution
+  ```
+  # 0. preconditions (already done if candidates.json exists)
+  PYTHONPATH=. python scripts/propose_interaction_points.py --write
+
+  # 1. VLM-facing renders — one subset per object, all its stage parts
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/render_candidates.py \
+      --object teapot --vlm --parts handle spout
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/render_candidates.py \
+      --object mug --vlm --parts rim
+  # eyeball outputs/candidates/vlm/<obj>/*.png: ≤8 marks, 20px labels legible
+
+  # 2. live touchpoint #2 — four calls, writes selections + audit log
+  export ANTHROPIC_API_KEY=...
+  PYTHONPATH=. python scripts/select_frames.py
+
+  # 3. inspect what the VLM chose, before any planner touches it
+  PYTHONPATH=. python scripts/preview_selections.py \
+      outputs/selections/pour_tea.json --render outputs/selections/preview.png
+  cat outputs/selections/pour_tea.log.json   # attempts/rejections per call
+
+  # 4. plan on the VLM-selected frames, then execute
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/plan_pour_tea.py \
+      --selections outputs/selections/pour_tea.json
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/execute_pour_tea.py
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/render_full_plan.py
+  ```
+
+
+  To verify VLM selection and frames per stage (only example for now, no VLM)
+  ```
+  # 0. drop the updated files in place
+  #    manip_sim/selection.py, tests/test_selection.py,
+  #    scripts/preview_selections.py, scripts/plan_pour_tea.py
+
+  # 1. make sure candidates.json was written from the REAL meshes
+  PYTHONPATH=. python scripts/propose_interaction_points.py            # dry run: read off constructed IDs
+  PYTHONPATH=. python scripts/propose_interaction_points.py --write
+
+  # 2. verify/fix the candidate IDs in your selections file against step 1's print
+  #    (my example guessed handle_center=1, spout_tip=3, opening_center=1 from the
+  #     smoke pool — your real mug also constructs handle_center and mid_cavity,
+  #     which shifts the mug ordering, and the teapot IDs can differ too)
+
+  # 3. per-stage preview, both arms
+  PYTHONPATH=. python scripts/preview_selections.py outputs/selections/pour_tea.json \
+      --render outputs/selections/preview_stages.png
+  PYTHONPATH=. python scripts/preview_selections.py outputs/selections/pour_tea.json \
+      --refine --tilt-deg 25 --render outputs/selections/preview_stages_refined.png
+
+  # 4. plan through the seam
+  PYTHONPATH=. python scripts/plan_pour_tea.py --selections outputs/selections/pour_tea.json
+  ```

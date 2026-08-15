@@ -133,37 +133,52 @@ def main() -> None:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig = plt.figure(figsize=(7.2 * len(panels), 6.4))
-    for k, (name, V, pool, resolved) in enumerate(panels):
-        ax = fig.add_subplot(1, len(panels), k + 1, projection="3d")
+    # one panel per STAGE ROLE (not per object): overlaid triads at a
+    # shared anchor (pour + transport_active both at spout_tip) are
+    # unreadable; per-role panels show each frame alone on its object.
+    clouds = {name: V for name, V, _, _ in panels}
+    pools = {name: pool for name, _, pool, _ in panels}
+    roles = [(role, name, rf) for name, _, _, resolved in panels
+             for role, rf in resolved.items()]
+    roles.sort(key=lambda t: t[0])
+    ncol = 2
+    nrow = (len(roles) + ncol - 1) // ncol
+    fig = plt.figure(figsize=(6.6 * ncol, 5.8 * nrow))
+    for k, (role, name, rf) in enumerate(roles):
+        V, pool = clouds[name], pools[name]
+        ax = fig.add_subplot(nrow, ncol, k + 1, projection="3d")
         sub = V[:: max(1, len(V) // 4000)]
         ax.scatter(*sub.T, s=1.2, c="0.65", alpha=0.25, linewidths=0)
+        sel_id = rf.selection.candidate_id
         for i, c in sorted(pool.items()):
+            if i == sel_id:
+                continue
             ax.scatter(*np.atleast_2d(c["xyz"]).T, s=8, c="0.35",
                        linewidths=0)
             ax.text(*c["xyz"], f"{i}", fontsize=6, color="0.25")
         L = 0.35 * float(np.linalg.norm(V.max(0) - V.min(0)))
-        for role, rf in sorted(resolved.items()):
-            T = rf.frame.T()
-            o = T[:3, 3]
-            ax.scatter(*np.atleast_2d(o).T, s=45, c="black", marker="o")
-            for col, color, lbl in ((0, "red", "x/front"),
-                                    (1, "goldenrod", "y/left"),
-                                    (2, "blue", "z/axis")):
-                seg = np.array([o, o + L * T[:3, col]])
-                ax.plot(*seg.T, color=color, lw=2.2,
-                        label=lbl if role == sorted(resolved)[0] else None)
-            ax.text(*(o + 1.1 * L * T[:3, 2]), role, fontsize=7,
-                    color="black")
+        T = rf.frame.T()
+        o = T[:3, 3]
+        ax.scatter(*np.atleast_2d(o).T, s=60, c="black", marker="o",
+                   label=f"anchor: mark {sel_id}")
+        for col, color, lbl in ((0, "red", "x/front"),
+                                (1, "goldenrod", "y/left"),
+                                (2, "blue", "z/axis")):
+            seg = np.array([o, o + L * T[:3, col]])
+            ax.plot(*seg.T, color=color, lw=2.6, label=lbl)
         c0 = V.mean(axis=0)
         lim = np.array([c0 - 1.7 * L, c0 + 1.7 * L])
         ax.set_xlim(lim[:, 0]); ax.set_ylim(lim[:, 1])
         ax.set_zlim(lim[:, 2])
         ax.set_box_aspect((1, 1, 1))
         ax.set_axis_off()
-        ax.set_title(f"{name} — {'refined basis' if args.refine else 'frames.json'}",
-                     fontsize=9)
+        ax.set_title(
+            f"{role} — {name}, z = {rf.selection.sign}"
+            f"{rf.selection.axis.partition('.')[2]} ({rf.axis_source}), "
+            f"secondary {rf.secondary_source}", fontsize=9)
         ax.legend(loc="upper left", fontsize=7)
+    fig.suptitle("refined basis" if args.refine else "frames.json arm",
+                 fontsize=10)
     Path(args.render).parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
     fig.savefig(args.render, dpi=140)
