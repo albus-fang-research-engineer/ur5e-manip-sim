@@ -57,6 +57,8 @@ from manip_sim.pour_stages import pour_pair, transport_pair
 from manip_sim.tsr import make_pose, pose_from_pos_quat_wxyz, sample_intersection
 
 TABLE_TOP_Z = 0.8
+# the four frame roles this task consumes from a --selections artifact
+ROLES = {"grasp", "transport_active", "pour", "transport_passive"}
 PREGRASP_STANDOFF = 0.08          # meters back along the approach axis
 LIFT_HEIGHT = 0.05                # straight-up retreat after closing
 APPROACH_STEPS = 12               # joint-interp steps pre-grasp -> grasp
@@ -120,6 +122,9 @@ def main() -> None:
                     help="waypoints holding the pour attitude")
     ap.add_argument("--timeout", type=float, default=20.0)
     ap.add_argument("--out", default="outputs/plans/pour_tea_full.npz")
+    ap.add_argument("--selections", default=None, metavar="JSON",
+                    help="role-keyed touchpoint-#2 selections artifact; "
+                         "absent -> hand-authored frames.json arm")
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
 
@@ -128,11 +133,42 @@ def main() -> None:
 
     teapot_sym = load_symbols("assets/objects/teapot")
     mug_sym = load_symbols("assets/objects/mug")
-    handle = teapot_sym.frame("handle_center", "handle_axis")
-    spout_tip = teapot_sym.frame("spout_tip", "pour_axis")
-    tilt_frame = teapot_sym.frame("spout_tip", "tilt_axis",
-                                  secondary="pour_axis")
-    opening = mug_sym.frame("opening_center", "up_axis")
+    if args.selections:
+        # VLM-selected arm: the four task frames resolved from a role-
+        # keyed touchpoint-#2 artifact (candidate mark ID + grounded
+        # axis + sign) through the candidate pools — the wiring that
+        # replaces the four hardcoded reads below. Missing roles / bad
+        # IDs / unlicensed axes raise typed ResolutionErrors.
+        from manip_sim.selection import (load_pool, load_selections,
+                                         resolve_selection)
+        sels = load_selections(args.selections)
+        missing = ROLES - set(sels)
+        if missing:
+            raise SystemExit(f"[pour_tea] selections file lacks roles "
+                             f"{sorted(missing)} (has {sorted(sels)})")
+        pools = {"teapot": load_pool("assets/objects/teapot"),
+                 "mug": load_pool("assets/objects/mug")}
+        syms = {"teapot": teapot_sym, "mug": mug_sym}
+
+        def _frame(role):
+            s = sels[role]
+            obj = s.axis.partition(".")[0]
+            rf = resolve_selection(s, pools[obj], syms[obj])
+            print(f"[pour_tea] {role}: {rf.frame.comment}")
+            return rf.frame
+
+        handle = _frame("grasp")
+        spout_tip = _frame("transport_active")
+        tilt_frame = _frame("pour")
+        opening = _frame("transport_passive")
+    else:
+        # ground-truth arm of the emission ablation: hand-authored
+        # frames.json composition, unchanged
+        handle = teapot_sym.frame("handle_center", "handle_axis")
+        spout_tip = teapot_sym.frame("spout_tip", "pour_axis")
+        tilt_frame = teapot_sym.frame("spout_tip", "tilt_axis",
+                                      secondary="pour_axis")
+        opening = mug_sym.frame("opening_center", "up_axis")
 
     if objs:
         from manip_sim.state import PoseReader
