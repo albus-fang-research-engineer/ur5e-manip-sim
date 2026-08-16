@@ -95,6 +95,56 @@ def nominal_grip_in_handle(
     return make_pose(np.zeros(3), np.column_stack([x, y, z]))
 
 
+def nominal_grip_in_world(
+    T0_w: np.ndarray, approach_world: np.ndarray, elevation: float
+) -> np.ndarray:
+    """Tw_e via a WORLD-referenced construction — invariant to the sign
+    and azimuth of the handle frame.
+
+    nominal_grip_in_handle builds the nominal in handle-LOCAL coordinates
+    and its "pitch downward" convention silently assumes the calibrated
+    +handle_axis orientation: a licit VLM selection of -handle_axis (sign
+    is the model's disambiguation channel) flips the local rotation sense
+    and pitches the approach 35 deg UP from below — every classifier-
+    consistent proposal is then IK-unreachable. Here "horizontal" and
+    "downward" are world facts:
+
+      approach  horizontal component (world) of approach_world, pointing
+                from outside the handle toward the object body
+      closing   perpendicular to the bar (w frame's +-z column) and to the
+                approach; falls back to world-horizontal if bar || approach
+      pitch     approach rotated toward world -z by `elevation`, sign
+                canonicalized by checking the pitched vector actually
+                descends — never by trusting a frame axis orientation
+
+    Returns Tw_e = T0_w^-1 @ T0_nominal (origin at w's origin).
+    """
+    up = np.array([0.0, 0.0, 1.0])
+    z = np.asarray(approach_world, dtype=float).copy()
+    z -= np.dot(z, up) * up
+    n = np.linalg.norm(z)
+    if n < 1e-9:
+        raise ValueError("approach direction is vertical in world")
+    z /= n
+    bar = T0_w[:3, 2]
+    x = np.cross(z, bar)                     # closing: perpendicular to bar
+    nx = np.linalg.norm(x)
+    if nx < 1e-6:                            # bar parallel to the approach:
+        x = np.cross(z, up)                  # any horizontal perpendicular
+        nx = np.linalg.norm(x)
+    x /= nx
+    z_p = R.from_rotvec(-elevation * x).apply(z)
+    if z_p[2] > z[2] + 1e-12:                # pitched up: rotation axis was
+        x = -x                               # mirrored by frame sign; flip
+        z_p = R.from_rotvec(-elevation * x).apply(z)
+    y = np.cross(z_p, x)
+    T0_nom = make_pose(T0_w[:3, 3], np.column_stack([x, y, z_p]))
+    Rw = T0_w[:3, :3]
+    Tw_e = np.eye(4)
+    Tw_e[:3, :3] = Rw.T @ T0_nom[:3, :3]
+    return Tw_e
+
+
 def wrist_flip(T0_ee: np.ndarray) -> np.ndarray:
     """The parallel-jaw twin: same fingers on the same bar, wrist rotated
     180 deg about the approach (+z) axis. Try both at IK time."""
@@ -125,10 +175,18 @@ def handle_grasp_tsr(
     (sampling it inside propose_handle_grasps to *synthesize* proposals in
     sim is the stand-in for AnyGrasp, not a change of role — the classifier
     still sees arbitrary poses and rejects the off-manifold ones).
+
+    The nominal is built in WORLD coordinates (nominal_grip_in_world):
+    approach_h is lifted back to world through the same frame the caller
+    projected it with, so the resulting TSR is invariant to the sign and
+    azimuth of the handle frame — a VLM selecting -handle_axis yields the
+    same physical grasp region as +handle_axis.
     """
+    T0_w = T0_body @ handle.T()
+    approach_world = T0_w[:3, :3] @ np.asarray(approach_h, dtype=float)
     return TSR(
-        T0_w=T0_body @ handle.T(),
-        Tw_e=nominal_grip_in_handle(approach_h, elevation),
+        T0_w=T0_w,
+        Tw_e=nominal_grip_in_world(T0_w, approach_world, elevation),
         Bw=bounds(
             x=(-lateral_tol, lateral_tol),
             y=(-lateral_tol, lateral_tol),

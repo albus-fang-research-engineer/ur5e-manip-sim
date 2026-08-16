@@ -97,3 +97,26 @@ def test_free_tsr_contains_everything_and_projects_identity():
                       R.random(random_state=rng).as_matrix())
         assert t.contains(T)
         assert t.distance(T) == 0.0
+
+def test_grasp_tsr_invariant_to_handle_frame_sign():
+    """A licit VLM selection of -handle_axis must yield the same physical
+    grasp region as +handle_axis (regression: the local-coordinate nominal
+    pitched the approach UP from below under the flipped frame, making
+    every classifier-consistent proposal IK-unreachable)."""
+    center = np.array([0.0656, -0.0661, 0.0019])
+    axis = np.array([0.0109, 0.023, 0.9997])       # calibrated teapot bar
+    T0_body = make_pose([0.0, -0.251, 0.865])
+    zeros = []
+    for sgn in (1.0, -1.0):
+        f = Frame("h", point=center.copy(), axis=sgn * axis,
+                  secondary=np.array([0.0, 0.0, -1.0]))
+        a_h = f.T()[:3, :3].T @ (-center)          # caller's projection
+        tsr = handle_grasp_tsr(T0_body, f, a_h)
+        zeros.append(tsr.zero())
+    A, B = zeros
+    assert np.allclose(A[:3, 3], B[:3, 3])         # same grip point
+    assert np.allclose(A[:3, 2], B[:3, 2])         # same world approach
+    assert A[2, 2] < -0.3                          # pitched DOWN, always
+    # closing axis equal up to the parallel-jaw twin
+    assert (np.allclose(A[:3, 0], B[:3, 0])
+            or np.allclose(A[:3, 0], -B[:3, 0]))
