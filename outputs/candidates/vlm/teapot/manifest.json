@@ -1,0 +1,98 @@
+{
+  "object": "teapot",
+  "source": "assets/objects/teapot/candidates.json",
+  "parts_filter": [
+    "handle",
+    "spout"
+  ],
+  "ids": [
+    0,
+    1,
+    2,
+    3,
+    8,
+    9,
+    15,
+    16
+  ],
+  "menu": {
+    "0": "constructed base_center (base)",
+    "1": "constructed handle_center (handle)",
+    "2": "constructed lid_center (lid)",
+    "3": "constructed spout_tip (spout)",
+    "8": "part:handle",
+    "9": "part:handle",
+    "15": "part:spout",
+    "16": "part:spout"
+  },
+  "views": {
+    "+x": {
+      "path": "outputs/candidates/vlm/teapot/px.png",
+      "visible_ids": [
+        1,
+        8,
+        9
+      ]
+    },
+    "-x": {
+      "path": "outputs/candidates/vlm/teapot/nx.png",
+      "visible_ids": [
+        3,
+        9,
+        16
+      ]
+    },
+    "+y": {
+      "path": "outputs/candidates/vlm/teapot/py.png",
+      "visible_ids": [
+        3,
+        9,
+        15
+      ]
+    },
+    "-y": {
+      "path": "outputs/candidates/vlm/teapot/ny.png",
+      "visible_ids": [
+        1,
+        9,
+        16
+      ]
+    },
+    "top": {
+      "path": "outputs/candidates/vlm/teapot/top.png",
+      "visible_ids": [
+        3,
+        9,
+        15,
+        16
+      ]
+    },
+    "bottom": {
+      "path": "outputs/candidates/vlm/teapot/bottom.png",
+      "visible_ids": [
+        0,
+        3,
+        8,
+        16
+      ]
+    },
+    "iso": {
+      "path": "outputs/candidates/vlm/teapot/iso.png",
+      "visible_ids": [
+        1,
+        3,
+        8,
+        9,
+        15
+      ]
+    },
+    "iso-opp": {
+      "path": "outputs/candidates/vlm/teapot/isonopp.png",
+      "visible_ids": [
+        1,
+        9,
+        16
+      ]
+    }
+  }
+}

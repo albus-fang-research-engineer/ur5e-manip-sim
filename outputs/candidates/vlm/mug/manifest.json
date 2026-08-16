@@ -1,0 +1,102 @@
+{
+  "object": "mug",
+  "source": "assets/objects/mug/candidates.json",
+  "parts_filter": [
+    "rim"
+  ],
+  "ids": [
+    0,
+    1,
+    2,
+    3,
+    12,
+    13,
+    16,
+    17
+  ],
+  "menu": {
+    "0": "constructed base_center (base)",
+    "1": "constructed handle_center (handle)",
+    "2": "constructed opening_center (rim)",
+    "3": "constructed mid_cavity",
+    "12": "part:rim",
+    "13": "part:rim",
+    "16": "curvature",
+    "17": "curvature"
+  },
+  "views": {
+    "+x": {
+      "path": "outputs/candidates/vlm/mug/px.png",
+      "visible_ids": [
+        2,
+        12,
+        13,
+        17
+      ]
+    },
+    "-x": {
+      "path": "outputs/candidates/vlm/mug/nx.png",
+      "visible_ids": [
+        2,
+        12,
+        13
+      ]
+    },
+    "+y": {
+      "path": "outputs/candidates/vlm/mug/py.png",
+      "visible_ids": [
+        1,
+        2,
+        12,
+        13,
+        17
+      ]
+    },
+    "-y": {
+      "path": "outputs/candidates/vlm/mug/ny.png",
+      "visible_ids": [
+        1,
+        2,
+        12,
+        13
+      ]
+    },
+    "top": {
+      "path": "outputs/candidates/vlm/mug/top.png",
+      "visible_ids": [
+        0,
+        2,
+        3,
+        12,
+        13
+      ]
+    },
+    "bottom": {
+      "path": "outputs/candidates/vlm/mug/bottom.png",
+      "visible_ids": [
+        0,
+        16,
+        17
+      ]
+    },
+    "iso": {
+      "path": "outputs/candidates/vlm/mug/iso.png",
+      "visible_ids": [
+        1,
+        2,
+        12,
+        13,
+        17
+      ]
+    },
+    "iso-opp": {
+      "path": "outputs/candidates/vlm/mug/isonopp.png",
+      "visible_ids": [
+        2,
+        12,
+        13,
+        16
+      ]
+    }
+  }
+}
