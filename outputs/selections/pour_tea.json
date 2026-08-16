@@ -1,10 +1,30 @@
 {
-  "grasp":             {"candidate_id": 1, "axis": "teapot.handle_axis", "sign": "+", "secondary": null,
-                        "rationale": "grasp the handle bar along its axis"},
-  "transport_active":  {"candidate_id": 3, "axis": "teapot.pour_axis",   "sign": "+", "secondary": null,
-                        "rationale": "spout tip leads toward the mug"},
-  "pour":              {"candidate_id": 3, "axis": "teapot.tilt_axis",   "sign": "+", "secondary": "teapot.pour_axis",
-                        "rationale": "pivot about the tilt axis at the spout tip"},
-  "transport_passive": {"candidate_id": 1, "axis": "mug.up_axis",        "sign": "+", "secondary": null,
-                        "rationale": "receive along the opening normal"}
+  "grasp": {
+    "candidate_id": 1,
+    "axis": "teapot.handle_axis",
+    "sign": "-",
+    "secondary": null,
+    "rationale": "For grasping the teapot handle, the constructed handle_center (candidate 1) is the ideal interaction point as it represents the geometric center of the handle loop, providing a stable grasp location. The handle_axis defines the orientation of the handle relative to the teapot body. The negative sign is chosen because the handle extends in the negative handle_axis direction from the teapot body, and the approach direction for grasping should be oriented outward from the handle center away from the pot body."
+  },
+  "transport_active": {
+    "candidate_id": 3,
+    "axis": "teapot.pour_axis",
+    "sign": "+",
+    "secondary": "teapot.up_axis",
+    "rationale": "Candidate 3 is the constructed spout_tip point, which is the exact tip of the teapot spout \u2014 the point that must be positioned over the mug opening during the carry stage. The relevant grounded axis is teapot.pour_axis with positive sign, as it defines the direction along which liquid exits the spout and thus governs the alignment of the spout tip over the mug. The up_axis is secondary to ensure the teapot remains upright during the carry motion."
+  },
+  "pour": {
+    "candidate_id": 3,
+    "axis": "teapot.tilt_axis",
+    "sign": "+",
+    "secondary": null,
+    "rationale": "Stage 3 requires tilting the teapot about the spout tip to pour liquid into the mug. Candidate 3 is the constructed spout_tip point, which is the natural pivot/interaction point for this pouring tilt motion. The tilt_axis is the appropriate axis for rotating the teapot to pour, and the positive sign tilts the spout downward toward the mug opening."
+  },
+  "transport_passive": {
+    "candidate_id": 2,
+    "axis": "mug.up_axis",
+    "sign": "+",
+    "secondary": null,
+    "rationale": "Stage 2 requires the mug opening (rim) to be the interaction point \u2014 the spout must reach into or align with the mug opening. Candidate 2 is the constructed opening_center at the rim, which is the canonical center of the mug's circular opening. It is visible from the top view at the center of the rim circle, and from side views it sits at the top of the mug. The relevant axis is mug.up_axis with positive sign, as the opening faces upward and the spout approaches from above along the up axis."
+  }
 }
