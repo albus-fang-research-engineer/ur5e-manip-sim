@@ -489,18 +489,33 @@ def main() -> None:
     # walk the ranking (same funnel shape as stage 1's candidate walk):
     # a planning failure on one goal is attrition, not a verdict — the
     # next entry is usually at a different azimuth and connects fine
-    res2 = None
+    res2, fails2 = None, []
     for k, (_no_pour, _dist, q_goal2) in enumerate(ranked2):
         r = plan_constrained(kin_att, attached, [pair.path], q_lift,
                              q_goal2, timeout=args.timeout)
         if r.ok:
             res2 = r
             break
+        fails2.append(r)
         print(f"[transport]   goal {k + 1}/{len(ranked2)} skipped: "
               f"{r.reason} (tree sizes {r.stats.get('tree_sizes')})")
     if res2 is None:
-        raise SystemExit("[transport] planning failed on every ranked goal "
-                         "— raise --n-goal-samples for more entries.")
+        # escalate with the reason HISTOGRAM, not a prescribed repair:
+        # the three typed reasons plan_constrained emits map to three
+        # disjoint repairs (projection failed -> path-tolerance token /
+        # degenerate subgoal-int-path; collision after projection ->
+        # re-site the goal region; timeout -> raise --timeout, or more
+        # samples if the tree sizes say the goal sat in a pocket).
+        # Choosing the branch is the router's job — human today,
+        # call #5 later — so the exit carries the diagnosis verbatim,
+        # matching stage 3's reason-verbatim convention. fails2 (reasons
+        # + tree sizes per goal) is the future typed-failure payload.
+        from collections import Counter
+        tally = Counter(r.reason for r in fails2)
+        raise SystemExit(
+            f"[transport] planning failed on all {len(fails2)} ranked "
+            "goals: " + ", ".join(f"{n}x '{reason}'" for reason, n
+                                  in tally.most_common()))
     print(f"[transport] path: {res2.stats['n_waypoints']} waypoints in "
           f"{res2.solve_time:.2f}s; max path-TSR excess {res2.max_excess:.4f}")
     q2_end = res2.path[-1]
