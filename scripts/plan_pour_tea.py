@@ -78,11 +78,46 @@ def _synthetic_object_poses(teapot_sym):
     return T0_teapot, T0_mug
 
 
+def _funnel_offender(kin) -> str:
+    """Name the first non-whitelisted deep-contact body pair in the
+    scratch data — call immediately after kin.in_collision(q) returned
+    True (the scratch world still holds that config, and in_collision
+    returns on the first offender, so iteration order reproduces it).
+    Mirrors the in_collision filter of whichever kinematics is passed:
+    AttachedArmKinematics widens the watch/whitelist to the carried
+    object; bare ArmKinematics watches the robot only."""
+    import mujoco as _mj
+    watched = ("robot0", "gripper0", "mount0")
+    allowed = [("gripper0", "gripper0")]
+    obj = getattr(kin, "object_prefix", None)
+    if obj:
+        watched = watched + (obj,)
+        allowed.append(("gripper0", obj))
+    for i in range(kin.data.ncon):
+        con = kin.data.contact[i]
+        if con.dist > -1e-4:
+            continue
+        b1 = _mj.mj_id2name(kin.model, _mj.mjtObj.mjOBJ_BODY,
+                            kin.model.geom_bodyid[con.geom1]) or ""
+        b2 = _mj.mj_id2name(kin.model, _mj.mjtObj.mjOBJ_BODY,
+                            kin.model.geom_bodyid[con.geom2]) or ""
+        if not (b1.startswith(watched) or b2.startswith(watched)):
+            continue
+        if any((b1.startswith(p) and b2.startswith(s)) or
+               (b1.startswith(s) and b2.startswith(p))
+               for p, s in allowed):
+            continue
+        return " <-> ".join(sorted((b1, b2)))
+    return "?"
+
+
 def _goal_funnel(rep, ik, kin, attached, seeds, containment, label,
                  q_ref, ik_kw=None):
     """Shared stage-2/3 funnel: sampled body poses -> IK -> collision ->
     containment of the ACHIEVED config; sorted nearest q_ref first."""
+    from collections import Counter
     goals, n_ik, n_col = [], 0, 0
+    offenders = Counter()
     t0 = time.time()
     for T_body in rep.accepted:
         T_ee = T_body @ np.linalg.inv(attached.T_ee_body)
@@ -91,6 +126,7 @@ def _goal_funnel(rep, ik, kin, attached, seeds, containment, label,
             continue
         n_ik += 1
         if kin.in_collision(q):
+            offenders[_funnel_offender(kin)] += 1
             continue
         n_col += 1
         T_ach = attached.body_pose(kin.fk(q))
@@ -99,6 +135,9 @@ def _goal_funnel(rep, ik, kin, attached, seeds, containment, label,
     print(f"[{label}] goal funnel: {len(rep.accepted)} sampled -> "
           f"{n_ik} IK-feasible -> {n_col} collision-free -> "
           f"{len(goals)} contained  ({time.time() - t0:.1f}s)")
+    if offenders:
+        print(f"[{label}] collision offenders: " + ", ".join(
+            f"{pair} x{n}" for pair, n in offenders.most_common()))
     goals.sort(key=lambda q: float(np.linalg.norm(q - q_ref)))
     return goals
 
@@ -429,8 +468,12 @@ def main() -> None:
         T_ent = attached.body_pose(kin_att.fk(q))
         pp = pour_pair(T_ent, tilt_frame,
                        tilt_target=np.deg2rad(args.tilt_deg))
+        # nominal(), NOT zero(): the pour pair's Tw_e composes zero()
+        # back to the entry pose itself (IK to where the arm already is
+        # — a gate that always passes). The Bw midpoint is the actual
+        # tilt_target attitude about the tilt axis at the tip.
         qp, ok = ik_att.solve_multiseed(
-            pp.subgoal.zero() @ np.linalg.inv(attached.T_ee_body),
+            pp.subgoal.nominal() @ np.linalg.inv(attached.T_ee_body),
             [q] + seeds, iters=200)
         pour_ok = ok and not kin_att.in_collision(qp)
         ranked2.append((not pour_ok, float(np.linalg.norm(q - q_lift)), q))
@@ -443,10 +486,21 @@ def main() -> None:
         print("[transport] WARNING: no probed entry admits the pour — "
               "proceeding with nearest goal; expect stage 3 to fail "
               "(lower --tilt-deg or raise --n-goal-samples).")
-    res2 = plan_constrained(kin_att, attached, [pair.path], q_lift,
-                            ranked2[0][2], timeout=args.timeout)
-    if not res2.ok:
-        raise SystemExit(f"[transport] planning failed: {res2.reason}")
+    # walk the ranking (same funnel shape as stage 1's candidate walk):
+    # a planning failure on one goal is attrition, not a verdict — the
+    # next entry is usually at a different azimuth and connects fine
+    res2 = None
+    for k, (_no_pour, _dist, q_goal2) in enumerate(ranked2):
+        r = plan_constrained(kin_att, attached, [pair.path], q_lift,
+                             q_goal2, timeout=args.timeout)
+        if r.ok:
+            res2 = r
+            break
+        print(f"[transport]   goal {k + 1}/{len(ranked2)} skipped: "
+              f"{r.reason} (tree sizes {r.stats.get('tree_sizes')})")
+    if res2 is None:
+        raise SystemExit("[transport] planning failed on every ranked goal "
+                         "— raise --n-goal-samples for more entries.")
     print(f"[transport] path: {res2.stats['n_waypoints']} waypoints in "
           f"{res2.solve_time:.2f}s; max path-TSR excess {res2.max_excess:.4f}")
     q2_end = res2.path[-1]

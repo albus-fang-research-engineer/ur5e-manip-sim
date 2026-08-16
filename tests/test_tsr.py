@@ -267,3 +267,40 @@ def test_shipped_sidecars_load():
     # tilt axis really is up x pour (the positive-roll-pours convention)
     assert np.allclose(np.cross(teapot.axes["up_axis"], teapot.axes["pour_axis"]),
                        teapot.axes["tilt_axis"], atol=1e-3)
+
+def test_pour_subgoal_nominal_is_the_tilted_pose_not_the_entry():
+    """Regression for the vacuous stage-2 pour gate: pour_pair composes
+    Tw_e so that zero() reproduces the ENTRY body pose exactly (IK to
+    where the arm already is — always feasible, gates nothing), while
+    nominal() must be the entry rotated by tilt_target about the tilt
+    axis at the spout tip."""
+    from manip_sim.frames import load_symbols
+    sym = load_symbols("assets/objects/teapot")
+    tilt_frame = sym.frame("spout_tip", "tilt_axis", secondary="pour_axis")
+    T_entry = np.eye(4)
+    T_entry[:3, 3] = [0.1, -0.2, 0.9]
+    tilt = np.deg2rad(95.0)
+    pair = pour_pair(T_entry, tilt_frame, tilt_target=tilt)
+
+    # zero() == entry, byte for byte — the property that made the old
+    # gate vacuous
+    assert np.allclose(pair.subgoal.zero(), T_entry, atol=1e-12)
+
+    # nominal() is contained (it is the Bw midpoint) and differs from
+    # the entry by tilt_target about the world tilt axis
+    assert pair.subgoal.contains(pair.subgoal.nominal(), tol=1e-9)
+    T_nom = pair.subgoal.nominal()
+    dR = R.from_matrix(T_nom[:3, :3] @ T_entry[:3, :3].T)
+    axis_world = T_entry[:3, :3] @ tilt_frame.T()[:3, 2]
+    rv = dR.as_rotvec()
+    assert np.linalg.norm(rv) == pytest.approx(tilt, abs=1e-6)
+    assert abs(np.dot(rv / np.linalg.norm(rv), axis_world)) == \
+        pytest.approx(1.0, abs=1e-6)
+    # and the pivot held: the tip did not translate
+    tip_w = (T_entry @ np.append(tilt_frame.point, 1.0))[:3]
+    tip_n = (T_nom @ np.append(tilt_frame.point, 1.0))[:3]
+    assert np.allclose(tip_w, tip_n, atol=1e-9)
+
+    # symmetric-bounds TSRs are unaffected: nominal == zero
+    from manip_sim.grasping import free_tsr
+    assert np.allclose(free_tsr().nominal(), free_tsr().zero(), atol=1e-12)

@@ -229,6 +229,20 @@ class TSR:
         """The pose at zero displacement (w coincident with its offset e)."""
         return self.T0_w @ self.Tw_e
 
+    def nominal(self) -> np.ndarray:
+        """The pose at the Bw MIDPOINT displacement — the center of the
+        admissible region. Distinct from zero() whenever the bounds are
+        offset from the origin: for the pour subgoal (roll = tilt +- tol)
+        zero() is the untilted ENTRY pose itself (T0_w @ Tw_e composes
+        back to T0_body_at_entry), which is not even contained in the
+        TSR — a feasibility gate built on zero() checks nothing. Free
+        rows midpoint to 0, so nominal() == zero() for symmetric TSRs
+        (FREE_TRANS rows are infinite: their midpoint is defined as 0)."""
+        lo, hi = self.Bw[:, 0], self.Bw[:, 1]
+        mid = np.where(np.isfinite(lo) & np.isfinite(hi),
+                       0.5 * (lo + hi), 0.0)
+        return self.T0_w @ displacement_to_pose(mid) @ self.Tw_e
+
 
 # ----------------------------------------------------------------- intersection
 
