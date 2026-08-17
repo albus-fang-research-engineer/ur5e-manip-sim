@@ -70,6 +70,8 @@ from manip_sim.pour_stages import pour_pair, transport_pair
 from manip_sim.provenance import (add_arm_flag, announce, metrics_path,
                                   read_selections, resolve_arm,
                                   resolve_plan_path, video_path)
+from manip_sim.replan import (ReplanError, TaskFrames, replan_from_stage,
+                              slip_exceeds)
 
 ARM_OUTPUT_MAX = 0.05             # rad/step commanded delta cap (1 rad/s @20Hz)
 
@@ -135,6 +137,9 @@ def main() -> None:
     ap.add_argument("--allow-meshfree", action="store_true",
                     help="run the trajectory without objects (controller "
                          "smoke test; no grasp, no slip metrics)")
+    ap.add_argument("--no-reanchor", action="store_true",
+                    help="disable slip-triggered stage re-anchoring (the "
+                         "stale-plan baseline arm of the re-plan ablation)")
     args = ap.parse_args()
 
     import os, time as _time
@@ -272,10 +277,62 @@ def main() -> None:
     print("\n============== stage 2: transport ==============")
     staged_run("transport", p2, tpair.path if have_teapot else None)
 
+    # ------------- stage boundary 2->3: slip-triggered re-anchor -----------
+    # The one interior boundary before a precision stage in this task; the
+    # mechanism (replan_from_stage + slip_exceeds) is stage-generic. The
+    # STANDING residual — where the pot settled, not the transient max —
+    # is compared against what the pour subgoal's own B^w tolerates; the
+    # constraints are unchanged (slip is a perception update, not an
+    # authoring error), only the stale T_ee_body is re-measured.
+    ppair = None
+    if have_teapot and not args.no_reanchor and slip.history:
+        standing = slip.history[-1]
+        probe = pour_pair(arm.body_pose("teapot"), tilt_frame,
+                          tilt_target=tilt_target)
+        fire, tol_pos, tol_rot = slip_exceeds(standing, probe.subgoal)
+        print(f"[boundary 2->3] standing slip {standing[0] * 1000:.1f} mm / "
+              f"{np.rad2deg(standing[1]):.1f} deg vs pour-subgoal tolerance "
+              f"{tol_pos * 1000:.1f} mm / {np.rad2deg(tol_rot):.1f} deg")
+        metrics["boundary_standing_slip"] = [standing[0] * 1000,
+                                             float(np.rad2deg(standing[1]))]
+        metrics["boundary_tolerance"] = [tol_pos * 1000,
+                                         float(np.rad2deg(tol_rot))]
+        if fire:
+            print("[boundary 2->3] slip exceeds the pour subgoal's "
+                  "tolerance -> re-anchor: re-measure T_ee_body, re-plan "
+                  "stage 3 from the measured entry")
+            metrics["transport_slip_final"] = {
+                "max_mm": slip.max_dpos * 1000,
+                "max_deg": float(np.rad2deg(slip.max_drot))}
+            T_ee_body = np.linalg.inv(arm.ee_pose()) @ arm.body_pose("teapot")
+            slip = SlipMonitor(T_ee_body)      # re-frozen at the new grip
+            try:
+                rr = replan_from_stage(
+                    3, env=env, q_now=arm.q(), T_ee_body=T_ee_body,
+                    T_teapot_now=arm.body_pose("teapot"),
+                    T0_mug=T0_mug_plan,
+                    frames=TaskFrames(
+                        spout_tip=spout_tip, tilt_frame=tilt_frame,
+                        opening=opening,
+                        rim_margin=mug_sym.quantities.get(
+                            "rim_radius", 0.04) * 0.5),
+                    tilt_target=tilt_target,
+                    object_joint=env.objects["teapot"].joints[0])
+                p3 = rr.path                   # replaces the stale stage 3
+                ppair = rr.pairs[3]            # frozen at the SAME entry
+                metrics["reanchor"] = {"fired": True, "ok": True}
+                print(f"[boundary 2->3] re-planned pour: {len(p3)} waypoints")
+            except ReplanError as e:
+                metrics["reanchor"] = {"fired": True, "ok": False,
+                                       "stage": e.stage, "reason": e.reason}
+                print(f"[boundary 2->3] re-plan failed ({e.reason}); "
+                      "falling through to the stale stage-3 plan")
+        else:
+            metrics["reanchor"] = {"fired": False}
+
     # ========================================================= stage 3: pour
     print("\n================= stage 3: pour ================")
-    ppair = None
-    if have_teapot:
+    if have_teapot and ppair is None:
         # frozen at the MEASURED entry — where transport actually ended
         ppair = pour_pair(arm.body_pose("teapot"), tilt_frame,
                           tilt_target=tilt_target)
