@@ -6,74 +6,77 @@
     "spout"
   ],
   "ids": [
-    0,
     1,
-    2,
     3,
-    8,
-    9,
+    12,
+    13,
+    14,
     15,
-    16
+    27,
+    28
   ],
   "menu": {
-    "0": "constructed base_center (base)",
     "1": "constructed handle_center (handle)",
-    "2": "constructed lid_center (lid)",
     "3": "constructed spout_tip (spout)",
-    "8": "part:handle",
-    "9": "part:handle",
-    "15": "part:spout",
-    "16": "part:spout"
+    "12": "part:handle",
+    "13": "part:handle",
+    "14": "part:handle",
+    "15": "part:handle",
+    "27": "part:spout",
+    "28": "part:spout"
   },
   "views": {
     "+x": {
       "path": "outputs/candidates/vlm/teapot/px.png",
       "visible_ids": [
         1,
-        8,
-        9
+        12,
+        13,
+        14,
+        15
       ]
     },
     "-x": {
       "path": "outputs/candidates/vlm/teapot/nx.png",
       "visible_ids": [
         3,
-        9,
-        16
+        13,
+        28
       ]
     },
     "+y": {
       "path": "outputs/candidates/vlm/teapot/py.png",
       "visible_ids": [
         3,
-        9,
-        15
+        13,
+        27
       ]
     },
     "-y": {
       "path": "outputs/candidates/vlm/teapot/ny.png",
       "visible_ids": [
         1,
-        9,
-        16
+        13,
+        14,
+        15,
+        28
       ]
     },
     "top": {
       "path": "outputs/candidates/vlm/teapot/top.png",
       "visible_ids": [
         3,
-        9,
-        15,
-        16
+        13,
+        27,
+        28
       ]
     },
     "bottom": {
       "path": "outputs/candidates/vlm/teapot/bottom.png",
       "visible_ids": [
-        0,
         3,
-        8,
-        16
+        12,
+        28
       ]
     },
     "iso": {
@@ -81,17 +84,18 @@
       "visible_ids": [
         1,
         3,
-        8,
-        9,
-        15
+        12,
+        13,
+        15,
+        27
       ]
     },
     "iso-opp": {
       "path": "outputs/candidates/vlm/teapot/isonopp.png",
       "visible_ids": [
         1,
-        9,
-        16
+        13,
+        28
       ]
     }
   }

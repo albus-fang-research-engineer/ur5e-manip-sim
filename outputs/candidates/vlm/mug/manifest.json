@@ -9,37 +9,39 @@
     1,
     2,
     3,
-    12,
-    13,
-    16,
-    17
+    20,
+    21,
+    28,
+    29
   ],
   "menu": {
     "0": "constructed base_center (base)",
     "1": "constructed handle_center (handle)",
     "2": "constructed opening_center (rim)",
     "3": "constructed mid_cavity",
-    "12": "part:rim",
-    "13": "part:rim",
-    "16": "curvature",
-    "17": "curvature"
+    "20": "part:rim",
+    "21": "part:rim",
+    "28": "curvature",
+    "29": "curvature"
   },
   "views": {
     "+x": {
       "path": "outputs/candidates/vlm/mug/px.png",
       "visible_ids": [
         2,
-        12,
-        13,
-        17
+        20,
+        21,
+        28
       ]
     },
     "-x": {
       "path": "outputs/candidates/vlm/mug/nx.png",
       "visible_ids": [
         2,
-        12,
-        13
+        20,
+        21,
+        28,
+        29
       ]
     },
     "+y": {
@@ -47,9 +49,8 @@
       "visible_ids": [
         1,
         2,
-        12,
-        13,
-        17
+        20,
+        21
       ]
     },
     "-y": {
@@ -57,8 +58,10 @@
       "visible_ids": [
         1,
         2,
-        12,
-        13
+        20,
+        21,
+        28,
+        29
       ]
     },
     "top": {
@@ -67,16 +70,15 @@
         0,
         2,
         3,
-        12,
-        13
+        20,
+        21,
+        28
       ]
     },
     "bottom": {
       "path": "outputs/candidates/vlm/mug/bottom.png",
       "visible_ids": [
-        0,
-        16,
-        17
+        0
       ]
     },
     "iso": {
@@ -84,18 +86,20 @@
       "visible_ids": [
         1,
         2,
-        12,
-        13,
-        17
+        20,
+        21,
+        28,
+        29
       ]
     },
     "iso-opp": {
       "path": "outputs/candidates/vlm/mug/isonopp.png",
       "visible_ids": [
         2,
-        12,
-        13,
-        16
+        20,
+        21,
+        28,
+        29
       ]
     }
   }

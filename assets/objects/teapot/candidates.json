@@ -7,7 +7,7 @@
     "dense_samples": 20000,
     "fps_quota": 16,
     "curvature_quota": 12,
-    "part_quota_each": 4,
+    "part_quota_each": 8,
     "curvature_quantile": 0.9,
     "pool_budget": 48,
     "nms_radius_m": 0.01,
@@ -16,15 +16,15 @@
   "class_counts": {
     "raw": {
       "constructed": 4,
-      "part": 16,
+      "part": 32,
       "curvature": 12,
       "fps": 16
     },
     "kept": {
       "constructed": 4,
-      "part": 15,
-      "curvature": 10,
-      "fps": 11
+      "part": 31,
+      "curvature": 9,
+      "fps": 4
     }
   },
   "coverage_readmitted_parts": [],
@@ -123,6 +123,50 @@
     },
     {
       "xyz": [
+        -0.0697,
+        -0.0233,
+        -0.0632
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 8
+    },
+    {
+      "xyz": [
+        -0.0065,
+        0.0752,
+        -0.0629
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 9
+    },
+    {
+      "xyz": [
+        0.0127,
+        -0.0166,
+        -0.0636
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 10
+    },
+    {
+      "xyz": [
+        -0.069,
+        0.0315,
+        -0.0629
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 11
+    },
+    {
+      "xyz": [
         0.0646,
         -0.0552,
         -0.0396
@@ -130,7 +174,7 @@
       "source": "part",
       "part": "handle",
       "on_surface": true,
-      "id": 8
+      "id": 12
     },
     {
       "xyz": [
@@ -141,7 +185,7 @@
       "source": "part",
       "part": "handle",
       "on_surface": true,
-      "id": 9
+      "id": 13
     },
     {
       "xyz": [
@@ -152,7 +196,7 @@
       "source": "part",
       "part": "handle",
       "on_surface": true,
-      "id": 10
+      "id": 14
     },
     {
       "xyz": [
@@ -163,7 +207,51 @@
       "source": "part",
       "part": "handle",
       "on_surface": true,
-      "id": 11
+      "id": 15
+    },
+    {
+      "xyz": [
+        0.0289,
+        -0.0736,
+        -0.0276
+      ],
+      "source": "part",
+      "part": "handle",
+      "on_surface": true,
+      "id": 16
+    },
+    {
+      "xyz": [
+        0.0761,
+        -0.0238,
+        -0.0316
+      ],
+      "source": "part",
+      "part": "handle",
+      "on_surface": true,
+      "id": 17
+    },
+    {
+      "xyz": [
+        0.0677,
+        -0.0762,
+        -0.0147
+      ],
+      "source": "part",
+      "part": "handle",
+      "on_surface": true,
+      "id": 18
+    },
+    {
+      "xyz": [
+        0.0806,
+        -0.0752,
+        0.0415
+      ],
+      "source": "part",
+      "part": "handle",
+      "on_surface": true,
+      "id": 19
     },
     {
       "xyz": [
@@ -174,7 +262,7 @@
       "source": "part",
       "part": "lid",
       "on_surface": true,
-      "id": 12
+      "id": 20
     },
     {
       "xyz": [
@@ -185,7 +273,7 @@
       "source": "part",
       "part": "lid",
       "on_surface": true,
-      "id": 13
+      "id": 21
     },
     {
       "xyz": [
@@ -196,7 +284,51 @@
       "source": "part",
       "part": "lid",
       "on_surface": true,
-      "id": 14
+      "id": 22
+    },
+    {
+      "xyz": [
+        -0.0199,
+        -0.0249,
+        0.0488
+      ],
+      "source": "part",
+      "part": "lid",
+      "on_surface": true,
+      "id": 23
+    },
+    {
+      "xyz": [
+        -0.0353,
+        0.0115,
+        0.0485
+      ],
+      "source": "part",
+      "part": "lid",
+      "on_surface": true,
+      "id": 24
+    },
+    {
+      "xyz": [
+        0.0203,
+        -0.0144,
+        0.049
+      ],
+      "source": "part",
+      "part": "lid",
+      "on_surface": true,
+      "id": 25
+    },
+    {
+      "xyz": [
+        -0.0002,
+        0.0325,
+        0.0487
+      ],
+      "source": "part",
+      "part": "lid",
+      "on_surface": true,
+      "id": 26
     },
     {
       "xyz": [
@@ -207,7 +339,7 @@
       "source": "part",
       "part": "spout",
       "on_surface": true,
-      "id": 15
+      "id": 27
     },
     {
       "xyz": [
@@ -218,7 +350,7 @@
       "source": "part",
       "part": "spout",
       "on_surface": true,
-      "id": 16
+      "id": 28
     },
     {
       "xyz": [
@@ -229,7 +361,7 @@
       "source": "part",
       "part": "spout",
       "on_surface": true,
-      "id": 17
+      "id": 29
     },
     {
       "xyz": [
@@ -240,7 +372,51 @@
       "source": "part",
       "part": "spout",
       "on_surface": true,
-      "id": 18
+      "id": 30
+    },
+    {
+      "xyz": [
+        -0.0428,
+        0.0666,
+        -0.0573
+      ],
+      "source": "part",
+      "part": "spout",
+      "on_surface": true,
+      "id": 31
+    },
+    {
+      "xyz": [
+        -0.0534,
+        0.0703,
+        0.0222
+      ],
+      "source": "part",
+      "part": "spout",
+      "on_surface": true,
+      "id": 32
+    },
+    {
+      "xyz": [
+        -0.0649,
+        0.0578,
+        -0.0287
+      ],
+      "source": "part",
+      "part": "spout",
+      "on_surface": true,
+      "id": 33
+    },
+    {
+      "xyz": [
+        -0.0712,
+        0.068,
+        -0.0018
+      ],
+      "source": "part",
+      "part": "spout",
+      "on_surface": true,
+      "id": 34
     },
     {
       "xyz": [
@@ -251,7 +427,7 @@
       "source": "curvature",
       "saliency": 1082442.2871,
       "on_surface": true,
-      "id": 19
+      "id": 35
     },
     {
       "xyz": [
@@ -262,7 +438,7 @@
       "source": "curvature",
       "saliency": 952161.3943,
       "on_surface": true,
-      "id": 20
+      "id": 36
     },
     {
       "xyz": [
@@ -273,7 +449,7 @@
       "source": "curvature",
       "saliency": 900103.286,
       "on_surface": true,
-      "id": 21
+      "id": 37
     },
     {
       "xyz": [
@@ -284,7 +460,7 @@
       "source": "curvature",
       "saliency": 796024.7421,
       "on_surface": true,
-      "id": 22
+      "id": 38
     },
     {
       "xyz": [
@@ -295,7 +471,7 @@
       "source": "curvature",
       "saliency": 658761.5732,
       "on_surface": true,
-      "id": 23
+      "id": 39
     },
     {
       "xyz": [
@@ -306,7 +482,7 @@
       "source": "curvature",
       "saliency": 602588.8322,
       "on_surface": true,
-      "id": 24
+      "id": 40
     },
     {
       "xyz": [
@@ -317,18 +493,7 @@
       "source": "curvature",
       "saliency": 580456.4764,
       "on_surface": true,
-      "id": 25
-    },
-    {
-      "xyz": [
-        -0.013,
-        -0.0318,
-        0.047
-      ],
-      "source": "curvature",
-      "saliency": 340810.5995,
-      "on_surface": true,
-      "id": 26
+      "id": 41
     },
     {
       "xyz": [
@@ -339,7 +504,7 @@
       "source": "curvature",
       "saliency": 245930.1711,
       "on_surface": true,
-      "id": 27
+      "id": 42
     },
     {
       "xyz": [
@@ -350,7 +515,7 @@
       "source": "curvature",
       "saliency": 239910.4652,
       "on_surface": true,
-      "id": 28
+      "id": 43
     },
     {
       "xyz": [
@@ -360,7 +525,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 29
+      "id": 44
     },
     {
       "xyz": [
@@ -370,7 +535,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 30
+      "id": 45
     },
     {
       "xyz": [
@@ -380,7 +545,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 31
+      "id": 46
     },
     {
       "xyz": [
@@ -390,77 +555,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 32
-    },
-    {
-      "xyz": [
-        0.0026,
-        -0.0759,
-        -0.008
-      ],
-      "source": "fps",
-      "on_surface": true,
-      "id": 33
-    },
-    {
-      "xyz": [
-        -0.0782,
-        0.007,
-        -0.0009
-      ],
-      "source": "fps",
-      "on_surface": true,
-      "id": 34
-    },
-    {
-      "xyz": [
-        -0.0024,
-        -0.0002,
-        -0.0579
-      ],
-      "source": "fps",
-      "on_surface": true,
-      "id": 35
-    },
-    {
-      "xyz": [
-        0.0718,
-        0.0245,
-        -0.0035
-      ],
-      "source": "fps",
-      "on_surface": true,
-      "id": 36
-    },
-    {
-      "xyz": [
-        -0.0394,
-        -0.0368,
-        0.0302
-      ],
-      "source": "fps",
-      "on_surface": true,
-      "id": 37
-    },
-    {
-      "xyz": [
-        0.0266,
-        -0.0603,
-        -0.0633
-      ],
-      "source": "fps",
-      "on_surface": true,
-      "id": 38
-    },
-    {
-      "xyz": [
-        0.0444,
-        -0.0315,
-        -0.0115
-      ],
-      "source": "fps",
-      "on_surface": true,
-      "id": 39
+      "id": 47
     }
   ]
 }
