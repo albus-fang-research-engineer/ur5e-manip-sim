@@ -127,8 +127,31 @@ s.send(msgpack.packb({"cmd": "ping"})); print(msgpack.unpackb(s.recv()))
   # 4. plan on the VLM-selected frames, then execute
   MUJOCO_GL=osmesa PYTHONPATH=. python scripts/plan_pour_tea.py \
       --selections outputs/selections/pour_tea.json
-  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/execute_pour_tea.py
-  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/render_full_plan.py
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/execute_pour_tea.py --arm vlm
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/render_full_plan.py --arm vlm
+  ```
+
+  Emission-ablation arms (hand-authored vs VLM)
+  ```
+  # --selections decides the arm; plan_pour_tea STAMPS it into the npz
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/plan_pour_tea.py
+  #   -> outputs/plans/hand/pour_tea_full_hand.npz          (arm = hand)
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/plan_pour_tea.py \
+      --selections outputs/selections/pour_tea.json
+  #   -> outputs/plans/vlm/pour_tea_full_vlm.npz            (arm = vlm)
+
+  # render/execute read the stamp: --arm auto (default) needs no flag when
+  # only one arm has a plan on disk, and refuses to guess when both do
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/render_full_plan.py  --arm hand
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/execute_pour_tea.py  --arm hand
+  #   -> outputs/videos/hand/pour_tea_full_hand.mp4
+  #      outputs/videos/hand/pour_tea_exec_hand.mp4
+  #      outputs/metrics/hand/pour_tea_exec_hand.json   ("ablation_arm": "hand")
+
+  # a flag that contradicts the stamp is an ERROR, not an override --
+  # the point is that a VLM run can never be filed as ground truth
+  MUJOCO_GL=osmesa PYTHONPATH=. python scripts/render_full_plan.py \
+      --plan outputs/plans/vlm/pour_tea_full_vlm.npz --arm hand   # SystemExit
   ```
 
 

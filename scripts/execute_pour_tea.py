@@ -24,12 +24,26 @@ Final report: per-stage tracking error, contact counts, slip maxima,
 measured tilt vs target, spout-tip-to-opening distance, per-stage max
 measured TSR excess; metrics also saved as json next to the video.
 
+Both land under the plan's emission-ablation arm (see
+manip_sim.provenance), so a hand-authored run and a VLM run never
+overwrite each other:
+
+    outputs/videos/<arm>/pour_tea_exec_<arm>.mp4
+    outputs/metrics/<arm>/pour_tea_exec_<arm>.json
+
+The arm is also written into the metrics json, alongside the selections
+artifact it came from — the run is self-describing even out of context.
+
 Requires converted meshes (a friction grasp needs geometry to rub on);
 --allow-meshfree runs the arm trajectory + controller stack without the
 objects as a smoke test.
 
     PYTHONPATH=. python scripts/execute_pour_tea.py
+    PYTHONPATH=. python scripts/execute_pour_tea.py --arm vlm
     MUJOCO_GL=egl PYTHONPATH=. python scripts/execute_pour_tea.py --camera agentview
+
+--arm defaults to 'auto' (read the stamp); passing it explicitly is a
+CHECK against the stamp, and a mismatch is an error.
 """
 
 import argparse
@@ -53,6 +67,9 @@ from manip_sim.execution import (
 )
 from manip_sim.frames import load_symbols
 from manip_sim.pour_stages import pour_pair, transport_pair
+from manip_sim.provenance import (add_arm_flag, announce, metrics_path,
+                                  read_selections, resolve_arm,
+                                  resolve_plan_path, video_path)
 
 ARM_OUTPUT_MAX = 0.05             # rad/step commanded delta cap (1 rad/s @20Hz)
 
@@ -95,10 +112,17 @@ class VideoTap:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--plan", default="outputs/plans/pour_tea_full.npz")
+    ap.add_argument("--plan", default=None,
+                    help="plan artifact; default is the one plan present "
+                         "under outputs/plans/<arm>/")
     ap.add_argument("--robot", default="UR5e")
-    ap.add_argument("--out-video", default="outputs/videos/pour_tea_exec.mp4")
-    ap.add_argument("--out-metrics", default="outputs/metrics/pour_tea_exec.json")
+    ap.add_argument("--out-video", default=None,
+                    help="mp4; default "
+                         "outputs/videos/<arm>/pour_tea_exec_<arm>.mp4")
+    ap.add_argument("--out-metrics", default=None,
+                    help="json; default "
+                         "outputs/metrics/<arm>/pour_tea_exec_<arm>.json")
+    add_arm_flag(ap)
     ap.add_argument("--camera", default="frontview")
     ap.add_argument("--width", type=int, default=960)
     ap.add_argument("--height", type=int, default=540)
@@ -114,14 +138,21 @@ def main() -> None:
     args = ap.parse_args()
 
     import os, time as _time
-    age_min = (_time.time() - os.path.getmtime(args.plan)) / 60.0
-    print(f"[execute] plan artifact: {args.plan} "
-          f"(written {age_min:.0f} min ago)")
+    plan_file = resolve_plan_path(args.plan, args.arm)
+    plan = np.load(plan_file)
+    arm_tag = resolve_arm(args.arm, plan, plan_file)
+    announce(arm_tag, plan, plan_file)
+    out_video = Path(args.out_video) if args.out_video \
+        else video_path("pour_tea_exec", arm_tag)
+    out_metrics = Path(args.out_metrics) if args.out_metrics \
+        else metrics_path("pour_tea_exec", arm_tag)
+
+    age_min = (_time.time() - os.path.getmtime(plan_file)) / 60.0
+    print(f"[execute] plan written {age_min:.0f} min ago")
     if age_min > 60:
         print("[execute] WARNING: this plan is over an hour old — if "
               "planning just failed, you are about to execute a STALE "
               "plan; check the planner output for a SystemExit.")
-    plan = np.load(args.plan)
     path, stage_ids = plan["path"], plan["stage_ids"]
     T_ee_body_plan = plan["T_ee_body"]
     T0_teapot_plan, T0_mug_plan = plan["T0_teapot_init"], plan["T0_mug"]
@@ -145,7 +176,9 @@ def main() -> None:
     tracker = Tracker(env, arm, output_max=ARM_OUTPUT_MAX)
     tap = VideoTap(arm, args.camera, args.width, args.height,
                    args.frame_every, enabled=not args.no_video)
-    metrics: dict = {"plan": str(args.plan), "meshfree": not have_teapot}
+    metrics: dict = {"plan": str(plan_file), "ablation_arm": arm_tag,
+                     "selections": read_selections(plan) or "",
+                     "meshfree": not have_teapot}
 
     teapot_sym = load_symbols("assets/objects/teapot")
     mug_sym = load_symbols("assets/objects/mug")
@@ -274,15 +307,14 @@ def main() -> None:
     else:
         print("  (mesh-free smoke test: trajectory + controller only)")
 
-    mpath = Path(args.out_metrics)
-    mpath.parent.mkdir(parents=True, exist_ok=True)
-    mpath.write_text(json.dumps(metrics, indent=2, default=float))
-    print(f"  metrics -> {mpath}")
+    out_metrics.parent.mkdir(parents=True, exist_ok=True)
+    out_metrics.write_text(json.dumps(metrics, indent=2, default=float))
+    print(f"  arm     [{arm_tag}]")
+    print(f"  metrics -> {out_metrics}")
     if tap.enabled and tap.frames:
-        vpath = Path(args.out_video)
-        vpath.parent.mkdir(parents=True, exist_ok=True)
-        imageio.mimwrite(vpath, tap.frames, fps=args.fps, quality=8)
-        print(f"  video   -> {vpath} ({len(tap.frames)} frames)")
+        out_video.parent.mkdir(parents=True, exist_ok=True)
+        imageio.mimwrite(out_video, tap.frames, fps=args.fps, quality=8)
+        print(f"  video   -> {out_video} ({len(tap.frames)} frames)")
     env.close()
 
 

@@ -53,6 +53,7 @@ from manip_sim.grasping import (
 )
 from manip_sim.planning import (ArmKinematics, AttachedArmKinematics,
                                 AttachedObject, MinkIK, plan_constrained)
+from manip_sim.provenance import LABEL, arm_of_run, plan_path, stamp
 from manip_sim.pour_stages import pour_pair, transport_pair
 from manip_sim.tsr import make_pose, pose_from_pos_quat_wxyz, sample_intersection
 
@@ -160,12 +161,19 @@ def main() -> None:
     ap.add_argument("--dwell", type=int, default=15,
                     help="waypoints holding the pour attitude")
     ap.add_argument("--timeout", type=float, default=20.0)
-    ap.add_argument("--out", default="outputs/plans/pour_tea_full.npz")
+    ap.add_argument("--out", default=None,
+                    help="plan artifact; default "
+                         "outputs/plans/<arm>/pour_tea_full_<arm>.npz")
     ap.add_argument("--selections", default=None, metavar="JSON",
                     help="role-keyed touchpoint-#2 selections artifact; "
                          "absent -> hand-authored frames.json arm")
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
+
+    # the arm is decided here, by whether --selections was passed, and is
+    # stamped into the artifact so render/execute never have to guess
+    arm = arm_of_run(args.selections)
+    print(f"[pour_tea] arm '{arm}': {LABEL[arm]}")
 
     # ---- THE canonical scene ----------------------------------------------
     env, objs = make_env(robot=args.robot, has_renderer=False)
@@ -555,12 +563,13 @@ def main() -> None:
     stage_ids = np.concatenate([
         np.full(len(path1), 1), np.full(len(lift) + len(res2.path), 2),
         np.full(len(res3.path) + args.dwell, 3)])
-    out = Path(args.out)
+    out = Path(args.out) if args.out else plan_path(arm)
     out.parent.mkdir(parents=True, exist_ok=True)
     np.savez(out, path=path, stage_ids=stage_ids, q_home=q_home,
              q_grasp=q_grasp, T_ee_body=T_ee_body,
              T0_teapot_init=T0_teapot, T0_mug=T0_mug,
-             tilt_target=np.deg2rad(args.tilt_deg))
+             tilt_target=np.deg2rad(args.tilt_deg),
+             **stamp(arm, args.selections))
     print(f"\n[pour_tea] {len(path)} waypoints "
           f"(grasp {len(path1)} | transport {len(lift)}+{len(res2.path)} | "
           f"pour {len(res3.path)}+{args.dwell} dwell) -> {out}")

@@ -1,5 +1,12 @@
-"""Render the combined three-stage plan (outputs/plans/pour_tea_full.npz)
-to an mp4 — headless, same plumbing as render_test_plan.py.
+"""Render the combined three-stage plan to an mp4 — headless, same
+plumbing as render_test_plan.py.
+
+The plan carries an emission-ablation arm stamp (see manip_sim.provenance)
+saying whether its task frames were hand-authored or VLM-selected; the
+video is filed under that arm and never overwrites the other one:
+
+    outputs/videos/hand/pour_tea_full_hand.mp4
+    outputs/videos/vlm/pour_tea_full_vlm.mp4
 
 Stage-aware playback:
   stage 1 (grasp)      the teapot stays at its settled table pose; the arm
@@ -16,7 +23,12 @@ Overlays (toggle with --no-markers):
   orange sphere   teapot body origin (visible even without meshes)
 
     MUJOCO_GL=osmesa PYTHONPATH=. python scripts/render_full_plan.py
+    MUJOCO_GL=osmesa PYTHONPATH=. python scripts/render_full_plan.py --arm vlm
     MUJOCO_GL=egl    PYTHONPATH=. python scripts/render_full_plan.py --camera agentview
+
+--arm defaults to 'auto': it reads the stamp, and only asks when both
+arms have a plan on disk. Passing --arm on a stamped plan is a CHECK, not
+an override — a mismatch is an error rather than a mislabeled video.
 """
 
 import argparse
@@ -30,6 +42,8 @@ from scipy.spatial.transform import Rotation as R
 
 from manip_sim.frames import load_symbols
 from manip_sim.planning import ArmKinematics, AttachedObject
+from manip_sim.provenance import (add_arm_flag, announce, resolve_arm,
+                                  resolve_plan_path, video_path)
 from scripts.demos.demo_pour_tea import make_env
 
 RGBA = {
@@ -55,8 +69,13 @@ def add_sphere(scene, pos, radius, rgba):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--plan", default="outputs/plans/pour_tea_full.npz")
-    ap.add_argument("--out", default="outputs/videos/pour_tea_full.mp4")
+    ap.add_argument("--plan", default=None,
+                    help="plan artifact; default is the one plan present "
+                         "under outputs/plans/<arm>/")
+    ap.add_argument("--out", default=None,
+                    help="mp4; default "
+                         "outputs/videos/<arm>/pour_tea_full_<arm>.mp4")
+    add_arm_flag(ap)
     ap.add_argument("--camera", default="frontview")
     ap.add_argument("--width", type=int, default=960)
     ap.add_argument("--height", type=int, default=540)
@@ -66,7 +85,12 @@ def main() -> None:
     ap.add_argument("--no-markers", action="store_true")
     args = ap.parse_args()
 
-    plan = np.load(args.plan)
+    plan_file = resolve_plan_path(args.plan, args.arm)
+    plan = np.load(plan_file)
+    arm_tag = resolve_arm(args.arm, plan, plan_file)
+    announce(arm_tag, plan, plan_file)
+    out = Path(args.out) if args.out else video_path("pour_tea_full", arm_tag)
+
     path, stage_ids = plan["path"], plan["stage_ids"]
     T_ee_body, T0_teapot_init = plan["T_ee_body"], plan["T0_teapot_init"]
     T0_mug = plan["T0_mug"]
@@ -148,13 +172,12 @@ def main() -> None:
 
     frames.extend([frames[-1]] * args.fps)      # hold the final pour pose
 
-    out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     imageio.mimwrite(out, frames, fps=args.fps, quality=8)
     n1 = int((stage_ids == 1).sum())
     n2 = int((stage_ids == 2).sum())
     n3 = int((stage_ids == 3).sum())
-    print(f"[render_full_plan] {len(frames)} frames "
+    print(f"[render_full_plan] [{arm_tag}] {len(frames)} frames "
           f"(grasp {n1} | transport {n2} | pour {n3} waypoints) -> {out}")
     env.close()
 
