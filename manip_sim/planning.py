@@ -532,11 +532,18 @@ def plan_constrained(
         n = max(1, int(np.ceil(np.linalg.norm(qb - qa) / eps)))
         for k in range(1, n + 1):
             dense.append(qa + (qb - qa) * k / n)
-    idx = np.linspace(0, len(dense) - 1, min(n_interp, len(dense))).astype(int)
-    qs = np.array(dense)[idx]
+    # The dense path IS the plan: consecutive configs are <= eps apart by
+    # construction, and every one of them was projected and collision-
+    # checked. The old count-based subsample (linspace to n_interp) silently
+    # MULTIPLIED the spacing on long paths — the tracker then linearly
+    # re-interpolates between distant projected configs, and those chords
+    # are off-manifold and collision-UNchecked. n_interp now only bounds
+    # the constraint-verification loop below.
+    qs = np.array(dense)
 
     max_exc = 0.0
-    for q in qs:
+    v_idx = np.linspace(0, len(qs) - 1, min(n_interp, len(qs))).astype(int)
+    for q in qs[v_idx]:
         T_body = attached.body_pose(kin.fk(q))
         for t in path_tsrs:
             max_exc = max(max_exc, float(np.max(np.abs(t.excess(T_body)))))

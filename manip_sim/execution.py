@@ -201,8 +201,10 @@ class TrackStats:
     n_env_steps: int = 0
     max_track_err: float = 0.0        # per-joint, over advance moments
     mean_track_err: float = 0.0
+    stalled: bool = False             # aborted: arm could not keep station
 
     def merge(self, other: "TrackStats") -> None:
+        self.stalled = self.stalled or other.stalled
         tot = self.n_targets + other.n_targets
         if tot:
             self.mean_track_err = (
@@ -240,10 +242,22 @@ class Tracker:
 
     def track(self, path: np.ndarray, gripper: float,
               max_joint_step: float = 0.02, tol: float = 0.015,
-              steps_per_target: int = 6, on_step=None) -> TrackStats:
+              steps_per_target: int = 6, on_step=None,
+              stall_err: float = 0.10, stall_patience: int = 40) -> TrackStats:
+        """stall_err/stall_patience: the runaway guard. The per-target step
+        budget makes advancement OPEN-LOOP: if the arm is physically
+        obstructed (attached object jammed on the scene), targets keep
+        marching while the arm lags, and the controller then drags the
+        object through whatever stopped it. If the residual after the
+        budget exceeds stall_err (nominal tracking peaks ~0.012 rad; the
+        threshold is ~8x that), the target stream HOLDS — same target,
+        stall_patience extra steps — and if the arm still cannot close to
+        stall_err the segment aborts with stats.stalled=True. The caller
+        owns the policy, matching the typed-failure convention."""
         stats = TrackStats(n_targets=0)
         errs = []
-        for q_t in densify(path, max_joint_step):
+        targets = densify(path, max_joint_step)
+        for q_t in targets:
             for _ in range(steps_per_target):
                 err = self._step(q_t, gripper)
                 stats.n_env_steps += 1
@@ -252,8 +266,24 @@ class Tracker:
                 if np.max(np.abs(err)) <= tol:
                     break
             e = float(np.max(np.abs(q_t - self.arm.q())))
+            if e > stall_err:
+                for _ in range(stall_patience):
+                    err = self._step(q_t, gripper)
+                    stats.n_env_steps += 1
+                    if on_step:
+                        on_step()
+                    if np.max(np.abs(err)) <= stall_err:
+                        break
+                e = float(np.max(np.abs(q_t - self.arm.q())))
             errs.append(e)
             stats.n_targets += 1
+            if e > stall_err:
+                stats.stalled = True
+                print(f"[track] STALL: residual {e:.3f} rad after "
+                      f"{stall_patience} hold steps at target "
+                      f"{stats.n_targets}/{len(targets)} — aborting the "
+                      "segment instead of dragging through the obstruction")
+                break
         stats.max_track_err = float(np.max(errs)) if errs else 0.0
         stats.mean_track_err = float(np.mean(errs)) if errs else 0.0
         return stats

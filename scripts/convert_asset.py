@@ -41,6 +41,61 @@ def decompose(mesh: trimesh.Trimesh, threshold: float, max_hulls: int) -> list[t
     return [trimesh.Trimesh(v, f) for v, f in parts]
 
 
+def hull_masses(pieces: list[trimesh.Trimesh], total_mass: float) -> np.ndarray:
+    """Split total_mass across convex pieces proportionally to hull volume
+    (uniform density). CoACD hulls overlap slightly at the cuts, so the
+    volumes are approximate partition weights, not an exact partition —
+    the induced COM error is sub-mm, versus tens of mm for an even split."""
+    vols = np.array([max(abs(p.volume), 1e-12) for p in pieces])
+    return total_mass * vols / vols.sum()
+
+
+def reweight_xml(xml_path: Path) -> None:
+    """Rewrite ONLY the mass="..." attributes of the collision geoms in an
+    existing converted XML, in place, weighting by hull volume read from the
+    sibling meshes/ directory. Everything else — solref, solimp, friction,
+    formatting — is preserved byte-for-byte (targeted regex, no ET rewrite).
+    Total mass is the sum of the existing collision-geom masses, so whatever
+    --mass the original conversion used is preserved exactly."""
+    import re
+
+    text = xml_path.read_text()
+    name = xml_path.stem
+    pat = re.compile(
+        rf'(<geom[^>]*mesh="{name}_col_mesh_(\d+)"[^>]*mass=")([0-9.eE+-]+)(")')
+    hits = list(pat.finditer(text))
+    if not hits:
+        raise SystemExit(f"[{name}] no collision-geom mass attributes found "
+                         f"in {xml_path}")
+    total = sum(float(m.group(3)) for m in hits)
+    pieces = []
+    for m in hits:
+        f = xml_path.parent / "meshes" / f"{name}_col_{m.group(2)}.obj"
+        if not f.exists():
+            raise SystemExit(f"[{name}] missing {f} — reweighting needs the "
+                             "hull meshes next to the XML")
+        pieces.append(trimesh.load(f, force="mesh"))
+    masses = hull_masses(pieces, total)
+
+    # report the COM this rewrite moves (hull centroids, both weightings)
+    C = np.array([p.center_mass for p in pieces])
+    com_even = C.mean(axis=0)
+    com_vol = (masses[:, None] * C).sum(axis=0) / masses.sum()
+    print(f"[{name}] {len(pieces)} hulls, total mass {total:.6g} kg "
+          "(preserved)")
+    print(f"[{name}] COM even-split -> volume-weighted moves "
+          f"{np.linalg.norm(com_vol - com_even) * 1000:.1f} mm "
+          f"(even {np.round(com_even * 1000, 1).tolist()} mm, "
+          f"weighted {np.round(com_vol * 1000, 1).tolist()} mm)")
+
+    by_idx = {int(m.group(2)): masses[k] for k, m in enumerate(hits)}
+    text = pat.sub(
+        lambda m: f"{m.group(1)}{by_idx[int(m.group(2))]:.6g}{m.group(4)}",
+        text)
+    xml_path.write_text(text)
+    print(f"[{name}] rewrote mass attributes in place -> {xml_path}")
+
+
 def convert(
     src: Path,
     name: str,
@@ -98,15 +153,22 @@ def convert(
         group="1", conaffinity="0", contype="0",
         rgba=rgba, mass="0.0001",
     )
-    # collision geoms: group 0, share the mass evenly
-    piece_mass = mass / max(len(col_files), 1)
+    # collision geoms: group 0, mass split BY HULL VOLUME. An even split
+    # (the previous behavior) makes the body's COM/inertia an artifact of
+    # where CoACD spent hulls — high-curvature parts (handle, spout) get
+    # many small hulls and drag the COM toward them (~28 mm error measured
+    # on a teapot-like mesh vs ~0.6 mm volume-weighted). With density="0"
+    # MuJoCo takes each geom's mass attribute and computes inertia from
+    # the hull shape, so volume weighting recovers the uniform-density
+    # body the visual mesh implies.
+    piece_masses = hull_masses(pieces, mass)
     for i in range(len(col_files)):
         ET.SubElement(
             obj_body, "geom",
             type="mesh", mesh=f"{name}_col_mesh_{i}",
             group="0", rgba="0 1 0 0.0",
             solimp="0.998 0.998 0.001", solref="0.01 1",
-            density="0", mass=f"{piece_mass:.6f}",
+            density="0", mass=f"{piece_masses[i]:.6g}",
             friction="0.95 0.3 0.1", condim="4",
         )
 
@@ -127,8 +189,15 @@ def convert(
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("mesh", type=Path)
-    ap.add_argument("--name", required=True)
+    ap.add_argument("mesh", type=Path, nargs="?",
+                    help="source mesh (omit with --reweight-xml)")
+    ap.add_argument("--reweight-xml", type=Path, default=None,
+                    help="rewrite ONLY the mass attributes of an existing "
+                         "converted XML in place, volume-weighted from its "
+                         "meshes/ hulls; no re-conversion, meshes untouched")
+    ap.add_argument("--name", default=None,
+                    help="object name (required for conversion; unused with "
+                         "--reweight-xml, which takes it from the XML stem)")
     ap.add_argument("--out", type=Path, default=Path("assets/objects"))
     ap.add_argument("--scale", type=float, default=1.0, help="uniform scale (e.g. 0.001 for mm->m)")
     ap.add_argument("--mass", type=float, default=0.2, help="total mass in kg")
@@ -137,6 +206,11 @@ def main() -> None:
     ap.add_argument("--max-hulls", type=int, default=32)
     ap.add_argument("--rgba", default="0.8 0.8 0.85 1")
     args = ap.parse_args()
+    if args.reweight_xml is not None:
+        reweight_xml(args.reweight_xml)
+        return
+    if args.mesh is None or args.name is None:
+        ap.error("mesh and --name are required unless --reweight-xml is given")
     convert(args.mesh, args.name, args.out, args.scale, args.mass,
             args.threshold, args.max_hulls, args.rgba)
 

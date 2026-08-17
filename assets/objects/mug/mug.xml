@@ -38,38 +38,38 @@
     <body>
       <body name="object">
         <geom type="mesh" mesh="mug_visual_mesh" group="1" conaffinity="0" contype="0" rgba="0.8 0.8 0.85 1" mass="0.0001" />
-        <geom type="mesh" mesh="mug_col_mesh_0" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_1" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_2" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_3" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_4" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_5" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_6" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_7" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_8" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_9" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_10" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_11" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_12" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_13" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_14" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_15" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_16" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_17" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_18" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_19" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_20" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_21" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_22" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_23" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_24" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_25" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_26" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_27" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_28" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_29" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_30" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
-        <geom type="mesh" mesh="mug_col_mesh_31" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.009375" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_0" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.0270384" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_1" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.0410742" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_2" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00734575" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_3" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00172153" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_4" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00479241" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_5" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00803984" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_6" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00166832" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_7" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00375609" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_8" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00172974" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_9" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.000943718" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_10" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00605508" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_11" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00897056" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_12" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00420346" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_13" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00721072" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_14" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.011005" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_15" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.0139192" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_16" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00561408" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_17" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00768868" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_18" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00216077" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_19" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00158971" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_20" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.000958144" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_21" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00545959" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_22" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.000663024" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_23" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.0149505" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_24" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00826248" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_25" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.029182" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_26" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.0138466" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_27" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00211754" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_28" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.0170442" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_29" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.0259029" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_30" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00206949" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="mug_col_mesh_31" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.0130164" friction="0.95 0.3 0.1" condim="4" />
       </body>
       <site name="bottom_site" pos="0 0 -0.04065" rgba="0 0 0 0" size="0.005" />
       <site name="top_site" pos="0 0 0.04065" rgba="0 0 0 0" size="0.005" />

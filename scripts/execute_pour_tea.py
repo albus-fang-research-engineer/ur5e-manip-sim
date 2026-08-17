@@ -480,10 +480,21 @@ def main() -> None:
         staged_run("pour", p3, ppair.path if ppair is not None else None)
     else:
         for st, seg, ptsr in reflow:
-            staged_run("retransport" if st == 2 else "pour", seg, ptsr)
-        p3 = reflow[-1][1]
+            label = "retransport" if st == 2 else "pour"
+            staged_run(label, seg, ptsr)
+            p3 = seg          # dwell holds the last EXECUTED segment's end
+            if metrics[f"{label}_track"].get("stalled"):
+                print(f"[{label}] segment stalled — later re-planned stages "
+                      "assume this one's planned end; not executing them "
+                      "from a jammed config")
+                break
     dwell_steps = int(args.dwell_seconds * 20)
-    tracker.hold(p3[-1], GRIPPER_CLOSE, dwell_steps, on_step=tap)
+    # after a stall the segment's planned end was never reached; holding it
+    # would keep pressing into whatever stopped the arm — dwell in place
+    q_dwell = arm.q() if any(
+        isinstance(v, dict) and v.get("stalled")
+        for k, v in metrics.items() if k.endswith("_track")) else p3[-1]
+    tracker.hold(q_dwell, GRIPPER_CLOSE, dwell_steps, on_step=tap)
 
     # ---------------------------------------------------------- final report
     print("\n================= execution report =============")

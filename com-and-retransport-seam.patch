@@ -1,0 +1,294 @@
+diff --git a/manip_sim/execution.py b/manip_sim/execution.py
+index e5be3f9..dc285de 100644
+--- a/manip_sim/execution.py
++++ b/manip_sim/execution.py
+@@ -201,8 +201,10 @@ class TrackStats:
+     n_env_steps: int = 0
+     max_track_err: float = 0.0        # per-joint, over advance moments
+     mean_track_err: float = 0.0
++    stalled: bool = False             # aborted: arm could not keep station
+ 
+     def merge(self, other: "TrackStats") -> None:
++        self.stalled = self.stalled or other.stalled
+         tot = self.n_targets + other.n_targets
+         if tot:
+             self.mean_track_err = (
+@@ -240,10 +242,22 @@ class Tracker:
+ 
+     def track(self, path: np.ndarray, gripper: float,
+               max_joint_step: float = 0.02, tol: float = 0.015,
+-              steps_per_target: int = 6, on_step=None) -> TrackStats:
++              steps_per_target: int = 6, on_step=None,
++              stall_err: float = 0.10, stall_patience: int = 40) -> TrackStats:
++        """stall_err/stall_patience: the runaway guard. The per-target step
++        budget makes advancement OPEN-LOOP: if the arm is physically
++        obstructed (attached object jammed on the scene), targets keep
++        marching while the arm lags, and the controller then drags the
++        object through whatever stopped it. If the residual after the
++        budget exceeds stall_err (nominal tracking peaks ~0.012 rad; the
++        threshold is ~8x that), the target stream HOLDS — same target,
++        stall_patience extra steps — and if the arm still cannot close to
++        stall_err the segment aborts with stats.stalled=True. The caller
++        owns the policy, matching the typed-failure convention."""
+         stats = TrackStats(n_targets=0)
+         errs = []
+-        for q_t in densify(path, max_joint_step):
++        targets = densify(path, max_joint_step)
++        for q_t in targets:
+             for _ in range(steps_per_target):
+                 err = self._step(q_t, gripper)
+                 stats.n_env_steps += 1
+@@ -252,8 +266,24 @@ class Tracker:
+                 if np.max(np.abs(err)) <= tol:
+                     break
+             e = float(np.max(np.abs(q_t - self.arm.q())))
++            if e > stall_err:
++                for _ in range(stall_patience):
++                    err = self._step(q_t, gripper)
++                    stats.n_env_steps += 1
++                    if on_step:
++                        on_step()
++                    if np.max(np.abs(err)) <= stall_err:
++                        break
++                e = float(np.max(np.abs(q_t - self.arm.q())))
+             errs.append(e)
+             stats.n_targets += 1
++            if e > stall_err:
++                stats.stalled = True
++                print(f"[track] STALL: residual {e:.3f} rad after "
++                      f"{stall_patience} hold steps at target "
++                      f"{stats.n_targets}/{len(targets)} — aborting the "
++                      "segment instead of dragging through the obstruction")
++                break
+         stats.max_track_err = float(np.max(errs)) if errs else 0.0
+         stats.mean_track_err = float(np.mean(errs)) if errs else 0.0
+         return stats
+diff --git a/manip_sim/planning.py b/manip_sim/planning.py
+index 3504e2c..e2c5ab3 100644
+--- a/manip_sim/planning.py
++++ b/manip_sim/planning.py
+@@ -532,11 +532,18 @@ def plan_constrained(
+         n = max(1, int(np.ceil(np.linalg.norm(qb - qa) / eps)))
+         for k in range(1, n + 1):
+             dense.append(qa + (qb - qa) * k / n)
+-    idx = np.linspace(0, len(dense) - 1, min(n_interp, len(dense))).astype(int)
+-    qs = np.array(dense)[idx]
++    # The dense path IS the plan: consecutive configs are <= eps apart by
++    # construction, and every one of them was projected and collision-
++    # checked. The old count-based subsample (linspace to n_interp) silently
++    # MULTIPLIED the spacing on long paths — the tracker then linearly
++    # re-interpolates between distant projected configs, and those chords
++    # are off-manifold and collision-UNchecked. n_interp now only bounds
++    # the constraint-verification loop below.
++    qs = np.array(dense)
+ 
+     max_exc = 0.0
+-    for q in qs:
++    v_idx = np.linspace(0, len(qs) - 1, min(n_interp, len(qs))).astype(int)
++    for q in qs[v_idx]:
+         T_body = attached.body_pose(kin.fk(q))
+         for t in path_tsrs:
+             max_exc = max(max_exc, float(np.max(np.abs(t.excess(T_body)))))
+diff --git a/manip_sim/replan.py b/manip_sim/replan.py
+index c3a0b63..505341d 100644
+--- a/manip_sim/replan.py
++++ b/manip_sim/replan.py
+@@ -91,6 +91,29 @@ def slip_exceeds(standing: tuple[float, float],
+ # ------------------------------------------------------------- machinery
+ 
+ 
++def _rooted_at(path: np.ndarray, q_from: np.ndarray, label: str,
++               warn_at: float = 0.05) -> np.ndarray:
++    """plan_constrained PROJECTS its start onto the path-TSR manifold, so
++    path[0] is generally NOT the config the arm actually stands at — after
++    heavy slip the current config can violate the (re-frozen) upright
++    constraint outright, and the projection rights the pot by moving the
++    start. The tracker's first target must not be that distant config: it
++    would chase it open-loop, cutting an unplanned joint-space chord
++    through the scene. Prepending q_from makes the tracker interpolate the
++    righting move at its own step size instead. The prepended segment is
++    off-manifold and collision-unchecked BY DEFINITION (q_from itself is
++    off-manifold; that is why projection moved); it is short, and it is the
++    physically unavoidable first motion of any re-anchored plan."""
++    d0 = float(np.linalg.norm(path[0] - q_from))
++    if d0 <= 1e-6:
++        return path
++    if d0 > warn_at:
++        print(f"[replan:{label}] start projection moved {d0:.3f} rad in "
++              "joint space — prepending the arm's actual config; the "
++              "righting move is tracked, not chased")
++    return np.vstack([np.asarray(q_from, float), path])
++
++
+ def default_seeds(q_now: np.ndarray, joint_range: np.ndarray,
+                   rng: np.random.Generator, n_random: int = 8) -> list:
+     """IK seed set anchored at the CURRENT config (the re-plan must be
+@@ -200,7 +223,7 @@ def replan_from_stage(stage: int, *, env, q_now: np.ndarray,
+                                timeout=timeout, rng=rng)
+         if not res.ok:
+             raise ReplanError(2, f"transport planning failed: {res.reason}")
+-        out.paths.append((2, res.path))
++        out.paths.append((2, _rooted_at(res.path, q_now, "transport")))
+         out.pairs[2] = tpair
+         out.stats["transport"] = res.stats
+         q_entry = res.path[-1]
+@@ -220,7 +243,7 @@ def replan_from_stage(stage: int, *, env, q_now: np.ndarray,
+                            timeout=timeout, eps=0.05, rng=rng)
+     if not res.ok:
+         raise ReplanError(3, f"pour planning failed: {res.reason}")
+-    out.paths.append((3, res.path))
++    out.paths.append((3, _rooted_at(res.path, q_entry, "pour")))
+     out.pairs[3] = ppair
+     out.stats["pour"] = res.stats
+     return out
+diff --git a/scripts/convert_asset.py b/scripts/convert_asset.py
+index d604183..b8528d6 100644
+--- a/scripts/convert_asset.py
++++ b/scripts/convert_asset.py
+@@ -41,6 +41,61 @@ def decompose(mesh: trimesh.Trimesh, threshold: float, max_hulls: int) -> list[t
+     return [trimesh.Trimesh(v, f) for v, f in parts]
+ 
+ 
++def hull_masses(pieces: list[trimesh.Trimesh], total_mass: float) -> np.ndarray:
++    """Split total_mass across convex pieces proportionally to hull volume
++    (uniform density). CoACD hulls overlap slightly at the cuts, so the
++    volumes are approximate partition weights, not an exact partition —
++    the induced COM error is sub-mm, versus tens of mm for an even split."""
++    vols = np.array([max(abs(p.volume), 1e-12) for p in pieces])
++    return total_mass * vols / vols.sum()
++
++
++def reweight_xml(xml_path: Path) -> None:
++    """Rewrite ONLY the mass="..." attributes of the collision geoms in an
++    existing converted XML, in place, weighting by hull volume read from the
++    sibling meshes/ directory. Everything else — solref, solimp, friction,
++    formatting — is preserved byte-for-byte (targeted regex, no ET rewrite).
++    Total mass is the sum of the existing collision-geom masses, so whatever
++    --mass the original conversion used is preserved exactly."""
++    import re
++
++    text = xml_path.read_text()
++    name = xml_path.stem
++    pat = re.compile(
++        rf'(<geom[^>]*mesh="{name}_col_mesh_(\d+)"[^>]*mass=")([0-9.eE+-]+)(")')
++    hits = list(pat.finditer(text))
++    if not hits:
++        raise SystemExit(f"[{name}] no collision-geom mass attributes found "
++                         f"in {xml_path}")
++    total = sum(float(m.group(3)) for m in hits)
++    pieces = []
++    for m in hits:
++        f = xml_path.parent / "meshes" / f"{name}_col_{m.group(2)}.obj"
++        if not f.exists():
++            raise SystemExit(f"[{name}] missing {f} — reweighting needs the "
++                             "hull meshes next to the XML")
++        pieces.append(trimesh.load(f, force="mesh"))
++    masses = hull_masses(pieces, total)
++
++    # report the COM this rewrite moves (hull centroids, both weightings)
++    C = np.array([p.center_mass for p in pieces])
++    com_even = C.mean(axis=0)
++    com_vol = (masses[:, None] * C).sum(axis=0) / masses.sum()
++    print(f"[{name}] {len(pieces)} hulls, total mass {total:.6g} kg "
++          "(preserved)")
++    print(f"[{name}] COM even-split -> volume-weighted moves "
++          f"{np.linalg.norm(com_vol - com_even) * 1000:.1f} mm "
++          f"(even {np.round(com_even * 1000, 1).tolist()} mm, "
++          f"weighted {np.round(com_vol * 1000, 1).tolist()} mm)")
++
++    by_idx = {int(m.group(2)): masses[k] for k, m in enumerate(hits)}
++    text = pat.sub(
++        lambda m: f"{m.group(1)}{by_idx[int(m.group(2))]:.6g}{m.group(4)}",
++        text)
++    xml_path.write_text(text)
++    print(f"[{name}] rewrote mass attributes in place -> {xml_path}")
++
++
+ def convert(
+     src: Path,
+     name: str,
+@@ -98,15 +153,22 @@ def convert(
+         group="1", conaffinity="0", contype="0",
+         rgba=rgba, mass="0.0001",
+     )
+-    # collision geoms: group 0, share the mass evenly
+-    piece_mass = mass / max(len(col_files), 1)
++    # collision geoms: group 0, mass split BY HULL VOLUME. An even split
++    # (the previous behavior) makes the body's COM/inertia an artifact of
++    # where CoACD spent hulls — high-curvature parts (handle, spout) get
++    # many small hulls and drag the COM toward them (~28 mm error measured
++    # on a teapot-like mesh vs ~0.6 mm volume-weighted). With density="0"
++    # MuJoCo takes each geom's mass attribute and computes inertia from
++    # the hull shape, so volume weighting recovers the uniform-density
++    # body the visual mesh implies.
++    piece_masses = hull_masses(pieces, mass)
+     for i in range(len(col_files)):
+         ET.SubElement(
+             obj_body, "geom",
+             type="mesh", mesh=f"{name}_col_mesh_{i}",
+             group="0", rgba="0 1 0 0.0",
+             solimp="0.998 0.998 0.001", solref="0.01 1",
+-            density="0", mass=f"{piece_mass:.6f}",
++            density="0", mass=f"{piece_masses[i]:.6g}",
+             friction="0.95 0.3 0.1", condim="4",
+         )
+ 
+@@ -127,8 +189,15 @@ def convert(
+ 
+ def main() -> None:
+     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+-    ap.add_argument("mesh", type=Path)
+-    ap.add_argument("--name", required=True)
++    ap.add_argument("mesh", type=Path, nargs="?",
++                    help="source mesh (omit with --reweight-xml)")
++    ap.add_argument("--reweight-xml", type=Path, default=None,
++                    help="rewrite ONLY the mass attributes of an existing "
++                         "converted XML in place, volume-weighted from its "
++                         "meshes/ hulls; no re-conversion, meshes untouched")
++    ap.add_argument("--name", default=None,
++                    help="object name (required for conversion; unused with "
++                         "--reweight-xml, which takes it from the XML stem)")
+     ap.add_argument("--out", type=Path, default=Path("assets/objects"))
+     ap.add_argument("--scale", type=float, default=1.0, help="uniform scale (e.g. 0.001 for mm->m)")
+     ap.add_argument("--mass", type=float, default=0.2, help="total mass in kg")
+@@ -137,6 +206,11 @@ def main() -> None:
+     ap.add_argument("--max-hulls", type=int, default=32)
+     ap.add_argument("--rgba", default="0.8 0.8 0.85 1")
+     args = ap.parse_args()
++    if args.reweight_xml is not None:
++        reweight_xml(args.reweight_xml)
++        return
++    if args.mesh is None or args.name is None:
++        ap.error("mesh and --name are required unless --reweight-xml is given")
+     convert(args.mesh, args.name, args.out, args.scale, args.mass,
+             args.threshold, args.max_hulls, args.rgba)
+ 
+diff --git a/scripts/execute_pour_tea.py b/scripts/execute_pour_tea.py
+index 4070d9b..7b7e9b3 100644
+--- a/scripts/execute_pour_tea.py
++++ b/scripts/execute_pour_tea.py
+@@ -480,10 +480,21 @@ def main() -> None:
+         staged_run("pour", p3, ppair.path if ppair is not None else None)
+     else:
+         for st, seg, ptsr in reflow:
+-            staged_run("retransport" if st == 2 else "pour", seg, ptsr)
+-        p3 = reflow[-1][1]
++            label = "retransport" if st == 2 else "pour"
++            staged_run(label, seg, ptsr)
++            p3 = seg          # dwell holds the last EXECUTED segment's end
++            if metrics[f"{label}_track"].get("stalled"):
++                print(f"[{label}] segment stalled — later re-planned stages "
++                      "assume this one's planned end; not executing them "
++                      "from a jammed config")
++                break
+     dwell_steps = int(args.dwell_seconds * 20)
+-    tracker.hold(p3[-1], GRIPPER_CLOSE, dwell_steps, on_step=tap)
++    # after a stall the segment's planned end was never reached; holding it
++    # would keep pressing into whatever stopped the arm — dwell in place
++    q_dwell = arm.q() if any(
++        isinstance(v, dict) and v.get("stalled")
++        for k, v in metrics.items() if k.endswith("_track")) else p3[-1]
++    tracker.hold(q_dwell, GRIPPER_CLOSE, dwell_steps, on_step=tap)
+ 
+     # ---------------------------------------------------------- final report
+     print("\n================= execution report =============")

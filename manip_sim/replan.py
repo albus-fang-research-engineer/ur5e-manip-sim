@@ -91,6 +91,29 @@ def slip_exceeds(standing: tuple[float, float],
 # ------------------------------------------------------------- machinery
 
 
+def _rooted_at(path: np.ndarray, q_from: np.ndarray, label: str,
+               warn_at: float = 0.05) -> np.ndarray:
+    """plan_constrained PROJECTS its start onto the path-TSR manifold, so
+    path[0] is generally NOT the config the arm actually stands at — after
+    heavy slip the current config can violate the (re-frozen) upright
+    constraint outright, and the projection rights the pot by moving the
+    start. The tracker's first target must not be that distant config: it
+    would chase it open-loop, cutting an unplanned joint-space chord
+    through the scene. Prepending q_from makes the tracker interpolate the
+    righting move at its own step size instead. The prepended segment is
+    off-manifold and collision-unchecked BY DEFINITION (q_from itself is
+    off-manifold; that is why projection moved); it is short, and it is the
+    physically unavoidable first motion of any re-anchored plan."""
+    d0 = float(np.linalg.norm(path[0] - q_from))
+    if d0 <= 1e-6:
+        return path
+    if d0 > warn_at:
+        print(f"[replan:{label}] start projection moved {d0:.3f} rad in "
+              "joint space — prepending the arm's actual config; the "
+              "righting move is tracked, not chased")
+    return np.vstack([np.asarray(q_from, float), path])
+
+
 def default_seeds(q_now: np.ndarray, joint_range: np.ndarray,
                   rng: np.random.Generator, n_random: int = 8) -> list:
     """IK seed set anchored at the CURRENT config (the re-plan must be
@@ -200,7 +223,7 @@ def replan_from_stage(stage: int, *, env, q_now: np.ndarray,
                                timeout=timeout, rng=rng)
         if not res.ok:
             raise ReplanError(2, f"transport planning failed: {res.reason}")
-        out.paths.append((2, res.path))
+        out.paths.append((2, _rooted_at(res.path, q_now, "transport")))
         out.pairs[2] = tpair
         out.stats["transport"] = res.stats
         q_entry = res.path[-1]
@@ -220,7 +243,7 @@ def replan_from_stage(stage: int, *, env, q_now: np.ndarray,
                            timeout=timeout, eps=0.05, rng=rng)
     if not res.ok:
         raise ReplanError(3, f"pour planning failed: {res.reason}")
-    out.paths.append((3, res.path))
+    out.paths.append((3, _rooted_at(res.path, q_entry, "pour")))
     out.pairs[3] = ppair
     out.stats["pour"] = res.stats
     return out
