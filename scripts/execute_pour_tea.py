@@ -77,6 +77,37 @@ from manip_sim.viz import DebugOverlay
 ARM_OUTPUT_MAX = 0.05             # rad/step commanded delta cap (1 rad/s @20Hz)
 
 
+def slip_profile(hist, n_samples: int = 12):
+    """Downsampled (dpos_mm, drot_deg) trace plus WHERE in the stage the
+    residual accrued — the number that separates the two mechanisms.
+
+    A step in the first few samples is the grasp SETTLING: the pot
+    rotating until its centre of mass hangs under the grip, an
+    equilibrium reached once and then held. That is what a post-lift
+    re-anchor removes, because the corrected T_ee_body is then valid for
+    the rest of the transport.
+
+    A ramp across the stage is progressive slip under a load the friction
+    cannot hold. No boundary re-anchor helps there — fresh error accrues
+    after every re-measurement, so only the grasp can fix it.
+    """
+    if not hist:
+        return {}
+    dpos = np.array([h[0] for h in hist])
+    drot = np.array([h[1] for h in hist])
+    final = float(drot[-1])
+    # first sample reaching 90% of the stage's terminal rotational residual
+    k = int(np.argmax(drot >= 0.9 * final)) if final > 1e-9 else 0
+    idx = np.unique(np.linspace(0, len(hist) - 1, n_samples).astype(int))
+    return {
+        "reached_90pct_at_frac": round(k / max(len(hist) - 1, 1), 3),
+        "final_mm": round(float(dpos[-1]) * 1000, 2),
+        "final_deg": round(float(np.rad2deg(final)), 2),
+        "trace_mm_deg": [[round(float(dpos[i]) * 1000, 2),
+                          round(float(np.rad2deg(drot[i])), 2)] for i in idx],
+    }
+
+
 class VideoTap:
     """on_step hook: render the LIVE sim every `every` control steps."""
 
@@ -305,6 +336,7 @@ def main() -> None:
     def staged_run(label, p, path_tsr):
         stats = TrackStats()
         max_excess = 0.0
+        k0 = len(slip.history) if slip is not None else 0
 
         def on_step():
             nonlocal max_excess
@@ -325,6 +357,16 @@ def main() -> None:
         if slip is not None:
             print(f"[{label}] slip so far: {slip.max_dpos * 1000:.1f} mm / "
                   f"{np.rad2deg(slip.max_drot):.1f} deg")
+            prof = slip_profile(slip.history[k0:])
+            if prof:
+                f = prof["reached_90pct_at_frac"]
+                print(f"[{label}] slip accrued: {prof['final_deg']:.1f} deg by "
+                      f"the end; 90% of it reached {f * 100:.0f}% into the "
+                      "stage -> " + ("SETTLING (a post-lift re-anchor removes "
+                                     "this)" if f < 0.25 else
+                                     "PROGRESSIVE (re-anchoring cannot; the "
+                                     "grasp has to hold)"))
+                metrics[f"{label}_slip_profile"] = prof
         metrics[f"{label}_track"] = vars(stats)
         metrics[f"{label}_measured_excess"] = max_excess
 
