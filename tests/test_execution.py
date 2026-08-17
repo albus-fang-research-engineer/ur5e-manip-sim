@@ -68,3 +68,57 @@ def test_arm_part_dict_contract():
     for osc_key in ("position_limits", "orientation_limits",
                     "uncouple_pos_ori", "input_ref_frame"):
         assert osc_key not in part
+
+# ------------------------------------------------- pour success readout
+# The regression these lock down: tip_to_opening_mm folds the transport
+# subgoal's DELIBERATE 40-100 mm standoff into the same scalar as the
+# lateral miss, so it cannot distinguish a perfect pour from a 40 mm
+# miss. lateral / standoff / stream-landing are separated here.
+
+def _dbg(rim_radius=0.044):
+    from manip_sim.frames import Frame
+    from manip_sim.viz import DebugOverlay
+    spout = Frame("spout", np.array([0.1, 0.0, 0.0]),
+                  np.array([1.0, 0.0, 0.0]), np.array([0.0, 0.0, 1.0]))
+    tilt = Frame("tilt", np.array([0.1, 0.0, 0.0]),
+                 np.array([0.0, 1.0, 0.0]), np.array([1.0, 0.0, 0.0]))
+    opening = Frame("opening", np.zeros(3), np.array([0.0, 0.0, 1.0]),
+                    np.array([1.0, 0.0, 0.0]))
+    return DebugOverlay(spout, tilt, opening, rim_radius=rim_radius)
+
+
+def test_report_separates_standoff_from_lateral_miss():
+    dbg = _dbg()
+    # teapot placed so the tip sits 70 mm above the opening, dead centre
+    T_teapot = make_pose([-0.1, 0.0, 0.07])
+    r = dbg.report(T_teapot, make_pose([0.0, 0.0, 0.0]))
+    assert r["tip_standoff_mm"] == pytest.approx(70.0, abs=1e-6)
+    assert r["tip_lateral_mm"] == pytest.approx(0.0, abs=1e-9)
+    assert r["tip_over_rim"]
+    # the legacy scalar reports 70 mm for this PERFECT placement
+    assert r["tip_to_opening_mm"] == pytest.approx(70.0, abs=1e-6)
+
+
+def test_report_flags_a_lateral_miss_the_legacy_scalar_hides():
+    dbg = _dbg()
+    good = dbg.report(make_pose([-0.1, 0.0, 0.075]), make_pose([0, 0, 0]))
+    miss = dbg.report(make_pose([-0.1, 0.06, 0.045]), make_pose([0, 0, 0]))
+    # nearly identical 3-D distances ...
+    assert abs(good["tip_to_opening_mm"] - miss["tip_to_opening_mm"]) < 1.0
+    # ... opposite verdicts
+    assert good["tip_over_rim"] and not miss["tip_over_rim"]
+
+
+def test_stream_landing_requires_the_spout_to_point_down():
+    from scipy.spatial.transform import Rotation as R_
+    dbg = _dbg()
+    T_mug = make_pose([0.0, 0.0, 0.0])
+    upright = make_pose([-0.1, 0.0, 0.07])              # spout axis = +x
+    assert dbg.report(upright, T_mug)["stream_lands_in_mug"] is False
+    # tilt +90 deg about +y takes the spout axis from +x to -z
+    T = make_pose([0.0, 0.0, 0.0], R_.from_euler("y", np.pi / 2).as_matrix())
+    T[:3, 3] = np.array([0.0, 0.0, 0.07]) - T[:3, :3] @ np.array([0.1, 0, 0])
+    r = dbg.report(T, T_mug)
+    assert r["spout_declination_deg"] == pytest.approx(0.0, abs=1e-6)
+    assert r["stream_lands_in_mug"]
+    assert r["stream_lateral_mm"] == pytest.approx(0.0, abs=1e-6)

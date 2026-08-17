@@ -72,6 +72,7 @@ from manip_sim.provenance import (add_arm_flag, announce, metrics_path,
                                   resolve_plan_path, video_path)
 from manip_sim.replan import (ReplanError, TaskFrames, replan_from_stage,
                               slip_exceeds)
+from manip_sim.viz import DebugOverlay
 
 ARM_OUTPUT_MAX = 0.05             # rad/step commanded delta cap (1 rad/s @20Hz)
 
@@ -80,8 +81,9 @@ class VideoTap:
     """on_step hook: render the LIVE sim every `every` control steps."""
 
     def __init__(self, arm: LiveArm, camera: str, width: int, height: int,
-                 every: int, enabled: bool):
+                 every: int, enabled: bool, draw=None):
         self.enabled = enabled
+        self.draw = draw                  # scene -> None, called per frame
         self.frames: list[np.ndarray] = []
         if not enabled:
             return
@@ -109,6 +111,8 @@ class VideoTap:
             return
         self.renderer.update_scene(self.arm.data, camera=self.cam,
                                    scene_option=self.opt)
+        if self.draw is not None:
+            self.draw(self.renderer.scene)
         self.frames.append(self.renderer.render().copy())
 
 
@@ -132,6 +136,8 @@ def main() -> None:
     ap.add_argument("--frame-every", type=int, default=2,
                     help="render every Nth control step")
     ap.add_argument("--no-video", action="store_true")
+    ap.add_argument("--no-overlay", action="store_true",
+                    help="drop the frame/TSR/slip overlay from the video")
     ap.add_argument("--close-steps", type=int, default=50)
     ap.add_argument("--dwell-seconds", type=float, default=2.0)
     ap.add_argument("--allow-meshfree", action="store_true",
@@ -179,8 +185,6 @@ def main() -> None:
 
     arm = LiveArm(env)
     tracker = Tracker(env, arm, output_max=ARM_OUTPUT_MAX)
-    tap = VideoTap(arm, args.camera, args.width, args.height,
-                   args.frame_every, enabled=not args.no_video)
     metrics: dict = {"plan": str(plan_file), "ablation_arm": arm_tag,
                      "selections": read_selections(plan) or "",
                      "meshfree": not have_teapot}
@@ -191,6 +195,28 @@ def main() -> None:
     tilt_frame = teapot_sym.frame("spout_tip", "tilt_axis",
                                   secondary="pour_axis")
     opening = mug_sym.frame("opening_center", "up_axis")
+    handle = teapot_sym.frame("handle_center", "handle_axis")
+    rim_radius = mug_sym.quantities.get("rim_radius", 0.044)
+
+    # overlay: a readout of the frames and TSRs in force this step. `live`
+    # is mutated as the run advances so the video always shows the CURRENT
+    # constraint, including a re-anchored pour pair.
+    dbg = DebugOverlay(spout_tip, tilt_frame, opening, handle=handle,
+                       rim_radius=rim_radius)
+    live: dict = {"tsrs": [], "T_ee_body": None}
+
+    def _draw(scene):
+        if not have_teapot:
+            return
+        T_body = arm.body_pose("teapot")
+        T_pred = (arm.ee_pose() @ live["T_ee_body"]
+                  if live["T_ee_body"] is not None else None)
+        dbg.draw(scene, T_body, T0_mug_plan, T_body_pred=T_pred,
+                 tsrs=live["tsrs"])
+
+    tap = VideoTap(arm, args.camera, args.width, args.height,
+                   args.frame_every, enabled=not args.no_video,
+                   draw=None if args.no_overlay else _draw)
 
     if have_teapot:
         T0_teapot = arm.body_pose("teapot")
@@ -233,6 +259,7 @@ def main() -> None:
         print(f"[grasp] measured T_ee_body vs planned: {dpos * 1000:.1f} mm "
               f"translation delta (measured value frozen for stages 2-3)")
         slip = SlipMonitor(T_ee_body)
+        live["T_ee_body"] = T_ee_body
         metrics["grasp_contacts"] = n_contacts
         metrics["T_ee_body_delta_mm"] = dpos * 1000
     else:
@@ -244,8 +271,12 @@ def main() -> None:
         tpair = transport_pair(
             T0_mug_body=T0_mug_plan, mug_opening=opening, spout_tip=spout_tip,
             teapot_body_pos_now=arm.body_pose("teapot")[:3, 3],
-            rim_margin=mug_sym.quantities.get("rim_radius", 0.04) * 0.5,
+            rim_margin=rim_radius * 0.5,
+            # match plan_pour_tea.py: the standoff band the goals were
+            # actually sampled from, not pour_stages' default
+            height=(0.04, 0.10),
             z_corridor=(-0.02, 0.45))
+        live["tsrs"] = [(tpair.subgoal, "tsr_transport")]
 
     def staged_run(label, p, path_tsr):
         stats = TrackStats()
@@ -285,6 +316,15 @@ def main() -> None:
     # constraints are unchanged (slip is a perception update, not an
     # authoring error), only the stale T_ee_body is re-measured.
     ppair = None
+    if have_teapot:
+        r2 = dbg.report(arm.body_pose("teapot"), T0_mug_plan)
+        print(f"[boundary 2->3] spout tip: lateral "
+              f"{r2['tip_lateral_mm']:.1f} mm (rim {r2['rim_radius_mm']:.1f}), "
+              f"standoff {r2['tip_standoff_mm']:.1f} mm, "
+              f"over rim {r2['tip_over_rim']}")
+        print(f"[boundary 2->3] transport subgoal contains the measured "
+              f"pose: {tpair.subgoal.contains(arm.body_pose('teapot'), tol=1e-3)}")
+        metrics["transport_end"] = r2
     if have_teapot and not args.no_reanchor and slip.history:
         standing = slip.history[-1]
         probe = pour_pair(arm.body_pose("teapot"), tilt_frame,
@@ -306,6 +346,7 @@ def main() -> None:
                 "max_deg": float(np.rad2deg(slip.max_drot))}
             T_ee_body = np.linalg.inv(arm.ee_pose()) @ arm.body_pose("teapot")
             slip = SlipMonitor(T_ee_body)      # re-frozen at the new grip
+            live["T_ee_body"] = T_ee_body
             try:
                 rr = replan_from_stage(
                     3, env=env, q_now=arm.q(), T_ee_body=T_ee_body,
@@ -320,6 +361,8 @@ def main() -> None:
                     object_joint=env.objects["teapot"].joints[0])
                 p3 = rr.path                   # replaces the stale stage 3
                 ppair = rr.pairs[3]            # frozen at the SAME entry
+                if 2 in rr.pairs:
+                    live["tsrs"] = [(rr.pairs[2].subgoal, "tsr_transport")]
                 metrics["reanchor"] = {"fired": True, "ok": True}
                 print(f"[boundary 2->3] re-planned pour: {len(p3)} waypoints")
             except ReplanError as e:
@@ -336,6 +379,8 @@ def main() -> None:
         # frozen at the MEASURED entry — where transport actually ended
         ppair = pour_pair(arm.body_pose("teapot"), tilt_frame,
                           tilt_target=tilt_target)
+    if have_teapot:
+        live["tsrs"] = live["tsrs"] + [(ppair.subgoal, "tsr_pour")]
     staged_run("pour", p3, ppair.path if ppair is not None else None)
     dwell_steps = int(args.dwell_seconds * 20)
     tracker.hold(p3[-1], GRIPPER_CLOSE, dwell_steps, on_step=tap)
@@ -345,22 +390,32 @@ def main() -> None:
     if have_teapot:
         T_body = arm.body_pose("teapot")
         tilt_meas = ppair.subgoal.displacement(T_body)[3]
-        tip = (T_body @ spout_tip.T())[:3, 3]
-        opening_w = (T0_mug_plan @ opening.T())[:3, 3]
-        tip_err = float(np.linalg.norm(tip - opening_w))
+        rep = dbg.report(T_body, T0_mug_plan)
         held = arm.contacts_between("gripper0", "teapot") > 0
+        sl = rep["stream_lateral_mm"]
         print(f"  measured tilt      {np.rad2deg(tilt_meas):6.1f} deg "
               f"(target {np.rad2deg(tilt_target):.0f})")
-        print(f"  spout tip <-> opening  {tip_err * 1000:6.1f} mm")
+        print(f"  spout declination  {rep['spout_declination_deg']:6.1f} deg "
+              "from straight down")
+        print(f"  tip lateral        {rep['tip_lateral_mm']:6.1f} mm "
+              f"(rim {rep['rim_radius_mm']:.1f} mm) -> over rim "
+              f"{rep['tip_over_rim']}")
+        print(f"  tip standoff       {rep['tip_standoff_mm']:6.1f} mm "
+              "(subgoal band 40-100)")
+        print("  stream landing     " +
+              (f"{sl:6.1f} mm from center -> in mug "
+               f"{rep['stream_lands_in_mug']}" if sl is not None
+               else "  n/a  spout is not pointing at the opening plane"))
+        print(f"  tip <-> opening    {rep['tip_to_opening_mm']:6.1f} mm "
+              "(3-D; includes the intended standoff — not a miss metric)")
         print(f"  slip max           {slip.max_dpos * 1000:6.1f} mm / "
               f"{np.rad2deg(slip.max_drot):5.1f} deg")
         print(f"  grasp retained     {held}")
         metrics.update(tilt_measured_deg=float(np.rad2deg(tilt_meas)),
                        tilt_target_deg=float(np.rad2deg(tilt_target)),
-                       tip_to_opening_mm=tip_err * 1000,
                        slip_max_mm=slip.max_dpos * 1000,
                        slip_max_deg=float(np.rad2deg(slip.max_drot)),
-                       grasp_retained=bool(held))
+                       grasp_retained=bool(held), **rep)
     else:
         print("  (mesh-free smoke test: trajectory + controller only)")
 

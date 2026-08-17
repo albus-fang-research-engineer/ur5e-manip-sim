@@ -18,17 +18,50 @@
     "mean_track_err": 0.009852880870497368
   },
   "transport_measured_excess": 0.195518237477513,
-  "pour_track": {
-    "n_targets": 118,
-    "n_env_steps": 396,
-    "max_track_err": 0.011746681675588011,
-    "mean_track_err": 0.00941843773511468
+  "transport_end": {
+    "tip_lateral_mm": 69.1979256989116,
+    "tip_standoff_mm": 10.939078589694331,
+    "tip_to_opening_mm": 70.05723632447686,
+    "tip_over_rim": false,
+    "spout_declination_deg": 69.34586868460372,
+    "rim_radius_mm": 44.1,
+    "stream_lands_in_mug": false,
+    "stream_lateral_mm": 82.13372355800922
   },
-  "pour_measured_excess": 0.517421199246883,
-  "tilt_measured_deg": 87.01720769597235,
+  "boundary_standing_slip": [
+    27.37312507144392,
+    22.863837909117102
+  ],
+  "boundary_tolerance": [
+    5.0,
+    3.0000000000000004
+  ],
+  "transport_slip_final": {
+    "max_mm": 27.901859347700274,
+    "max_deg": 23.329052105999995
+  },
+  "reanchor": {
+    "fired": true,
+    "ok": true
+  },
+  "pour_track": {
+    "n_targets": 132,
+    "n_env_steps": 456,
+    "max_track_err": 0.012129491849181218,
+    "mean_track_err": 0.009905374096534997
+  },
+  "pour_measured_excess": 0.18298686378494594,
+  "tilt_measured_deg": 90.47763629109267,
   "tilt_target_deg": 95.0,
-  "tip_to_opening_mm": 73.69646033667732,
-  "slip_max_mm": 27.901859347700274,
-  "slip_max_deg": 23.329052105999995,
-  "grasp_retained": true
+  "slip_max_mm": 16.011638031287664,
+  "slip_max_deg": 13.602938321799897,
+  "grasp_retained": true,
+  "tip_lateral_mm": 50.79490999752962,
+  "tip_standoff_mm": -7.38686052732866,
+  "tip_to_opening_mm": 51.32921770402644,
+  "tip_over_rim": false,
+  "spout_declination_deg": 21.275320411779262,
+  "rim_radius_mm": 44.1,
+  "stream_lands_in_mug": false,
+  "stream_lateral_mm": 53.13201764096851
 }
