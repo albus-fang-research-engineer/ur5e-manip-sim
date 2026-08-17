@@ -2,31 +2,31 @@
   "plan": "outputs/plans/pour_tea_full.npz",
   "meshfree": false,
   "stage1_track": {
-    "n_targets": 105,
-    "n_env_steps": 355,
-    "max_track_err": 0.011429576837297561,
-    "mean_track_err": 0.008565738123746771
+    "n_targets": 104,
+    "n_env_steps": 329,
+    "max_track_err": 0.01001043944714386,
+    "mean_track_err": 0.008818287444418179
   },
-  "grasp_contacts": 4,
-  "T_ee_body_delta_mm": 20.380018000874824,
+  "grasp_contacts": 5,
+  "T_ee_body_delta_mm": 18.908819730004694,
   "transport_track": {
-    "n_targets": 42,
-    "n_env_steps": 117,
-    "max_track_err": 0.011516588998898403,
-    "mean_track_err": 0.00943792816530732
+    "n_targets": 87,
+    "n_env_steps": 297,
+    "max_track_err": 0.013470947361744923,
+    "mean_track_err": 0.010613789676893425
   },
   "transport_measured_excess": 0.0,
   "pour_track": {
-    "n_targets": 155,
-    "n_env_steps": 381,
-    "max_track_err": 0.01167340598280553,
-    "mean_track_err": 0.008611166432111638
+    "n_targets": 156,
+    "n_env_steps": 422,
+    "max_track_err": 0.01196195126453592,
+    "mean_track_err": 0.009085267114006803
   },
-  "pour_measured_excess": 0.12622760191760268,
-  "tilt_measured_deg": 88.81228105698064,
+  "pour_measured_excess": 0.8419596668874632,
+  "tilt_measured_deg": 103.02567814865097,
   "tilt_target_deg": 95.0,
-  "tip_to_opening_mm": 81.66026774093598,
-  "slip_max_mm": 16.030005646828915,
-  "slip_max_deg": 7.129129907471135,
+  "tip_to_opening_mm": 89.582701108118,
+  "slip_max_mm": 60.57496815526426,
+  "slip_max_deg": 31.050849467423323,
   "grasp_retained": true
 }

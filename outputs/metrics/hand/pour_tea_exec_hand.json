@@ -1,0 +1,34 @@
+{
+  "plan": "outputs/plans/hand/pour_tea_full_hand.npz",
+  "ablation_arm": "hand",
+  "selections": "",
+  "meshfree": false,
+  "stage1_track": {
+    "n_targets": 196,
+    "n_env_steps": 604,
+    "max_track_err": 0.010673940510582292,
+    "mean_track_err": 0.00877473745060673
+  },
+  "grasp_contacts": 4,
+  "T_ee_body_delta_mm": 7.411717726796107,
+  "transport_track": {
+    "n_targets": 72,
+    "n_env_steps": 203,
+    "max_track_err": 0.011006734066497437,
+    "mean_track_err": 0.008958546509587183
+  },
+  "transport_measured_excess": 0.03306549492278965,
+  "pour_track": {
+    "n_targets": 144,
+    "n_env_steps": 370,
+    "max_track_err": 0.014187408832821102,
+    "mean_track_err": 0.009122966088050603
+  },
+  "pour_measured_excess": 0.232367376706697,
+  "tilt_measured_deg": 89.65413323688982,
+  "tilt_target_deg": 95.0,
+  "tip_to_opening_mm": 71.8198305666135,
+  "slip_max_mm": 26.77589649327689,
+  "slip_max_deg": 15.49834740830416,
+  "grasp_retained": true
+}
