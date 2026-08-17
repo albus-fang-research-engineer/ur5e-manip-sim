@@ -105,7 +105,7 @@ def convert(
             obj_body, "geom",
             type="mesh", mesh=f"{name}_col_mesh_{i}",
             group="0", rgba="0 1 0 0.0",
-            solimp="0.998 0.998 0.001", solref="0.001 1",
+            solimp="0.998 0.998 0.001", solref="0.01 1",
             density="0", mass=f"{piece_mass:.6f}",
             friction="0.95 0.3 0.1", condim="4",
         )

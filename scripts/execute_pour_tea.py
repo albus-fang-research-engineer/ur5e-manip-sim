@@ -191,12 +191,36 @@ def main() -> None:
 
     teapot_sym = load_symbols("assets/objects/teapot")
     mug_sym = load_symbols("assets/objects/mug")
-    spout_tip = teapot_sym.frame("spout_tip", "pour_axis")
-    tilt_frame = teapot_sym.frame("spout_tip", "tilt_axis",
-                                  secondary="pour_axis")
-    opening = mug_sym.frame("opening_center", "up_axis")
-    handle = teapot_sym.frame("handle_center", "handle_axis")
     rim_radius = mug_sym.quantities.get("rim_radius", 0.044)
+    # The executor REBUILDS stage pairs (the pour freeze at the measured
+    # entry, and now a whole re-plan), so it has to resolve the same
+    # frames the planner did. Reading the sidecar unconditionally
+    # silently executes the hand arm inside a run stamped 'vlm'.
+    sel_path = read_selections(plan) or None
+    if sel_path:
+        from manip_sim.selection import (load_pool, load_selections,
+                                         resolve_selection)
+        sels = load_selections(sel_path)
+        pools = {"teapot": load_pool("assets/objects/teapot"),
+                 "mug": load_pool("assets/objects/mug")}
+        syms = {"teapot": teapot_sym, "mug": mug_sym}
+
+        def _frame(role):
+            sel = sels[role]
+            obj = sel.axis.partition(".")[0]
+            return resolve_selection(sel, pools[obj], syms[obj]).frame
+
+        handle = _frame("grasp")
+        spout_tip = _frame("transport_active")
+        tilt_frame = _frame("pour")
+        opening = _frame("transport_passive")
+        print(f"[execute] task frames <- {sel_path}")
+    else:
+        handle = teapot_sym.frame("handle_center", "handle_axis")
+        spout_tip = teapot_sym.frame("spout_tip", "pour_axis")
+        tilt_frame = teapot_sym.frame("spout_tip", "tilt_axis",
+                                      secondary="pour_axis")
+        opening = mug_sym.frame("opening_center", "up_axis")
 
     # overlay: a readout of the frames and TSRs in force this step. `live`
     # is mutated as the run advances so the video always shows the CURRENT
@@ -315,7 +339,7 @@ def main() -> None:
     # is compared against what the pour subgoal's own B^w tolerates; the
     # constraints are unchanged (slip is a perception update, not an
     # authoring error), only the stale T_ee_body is re-measured.
-    ppair = None
+    ppair, reflow = None, None
     if have_teapot:
         r2 = dbg.report(arm.body_pose("teapot"), T0_mug_plan)
         print(f"[boundary 2->3] spout tip: lateral "
@@ -329,18 +353,36 @@ def main() -> None:
         standing = slip.history[-1]
         probe = pour_pair(arm.body_pose("teapot"), tilt_frame,
                           tilt_target=tilt_target)
-        fire, tol_pos, tol_rot = slip_exceeds(standing, probe.subgoal)
+        grip_stale, tol_pos, tol_rot = slip_exceeds(standing, probe.subgoal)
+        # WHERE to restart is decided by which constraint the slip broke,
+        # not by the residual's size. The pour pair is rooted at the spout
+        # tip WHEREVER IT IS and never mentions the mug, so re-planning
+        # stage 3 re-freezes whatever lateral error transport left — it
+        # can only correct the tilt axis and the stale grip. The one
+        # mug-referenced constraint in this task is the transport subgoal;
+        # once the measured pose falls out of it the tip is no longer over
+        # the opening and the only repair is to re-approach.
+        tip_placed = tpair.subgoal.contains(arm.body_pose("teapot"),
+                                            tol=1e-3)
+        from_stage = 3 if tip_placed else 2
+        fire = grip_stale or not tip_placed
         print(f"[boundary 2->3] standing slip {standing[0] * 1000:.1f} mm / "
               f"{np.rad2deg(standing[1]):.1f} deg vs pour-subgoal tolerance "
-              f"{tol_pos * 1000:.1f} mm / {np.rad2deg(tol_rot):.1f} deg")
+              f"{tol_pos * 1000:.1f} mm / {np.rad2deg(tol_rot):.1f} deg "
+              f"-> grip stale {grip_stale}")
+        print(f"[boundary 2->3] transport subgoal still contains the "
+              f"measured pose: {tip_placed}")
         metrics["boundary_standing_slip"] = [standing[0] * 1000,
                                              float(np.rad2deg(standing[1]))]
         metrics["boundary_tolerance"] = [tol_pos * 1000,
                                          float(np.rad2deg(tol_rot))]
+        metrics["boundary_tip_placed"] = bool(tip_placed)
         if fire:
-            print("[boundary 2->3] slip exceeds the pour subgoal's "
-                  "tolerance -> re-anchor: re-measure T_ee_body, re-plan "
-                  "stage 3 from the measured entry")
+            print(f"[boundary 2->3] re-anchor from stage {from_stage}: "
+                  + ("grip refresh only, the tip is still over the opening"
+                     if from_stage == 3 else
+                     "the tip has left the transport subgoal - re-approach "
+                     "the mug with the corrected in-hand transform"))
             metrics["transport_slip_final"] = {
                 "max_mm": slip.max_dpos * 1000,
                 "max_deg": float(np.rad2deg(slip.max_drot))}
@@ -349,7 +391,7 @@ def main() -> None:
             live["T_ee_body"] = T_ee_body
             try:
                 rr = replan_from_stage(
-                    3, env=env, q_now=arm.q(), T_ee_body=T_ee_body,
+                    from_stage, env=env, q_now=arm.q(), T_ee_body=T_ee_body,
                     T_teapot_now=arm.body_pose("teapot"),
                     T0_mug=T0_mug_plan,
                     frames=TaskFrames(
@@ -358,15 +400,26 @@ def main() -> None:
                         rim_margin=mug_sym.quantities.get(
                             "rim_radius", 0.04) * 0.5),
                     tilt_target=tilt_target,
-                    object_joint=env.objects["teapot"].joints[0])
-                p3 = rr.path                   # replaces the stale stage 3
-                ppair = rr.pairs[3]            # frozen at the SAME entry
+                    object_joint=env.objects["teapot"].joints[0],
+                    # the standoff band the offline goals came from
+                    transport_kw={"height": (0.04, 0.10),
+                                  "z_corridor": (-0.02, 0.45)})
+                # each re-planned stage runs under ITS OWN path TSR, so
+                # the measured-excess column stays comparable to a run
+                # that did not re-plan
+                reflow = [(st, seg, rr.pairs[st].path)
+                          for st, seg in rr.paths]
+                ppair = rr.pairs[3]
                 if 2 in rr.pairs:
                     live["tsrs"] = [(rr.pairs[2].subgoal, "tsr_transport")]
-                metrics["reanchor"] = {"fired": True, "ok": True}
-                print(f"[boundary 2->3] re-planned pour: {len(p3)} waypoints")
+                metrics["reanchor"] = {"fired": True, "ok": True,
+                                       "from_stage": from_stage}
+                print("[boundary 2->3] re-planned: " + ", ".join(
+                    f"stage {st} {len(seg)} waypoints"
+                    for st, seg, _ in reflow))
             except ReplanError as e:
                 metrics["reanchor"] = {"fired": True, "ok": False,
+                                       "from_stage": from_stage,
                                        "stage": e.stage, "reason": e.reason}
                 print(f"[boundary 2->3] re-plan failed ({e.reason}); "
                       "falling through to the stale stage-3 plan")
@@ -381,7 +434,12 @@ def main() -> None:
                           tilt_target=tilt_target)
     if have_teapot:
         live["tsrs"] = live["tsrs"] + [(ppair.subgoal, "tsr_pour")]
-    staged_run("pour", p3, ppair.path if ppair is not None else None)
+    if reflow is None:
+        staged_run("pour", p3, ppair.path if ppair is not None else None)
+    else:
+        for st, seg, ptsr in reflow:
+            staged_run("retransport" if st == 2 else "pour", seg, ptsr)
+        p3 = reflow[-1][1]
     dwell_steps = int(args.dwell_seconds * 20)
     tracker.hold(p3[-1], GRIPPER_CLOSE, dwell_steps, on_step=tap)
 
