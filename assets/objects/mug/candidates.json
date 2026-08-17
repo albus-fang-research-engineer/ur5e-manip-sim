@@ -33,7 +33,7 @@
       "xyz": [
         -0.0118,
         -0.0,
-        -0.0402
+        -0.0403
       ],
       "source": "constructed",
       "symbol": "base_center",
@@ -45,7 +45,7 @@
       "xyz": [
         0.0481,
         -0.0028,
-        0.001
+        0.0011
       ],
       "source": "constructed",
       "symbol": "handle_center",
