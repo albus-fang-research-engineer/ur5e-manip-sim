@@ -67,7 +67,10 @@ import numpy as np
 DENSE_SAMPLES = 20000        # area-weighted surface samples backing all classes
 FPS_QUOTA = 16               # coverage class size
 CURVATURE_QUOTA = 12         # saliency class size
-PART_QUOTA_EACH = 4          # per part region
+PART_QUOTA_EACH = 8          # per part region — dense enough that the menu's
+                             # per-part FPS spread (selection.vlm_subset tier 1)
+                             # has material to spread; 4 over a full handle band
+                             # was sparse before NMS
 CURVATURE_QUANTILE = 0.90    # samples above this saliency quantile are eligible
 POOL_BUDGET = 48             # hard cap on the union pool (30-50 per plan)
 NMS_RADIUS_M = 0.010         # merge radius, tied to subgoal B^w tolerance

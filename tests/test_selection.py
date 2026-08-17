@@ -417,3 +417,77 @@ def test_vlm_subset_smaller_pool_than_budget():
     pool = {i: c for i, c in _synth_pool().items() if i < 4}
     sub = vlm_subset(pool)
     assert set(sub) == set(pool)
+
+def _synth_pool_spread() -> dict[int, dict]:
+    """_synth_pool with a handle bar laid out in space: six handle
+    surface candidates on a 12 cm vertical bar (distinct xyz, so FPS
+    spread is observable), other classes as before."""
+    from itertools import count
+    i = count()
+    cands = []
+    for sym, part in (("handle_center", "handle"), ("spout_tip", "spout"),
+                      ("lid_center", "lid")):
+        cands.append({"id": next(i), "xyz": np.zeros(3),
+                      "source": "constructed", "symbol": sym, "part": part})
+    # handle bar: z = 0.00, 0.02, ..., 0.10 — IDs ascend from the bottom,
+    # so ascending-ID selection would cluster at the bar's low end
+    for k in range(6):
+        cands.append({"id": next(i), "xyz": np.array([0.1, 0.0, 0.02 * k]),
+                      "source": "part", "part": "handle"})
+    for part in ("spout", "spout"):
+        cands.append({"id": next(i), "xyz": np.zeros(3),
+                      "source": "part", "part": part})
+    for _ in range(4):
+        cands.append({"id": next(i), "xyz": np.zeros(3),
+                      "source": "fps", "part": None})
+    return {c["id"]: c for c in cands}
+
+
+def test_vlm_subset_part_caps_default_table():
+    # PART_CAPS gives the handle 4 surface slots by default; spout keeps
+    # SUBSET_PART_CAP
+    from manip_sim.selection import (PART_CAPS, SUBSET_PART_CAP, vlm_subset)
+    pool = _synth_pool_spread()
+    sub = vlm_subset(pool, parts=["handle", "spout"])
+    handle = [c for c in sub.values()
+              if c["source"] == "part" and c["part"] == "handle"]
+    spout = [c for c in sub.values()
+             if c["source"] == "part" and c["part"] == "spout"]
+    assert len(handle) == PART_CAPS["handle"] == 4
+    assert len(spout) <= SUBSET_PART_CAP
+
+
+def test_vlm_subset_tier1_fps_spread_not_ascending_id():
+    # with cap 3 on a 6-point bar, FPS must take both bar extremes;
+    # ascending-ID would take the three lowest points
+    from manip_sim.selection import vlm_subset
+    pool = _synth_pool_spread()
+    sub = vlm_subset(pool, parts=["handle"], part_caps={"handle": 3})
+    zs = sorted(c["xyz"][2] for c in sub.values()
+                if c["source"] == "part" and c["part"] == "handle")
+    assert len(zs) == 3
+    assert zs[0] == 0.00 and zs[-1] == 0.10       # both extremes present
+    assert zs != [0.00, 0.02, 0.04]               # not the low-ID cluster
+
+
+def test_vlm_subset_part_caps_override_and_ids_stable():
+    from manip_sim.selection import vlm_subset
+    pool = _synth_pool_spread()
+    sub = vlm_subset(pool, parts=["handle"], part_caps={"handle": 2})
+    handle = [c for c in sub.values()
+              if c["source"] == "part" and c["part"] == "handle"]
+    assert len(handle) == 2
+    for i, c in sub.items():
+        assert c is pool[i]                       # pool ids, never renumbered
+
+
+def test_vlm_subset_degenerate_geometry_no_duplicates():
+    # coincident xyz (the old synthetic pools) must not produce
+    # duplicate or missing entries via repeated FPS indices
+    from manip_sim.selection import vlm_subset
+    pool = _synth_pool()
+    sub = vlm_subset(pool, parts=["handle"])
+    handle = [c for c in sub.values()
+              if c["source"] == "part" and c["part"] == "handle"]
+    assert 1 <= len(handle) <= 4
+    assert len({c["id"] for c in sub.values()}) == len(sub)

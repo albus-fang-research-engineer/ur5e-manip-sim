@@ -84,6 +84,7 @@ from pathlib import Path
 import numpy as np
 
 from .frames import Frame, Symbols
+from .proposal import fps
 from .refine import RefineResult, refine_axis, extract_ring_from_mesh
 from .refine_frame import (AzimuthResult, FrameResult, assemble_frame,
                            azimuth_from_part_cloud, azimuth_from_points,
@@ -130,6 +131,13 @@ SLIVER_FRAC = 0.22
 # the constructed points and coverage tiers must share.
 SUBSET_BUDGET = 8
 SUBSET_PART_CAP = 2
+# Per-part overrides of SUBSET_PART_CAP. Load-bearing parts — the ones a
+# grasp stage anchors on, where WHERE on the part matters for the physical
+# grasp — get more menu slots at the expense of the filler tiers (4/5);
+# passive parts keep the default. A frozen table, reported alongside the
+# tolerance enums: the fix is a representative menu of the part, never
+# curation toward a known-good grasp.
+PART_CAPS: dict[str, int] = {"handle": 4}
 
 
 class ResolutionError(ValueError):
@@ -196,7 +204,8 @@ def _part_match(token: str, cand: dict) -> bool:
 
 def vlm_subset(pool: dict[int, dict],
                parts: list[str] | tuple[str, ...] | None = None,
-               budget: int = SUBSET_BUDGET) -> dict[int, dict]:
+               budget: int = SUBSET_BUDGET,
+               part_caps: dict[str, int] | None = None) -> dict[int, dict]:
     """The <= budget candidates offered to VLM touchpoint #2, chosen from
     the full pool by semantic priority. IDs are the POOL ids, never
     renumbered — this subset must feed BOTH menu_from_pool (the parser's
@@ -214,7 +223,12 @@ def vlm_subset(pool: dict[int, dict],
 
       0  constructed candidates matching a stage part (free text)
       1  surface part-class candidates of matching parts, capped at
-         SUBSET_PART_CAP per part
+         part_caps[part] (default PART_CAPS, falling back to
+         SUBSET_PART_CAP) and chosen by farthest-point sampling over the
+         part's candidates rather than ascending ID — with several slots
+         on one part the slots must span the band (top of a handle bar,
+         mid, bottom, outer arc), not cluster wherever the low pool IDs
+         happen to sit
       2  remaining constructed (primitive-derived points — cavity and
          base centers — that surface sampling cannot produce)
       3  one part-class candidate per part not yet represented (the
@@ -225,13 +239,13 @@ def vlm_subset(pool: dict[int, dict],
     to constructed -> per-part coverage -> curvature -> fps.
     """
     tokens = [p for p in (parts or []) if p and p.strip()]
+    caps = dict(PART_CAPS) if part_caps is None else part_caps
 
     def match(c: dict) -> bool:
         return any(_part_match(t, c) for t in tokens)
 
     ordered = [pool[i] for i in sorted(pool)]
     chosen: dict[int, dict] = {}
-    per_part: dict[str, int] = {}
 
     def take(c: dict) -> None:
         if len(chosen) < budget and c["id"] not in chosen:
@@ -240,14 +254,21 @@ def vlm_subset(pool: dict[int, dict],
     for c in ordered:                                    # tier 0
         if c["source"] == "constructed" and match(c):
             take(c)
-    for c in ordered:                                    # tier 1
+    # tier 1: per part (ascending part name), FPS over that part's
+    # matching surface candidates so the capped slots span the band.
+    # fps() input order is ascending pool ID -> deterministic; degenerate
+    # geometry (coincident points) can repeat indices, hence the dedupe.
+    by_part: dict[str, list[dict]] = {}
+    for c in ordered:
         if c["source"] == "part" and match(c):
-            part = c.get("part") or ""
-            if per_part.get(part, 0) < SUBSET_PART_CAP:
-                before = len(chosen)
-                take(c)
-                if len(chosen) > before:
-                    per_part[part] = per_part.get(part, 0) + 1
+            by_part.setdefault(c.get("part") or "", []).append(c)
+    for part in sorted(by_part):
+        group = by_part[part]
+        cap = caps.get(part, SUBSET_PART_CAP)
+        P = np.stack([c["xyz"] for c in group])
+        idx = list(dict.fromkeys(fps(P, cap).tolist()))
+        for i in idx[:cap]:
+            take(group[i])
     for c in ordered:                                    # tier 2
         if c["source"] == "constructed":
             take(c)
