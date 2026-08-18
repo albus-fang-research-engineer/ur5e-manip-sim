@@ -565,7 +565,12 @@ def main() -> None:
         np.full(len(res3.path) + args.dwell, 3)])
     out = Path(args.out) if args.out else plan_path(arm)
     out.parent.mkdir(parents=True, exist_ok=True)
+    # n_lift: the lift/transport sub-boundary inside stage 2. The executor
+    # splits there to run the 1->2 re-anchor check from the LIFTED config —
+    # the last moment the pot is both measured-in-hand and far from every
+    # collision, i.e. where a transport re-plan trivially succeeds.
     np.savez(out, path=path, stage_ids=stage_ids, q_home=q_home,
+             n_lift=len(lift),
              q_grasp=q_grasp, T_ee_body=T_ee_body,
              T0_teapot_init=T0_teapot, T0_mug=T0_mug,
              tilt_target=np.deg2rad(args.tilt_deg),

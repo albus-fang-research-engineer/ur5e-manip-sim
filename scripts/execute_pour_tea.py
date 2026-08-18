@@ -54,6 +54,7 @@ import imageio
 import mujoco
 import numpy as np
 import robosuite as suite  # noqa: F401  (env built via the scene factory)
+from scipy.spatial.transform import Rotation as R
 
 from scripts.demos.demo_pour_tea import make_env
 from manip_sim.execution import (
@@ -177,6 +178,21 @@ def main() -> None:
     ap.add_argument("--no-reanchor", action="store_true",
                     help="disable slip-triggered stage re-anchoring (the "
                          "stale-plan baseline arm of the re-plan ablation)")
+    ap.add_argument("--on-replan-fail", choices=("abort", "stale"),
+                    default="abort",
+                    help="policy when a fired re-anchor cannot plan. "
+                         "'abort' (default): hold in place and record a "
+                         "terminal typed failure — at that moment the "
+                         "system KNOWS the next stage's precondition is "
+                         "violated and unrepaired, so executing the stale "
+                         "plan drags a slipped pot through the workspace "
+                         "to a certain miss. 'stale': the old fall-through "
+                         "(kept as an ablation arm; its metrics row is "
+                         "flagged).")
+    ap.add_argument("--replan-goal-samples", type=int, default=60,
+                    help="goal-sample budget for execution-time re-plans "
+                         "(the offline planner uses --n-goal-samples; the "
+                         "old hardcoded 30 left the funnel with ~2 goals)")
     args = ap.parse_args()
 
     import os, time as _time
@@ -196,6 +212,9 @@ def main() -> None:
               "planning just failed, you are about to execute a STALE "
               "plan; check the planner output for a SystemExit.")
     path, stage_ids = plan["path"], plan["stage_ids"]
+    # lift/transport sub-boundary inside stage 2 (absent in older plans:
+    # 0 disables the split and the 1->2 re-anchor check)
+    n_lift = int(plan["n_lift"]) if "n_lift" in plan.files else 0
     T_ee_body_plan = plan["T_ee_body"]
     T0_teapot_plan, T0_mug_plan = plan["T0_teapot_init"], plan["T0_mug"]
     tilt_target = float(plan["tilt_target"])
@@ -372,7 +391,77 @@ def main() -> None:
 
     # ==================================================== stage 2: transport
     print("\n============== stage 2: transport ==============")
-    staged_run("transport", p2, tpair.path if have_teapot else None)
+    ppair, reflow, aborted = None, None, None
+
+    def _replan(from_stage, T_ee):
+        return replan_from_stage(
+            from_stage, env=env, q_now=arm.q(), T_ee_body=T_ee,
+            T_teapot_now=arm.body_pose("teapot"),
+            T0_mug=T0_mug_plan,
+            frames=TaskFrames(
+                spout_tip=spout_tip, tilt_frame=tilt_frame,
+                opening=opening,
+                rim_margin=mug_sym.quantities.get(
+                    "rim_radius", 0.04) * 0.5),
+            tilt_target=tilt_target,
+            object_joint=env.objects["teapot"].joints[0],
+            n_goal_samples=args.replan_goal_samples,
+            # the standoff band the offline goals came from
+            transport_kw={"height": (0.04, 0.10),
+                          "z_corridor": (-0.02, 0.45)})
+
+    p2_lift, p2_move = (p2[:n_lift], p2[n_lift:]) \
+        if 0 < n_lift < len(p2) else (None, p2)
+    if p2_lift is not None:
+        staged_run("lift", p2_lift, None)
+
+    # ------------- stage boundary 1->2: grasp-realization check ------------
+    # The pot is lifted, measured in-hand, and far from every collision —
+    # the one moment a transport re-plan is trivially plannable. The
+    # residual here is not slip (the monitor was frozen on the MEASURED
+    # transform at closure, so it reads ~0): it is the measured-vs-PLANNED
+    # grasp delta, which is exactly the assumption the offline p2/p3 were
+    # built on. Threshold: what the transport subgoal's own B^w tolerates
+    # (same convention as the 2->3 boundary; no fresh magic number). On
+    # re-plan failure this boundary always falls through — the planned
+    # transport is degraded, not known-invalid, and 2->3 is the backstop.
+    if p2_lift is not None and have_teapot and not args.no_reanchor:
+        dpos_g = float(np.linalg.norm(
+            T_ee_body[:3, 3] - T_ee_body_plan[:3, 3]))
+        drot_g = float(np.linalg.norm(R.from_matrix(
+            T_ee_body_plan[:3, :3].T @ T_ee_body[:3, :3]).as_rotvec()))
+        fire1, tp1, tr1 = slip_exceeds((dpos_g, drot_g), tpair.subgoal)
+        print(f"[boundary 1->2] grasp realized {dpos_g * 1000:.1f} mm / "
+              f"{np.rad2deg(drot_g):.1f} deg off the planned grip vs "
+              f"transport-subgoal tolerance {tp1 * 1000:.1f} mm / "
+              f"{np.rad2deg(tr1):.1f} deg -> replan {fire1}")
+        metrics["boundary_1_2"] = {
+            "delta_mm": dpos_g * 1000,
+            "delta_deg": float(np.rad2deg(drot_g)),
+            "tol_mm": tp1 * 1000, "tol_deg": float(np.rad2deg(tr1)),
+            "fired": bool(fire1)}
+        if fire1:
+            try:
+                rr = _replan(2, T_ee_body)
+                reflow = [(st, seg, rr.pairs[st].path)
+                          for st, seg in rr.paths]
+                ppair = rr.pairs[3]
+                live["tsrs"] = [(rr.pairs[2].subgoal, "tsr_transport")]
+                metrics["reanchor_1_2"] = {"fired": True, "ok": True}
+                print("[boundary 1->2] re-planned: " + ", ".join(
+                    f"stage {st} {len(seg)} waypoints"
+                    for st, seg, _ in reflow))
+            except ReplanError as e:
+                metrics["reanchor_1_2"] = {"fired": True, "ok": False,
+                                           "stage": e.stage,
+                                           "reason": e.reason}
+                print(f"[boundary 1->2] re-plan failed ({e.reason}); "
+                      "falling through to the planned transport — the "
+                      "2->3 boundary is the backstop")
+
+    if reflow is None:
+        staged_run("transport", p2_move,
+                   tpair.path if have_teapot else None)
 
     # ------------- stage boundary 2->3: slip-triggered re-anchor -----------
     # The one interior boundary before a precision stage in this task; the
@@ -381,8 +470,7 @@ def main() -> None:
     # is compared against what the pour subgoal's own B^w tolerates; the
     # constraints are unchanged (slip is a perception update, not an
     # authoring error), only the stale T_ee_body is re-measured.
-    ppair, reflow = None, None
-    if have_teapot:
+    if have_teapot and reflow is None:
         r2 = dbg.report(arm.body_pose("teapot"), T0_mug_plan)
         print(f"[boundary 2->3] spout tip: lateral "
               f"{r2['tip_lateral_mm']:.1f} mm (rim {r2['rim_radius_mm']:.1f}), "
@@ -391,7 +479,8 @@ def main() -> None:
         print(f"[boundary 2->3] transport subgoal contains the measured "
               f"pose: {tpair.subgoal.contains(arm.body_pose('teapot'), tol=1e-3)}")
         metrics["transport_end"] = r2
-    if have_teapot and not args.no_reanchor and slip.history:
+    if have_teapot and reflow is None and not args.no_reanchor \
+            and slip.history:
         standing = slip.history[-1]
         probe = pour_pair(arm.body_pose("teapot"), tilt_frame,
                           tilt_target=tilt_target)
@@ -428,24 +517,18 @@ def main() -> None:
             metrics["transport_slip_final"] = {
                 "max_mm": slip.max_dpos * 1000,
                 "max_deg": float(np.rad2deg(slip.max_drot))}
-            T_ee_body = np.linalg.inv(arm.ee_pose()) @ arm.body_pose("teapot")
-            slip = SlipMonitor(T_ee_body)      # re-frozen at the new grip
-            live["T_ee_body"] = T_ee_body
+            T_ee_meas = np.linalg.inv(arm.ee_pose()) @ arm.body_pose("teapot")
             try:
-                rr = replan_from_stage(
-                    from_stage, env=env, q_now=arm.q(), T_ee_body=T_ee_body,
-                    T_teapot_now=arm.body_pose("teapot"),
-                    T0_mug=T0_mug_plan,
-                    frames=TaskFrames(
-                        spout_tip=spout_tip, tilt_frame=tilt_frame,
-                        opening=opening,
-                        rim_margin=mug_sym.quantities.get(
-                            "rim_radius", 0.04) * 0.5),
-                    tilt_target=tilt_target,
-                    object_joint=env.objects["teapot"].joints[0],
-                    # the standoff band the offline goals came from
-                    transport_kw={"height": (0.04, 0.10),
-                                  "z_corridor": (-0.02, 0.45)})
+                rr = _replan(from_stage, T_ee_meas)
+                # the re-freeze commits ONLY together with a plan built on
+                # it. On failure the executing plan still assumes the OLD
+                # transform, and the monitor must keep measuring against
+                # what that plan assumes — otherwise the failure branch
+                # reports only post-boundary slip and the overlay's
+                # prediction snaps to zero residual while ~all of the real
+                # error is still in force.
+                slip = SlipMonitor(T_ee_meas)  # re-frozen at the new grip
+                live["T_ee_body"] = T_ee_meas
                 # each re-planned stage runs under ITS OWN path TSR, so
                 # the measured-excess column stays comparable to a run
                 # that did not re-plan
@@ -462,9 +545,16 @@ def main() -> None:
             except ReplanError as e:
                 metrics["reanchor"] = {"fired": True, "ok": False,
                                        "from_stage": from_stage,
-                                       "stage": e.stage, "reason": e.reason}
-                print(f"[boundary 2->3] re-plan failed ({e.reason}); "
-                      "falling through to the stale stage-3 plan")
+                                       "stage": e.stage, "reason": e.reason,
+                                       "policy": args.on_replan_fail}
+                if args.on_replan_fail == "abort":
+                    aborted = f"2->3 replan failed: {e.reason}"
+                    print(f"[boundary 2->3] re-plan failed ({e.reason}) — "
+                          "aborting the pour (--on-replan-fail=abort)")
+                else:
+                    print(f"[boundary 2->3] re-plan failed ({e.reason}); "
+                          "falling through to the stale stage-3 plan "
+                          "(--on-replan-fail=stale)")
         else:
             metrics["reanchor"] = {"fired": False}
 
@@ -476,24 +566,35 @@ def main() -> None:
                           tilt_target=tilt_target)
     if have_teapot:
         live["tsrs"] = live["tsrs"] + [(ppair.subgoal, "tsr_pour")]
-    if reflow is None:
+    last_track = "pour_track"
+    if aborted is not None:
+        print(f"[abort] {aborted}")
+        print("[abort] the pour's precondition is measured-violated and "
+              "unrepaired — holding in place instead of executing a "
+              "known-invalid plan")
+        metrics["aborted"] = aborted
+    elif reflow is None:
         staged_run("pour", p3, ppair.path if ppair is not None else None)
     else:
         for st, seg, ptsr in reflow:
             label = "retransport" if st == 2 else "pour"
             staged_run(label, seg, ptsr)
             p3 = seg          # dwell holds the last EXECUTED segment's end
-            if metrics[f"{label}_track"].get("stalled"):
+            last_track = f"{label}_track"
+            if metrics[last_track].get("stalled"):
                 print(f"[{label}] segment stalled — later re-planned stages "
                       "assume this one's planned end; not executing them "
                       "from a jammed config")
                 break
     dwell_steps = int(args.dwell_seconds * 20)
-    # after a stall the segment's planned end was never reached; holding it
-    # would keep pressing into whatever stopped the arm — dwell in place
-    q_dwell = arm.q() if any(
-        isinstance(v, dict) and v.get("stalled")
-        for k, v in metrics.items() if k.endswith("_track")) else p3[-1]
+    # after an abort or a stall the last plan's end was never (validly)
+    # reached; holding it would keep pressing into whatever stopped the
+    # arm — dwell in place. Keyed on the LAST EXECUTED segment, not any():
+    # an early stall that a later re-plan recovered from must not drag
+    # the dwell off the clean pour's end.
+    q_dwell = arm.q() if (
+        aborted is not None
+        or metrics.get(last_track, {}).get("stalled")) else p3[-1]
     tracker.hold(q_dwell, GRIPPER_CLOSE, dwell_steps, on_step=tap)
 
     # ---------------------------------------------------------- final report
@@ -522,6 +623,8 @@ def main() -> None:
         print(f"  slip max           {slip.max_dpos * 1000:6.1f} mm / "
               f"{np.rad2deg(slip.max_drot):5.1f} deg")
         print(f"  grasp retained     {held}")
+        if aborted is not None:
+            print(f"  ABORTED            {aborted}")
         metrics.update(tilt_measured_deg=float(np.rad2deg(tilt_meas)),
                        tilt_target_deg=float(np.rad2deg(tilt_target)),
                        slip_max_mm=slip.max_dpos * 1000,

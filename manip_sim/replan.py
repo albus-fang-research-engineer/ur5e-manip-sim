@@ -46,7 +46,7 @@ import numpy as np
 
 from .frames import Frame
 from .planning import (ArmKinematics, AttachedArmKinematics, AttachedObject,
-                       MinkIK, plan_constrained)
+                       MinkIK, plan_constrained, project_config)
 from .pour_stages import pour_pair, transport_pair
 from .tsr import TSR, sample_intersection
 
@@ -112,6 +112,42 @@ def _rooted_at(path: np.ndarray, q_from: np.ndarray, label: str,
               "joint space — prepending the arm's actual config; the "
               "righting move is tracked, not chased")
     return np.vstack([np.asarray(q_from, float), path])
+
+
+def _retreat_up(ik, kin, attached, q_from, clear_tsrs,
+                dz_step: float = 0.02, dz_max: float = 0.12,
+                proj_tol: float = 2e-3):
+    """Vertical retreat primitive for re-plans that begin jammed against
+    the scene. plan_constrained demands a start that PROJECTS onto the
+    path-TSR manifold collision-free — after heavy slip near the target
+    that projection rights the pot IN PLACE, straight into the mug/table.
+    The physically necessary first move is a retreat, which the
+    constrained planner cannot express. So: climb the eef straight up in
+    world (orientation held, differential IK seeded sequentially) in
+    dz_step increments, and at each level test exactly what the planner
+    will demand of its start. Returns (retreat_path[n,6], q_clear) at the
+    first level whose upright projection clears, None if dz_max is
+    exhausted. Grazing contact is tolerated for the first two steps
+    (mirroring the offline post-grasp lift); every later waypoint is
+    collision-checked. The retreat is off-manifold BY INTENT — the pot is
+    slipped, which is why we are here — and is prepended to the
+    re-planned path as ordinary tracked waypoints."""
+    q = np.asarray(q_from, float).copy()
+    T0 = kin.fk(q)
+    path = []
+    for k in range(1, int(round(dz_max / dz_step)) + 1):
+        T_up = T0.copy()
+        T_up[2, 3] += k * dz_step
+        q_new, ok = ik.solve(T_up, q)
+        if not ok or (k > 2 and kin.in_collision(q_new)):
+            return None
+        path.append(q_new)
+        q = q_new
+        q_proj, okp = project_config(kin, attached, clear_tsrs, q_new,
+                                     tol=proj_tol)
+        if okp and not kin.in_collision(q_proj):
+            return np.asarray(path, float), q_new
+    return None
 
 
 def default_seeds(q_now: np.ndarray, joint_range: np.ndarray,
@@ -208,24 +244,47 @@ def replan_from_stage(stage: int, *, env, q_now: np.ndarray,
     T_entry = T_teapot_now
 
     if stage == 2:
-        tpair = transport_pair(
-            T0_mug_body=T0_mug, mug_opening=frames.opening,
-            spout_tip=frames.spout_tip,
-            teapot_body_pos_now=T_teapot_now[:3, 3],
-            rim_margin=frames.rim_margin, **(transport_kw or {}))
-        rep = sample_intersection(tpair.subgoal, [tpair.path],
-                                  n=n_goal_samples, rng=rng)
-        goals = goal_funnel(rep, ik, kin, attached, seeds,
-                            [tpair.path, tpair.subgoal], "transport", q_now)
-        if not goals:
-            raise ReplanError(2, "no feasible transport goal configs")
-        res = plan_constrained(kin, attached, [tpair.path], q_now, goals[0],
-                               timeout=timeout, rng=rng)
+        def _leg(q_from, T_body_from):
+            tpair = transport_pair(
+                T0_mug_body=T0_mug, mug_opening=frames.opening,
+                spout_tip=frames.spout_tip,
+                teapot_body_pos_now=T_body_from[:3, 3],
+                rim_margin=frames.rim_margin, **(transport_kw or {}))
+            rep = sample_intersection(tpair.subgoal, [tpair.path],
+                                      n=n_goal_samples, rng=rng)
+            goals = goal_funnel(rep, ik, kin, attached, seeds,
+                                [tpair.path, tpair.subgoal], "transport",
+                                q_from)
+            if not goals:
+                raise ReplanError(2, "no feasible transport goal configs")
+            return tpair, plan_constrained(kin, attached, [tpair.path],
+                                           q_from, goals[0],
+                                           timeout=timeout, rng=rng)
+
+        tpair, res = _leg(q_now, T_teapot_now)
+        pre = np.asarray([q_now], float)
+        if not res.ok and "start" in res.reason:
+            r = _retreat_up(ik, kin, attached, q_now, [tpair.path])
+            if r is None:
+                raise ReplanError(
+                    2, f"transport planning failed: {res.reason}; vertical "
+                       "retreat found no config whose upright projection "
+                       "clears — physical recovery needed")
+            r_path, q_clear = r
+            print(f"[replan:transport] start unplannable ({res.reason}) — "
+                  f"retreated {len(r_path)} x 2 cm straight up; re-planning "
+                  "from the cleared config")
+            tpair, res = _leg(q_clear, attached.body_pose(kin.fk(q_clear)))
+            pre = np.vstack([pre, r_path])
         if not res.ok:
             raise ReplanError(2, f"transport planning failed: {res.reason}")
-        out.paths.append((2, _rooted_at(res.path, q_now, "transport")))
+        seg = _rooted_at(res.path, pre[-1], "transport")
+        if float(np.linalg.norm(seg[0] - pre[-1])) <= 1e-6:
+            seg = seg[1:]
+        out.paths.append((2, np.vstack([pre, seg])))
         out.pairs[2] = tpair
-        out.stats["transport"] = res.stats
+        out.stats["transport"] = dict(res.stats,
+                                      retreat_steps=len(pre) - 1)
         q_entry = res.path[-1]
         T_entry = attached.body_pose(kin.fk(q_entry))
 
