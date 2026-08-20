@@ -56,8 +56,35 @@ hand-authored ROLES / STAGES tables:
     PYTHONPATH=. python scripts/plan_stages.py --replay outputs/stage_plan/pour_tea.0.json
     PYTHONPATH=. python scripts/plan_stages.py --scene scenes/X.json --task-spec tasks/X.json
 
---replay re-verifies saved artifacts offline (no API key); --repeat is
-the repeatability measurement at the module's fixed TEMPERATURE.
+--replay re-verifies saved artifacts offline (no API key) and REWRITES
+the artifact (checks, object_parts, roles) against the pools it is run
+with, so the handoff downstream reads always reflects the pools it will
+be selected from; --repeat is the repeatability measurement at the
+module's fixed TEMPERATURE.
+
+Gate policy. All checks are always computed and reported; which of them
+BLOCK (nonzero exit, load_bindings refusal) depends on where in the
+pipeline the verifier runs:
+
+  contract checks   identity[], coverage[], role[], ordering[] — always
+                    block. They are the planner-side requirement.
+  grounding checks  grounds[], menu[] — block by default, and in the
+                    --no-ground (authored-pool) arm; advisory under
+                    --defer-grounding, which run_pipeline passes at the
+                    `plan` step of the runtime-grounding arm: there the
+                    pool is PRODUCED from call #1's part names by
+                    ground_parts.py, so checking the names against the
+                    authored pool first would reject every part name
+                    outside the authored band vocabulary ("body",
+                    "interior") before the step that grounds them runs.
+
+After ground_parts.py, parts the provider could not ground (listed in
+<grounding>/grounding.json) are pruned from the plan at --replay
+--grounding and recorded as `parts_dropped`; whether the drop is fatal
+is then decided by the contract checks (a dropped "handle" fails
+coverage[teapot]/role[grasp]; a dropped "body" fails nothing). This is
+the one place the pipeline narrows a plan, and it is visible in the
+artifact.
 """
 
 from __future__ import annotations
@@ -114,6 +141,36 @@ TASK_SPEC = load_task_spec()
 TASK = json.loads((REPO / "scenes/pour_tea.json").read_text())["task"]
 
 Check = tuple[str, bool, str]
+GROUNDING_CHECKS = ("grounds", "menu")   # advisory under --defer-grounding
+
+
+def blocking(checks: list[Check], defer_grounding: bool = False) -> list[str]:
+    """Failed check names that block the handoff under the gate policy."""
+    return [c for c, ok, _ in checks if not ok
+            and not (defer_grounding and c.split("[")[0] in GROUNDING_CHECKS)]
+
+
+def read_dropped(grounding: Path | None) -> dict[str, tuple[str, ...]]:
+    """object -> parts ground_parts.py could not ground (its
+    grounding.json), or {} when not grounding / nothing dropped."""
+    if grounding is None:
+        return {}
+    f = Path(grounding) / "grounding.json"
+    if not f.exists():
+        return {}
+    doc = json.loads(f.read_text())
+    return {o: tuple(ps) for o, ps in doc.get("ungrounded", {}).items() if ps}
+
+
+def prune_parts(plan: StagePlan, drop: dict[str, tuple[str, ...]]) -> StagePlan:
+    """Remove per-object parts from every stage (over manifest names)."""
+    if not drop:
+        return plan
+    stages = tuple(StageSpec(
+        index=s.index, name=s.name, active=s.active, passive=s.passive,
+        parts={o: tuple(p for p in ps if p not in drop.get(o, ()))
+               for o, ps in s.parts.items()}) for s in plan.stages)
+    return StagePlan(task=plan.task, stages=stages, objects=plan.objects)
 
 
 # ------------------------------------------------------------ grounding
@@ -321,7 +378,9 @@ def load_bindings(path: str | Path) -> Bindings:
     if "roles" not in doc or "plan_grounded" not in doc:
         raise SystemExit(f"[plan-stages] {path} predates role bindings; "
                          "re-run plan_stages.py (or --replay it) to regenerate")
-    bad = [c["check"] for c in doc["checks"] if not c["pass"]]
+    gate = doc.get("gate")
+    bad = (gate["blocking"] if gate is not None       # recorded policy
+           else [c["check"] for c in doc["checks"] if not c["pass"]])
     if bad:
         raise SystemExit(f"[plan-stages] {path} failed checks {bad}; "
                          "refusing to hand it downstream")
@@ -361,20 +420,25 @@ def to_ground_truth(plan: StagePlan, gt: dict[int, str] | None) -> StagePlan:
 def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
             out: Path, logs: list | None = None, raw: list[str] | None = None,
             spec: TaskSpec = TASK_SPEC, gt: dict[int, str] | None = None,
-            mode: str = "text", views: list[Path] | None = None) -> list[Check]:
-    gplan = to_ground_truth(plan, gt)
+            mode: str = "text", views: list[Path] | None = None,
+            defer_grounding: bool = False,
+            dropped: dict[str, tuple[str, ...]] | None = None) -> list[Check]:
+    gplan = prune_parts(to_ground_truth(plan, gt), dropped or {})
     checks = verify(gplan, pools, spec)
     parts = object_parts(gplan, pools)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({
         "plan": asdict(plan),                      # as emitted (handles)
-        "plan_grounded": asdict(gplan),            # over manifest names
+        "plan_grounded": asdict(gplan),            # over manifest names, pruned
+        "parts_dropped": {o: list(v) for o, v in (dropped or {}).items()},
         "mode": mode,
         "views": [str(v) for v in (views or [])],
         "task_spec": spec.name,
         "object_parts": {o: list(v) for o, v in parts.items()},
         "roles": bind_roles(gplan, pools, spec),
         "checks": [{"check": c, "pass": ok, "detail": d} for c, ok, d in checks],
+        "gate": {"defer_grounding": defer_grounding,
+                 "blocking": blocking(checks, defer_grounding)},
     }, indent=2) + "\n")
     if logs is not None:
         out.with_suffix(".log.json").write_text(json.dumps({
@@ -385,7 +449,8 @@ def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
 
 
 def print_report(plan: StagePlan, checks: list[Check], parts: dict,
-                 roles: dict | None = None) -> None:
+                 roles: dict | None = None, defer_grounding: bool = False,
+                 dropped: dict | None = None) -> None:
     print(f"[plan-stages] task: {plan.task}")
     for h, o in plan.objects.items():
         if o.mark is not None:
@@ -394,9 +459,17 @@ def print_report(plan: StagePlan, checks: list[Check], parts: dict,
         arrow = f" -> {s.passive}" if s.passive else ""
         print(f"  [{s.index}] {s.name}: {s.active}{arrow}, parts "
               f"{ {o: list(p) for o, p in s.parts.items()} }")
+    if dropped:
+        print(f"  parts dropped (not grounded): "
+              f"{ {o: list(p) for o, p in dropped.items()} }")
     print("[plan-stages] verification:")
+    block = set(blocking(checks, defer_grounding))
     for check, ok, detail in checks:
-        print(f"  {'PASS' if ok else 'FAIL'}  {check}: {detail}")
+        tag = "PASS" if ok else ("FAIL" if check in block else "WARN")
+        print(f"  {tag}  {check}: {detail}")
+    if defer_grounding:
+        print("  (grounds[]/menu[] advisory: pool not yet grounded — "
+              "re-verified after ground_parts.py)")
     print("[plan-stages] #1 -> #2 handoff (select_frames.OBJECT_PARTS equivalent):")
     for obj, ps in parts.items():
         if ps:
@@ -419,6 +492,9 @@ def main() -> None:
                     help="verify saved artifacts offline; no API call")
     ap.add_argument("--task-spec", default=str(DEFAULT_TASK_SPEC), metavar="JSON",
                     help="planner contract the plan is verified against")
+    ap.add_argument("--defer-grounding", action="store_true",
+                    help="grounds[]/menu[] advisory (pool not produced yet); "
+                         "contract checks still block")
     ap.add_argument("--marks", default=None, metavar="DIR",
                     help="mark set from scripts/mark_scene.py -> mark-addressed "
                          "mode with the scene image; absent -> text-only arm")
@@ -443,15 +519,21 @@ def main() -> None:
     if args.out == str(OUT):                       # default -> tag by mode
         base = base.with_name(f"{base.stem}.{mode}{base.suffix}")
 
+    dropped = read_dropped(scene.grounding)
     runs: list[list[Check]] = []
     if args.replay:
         for p in args.replay:
-            plan = plan_from_artifact(Path(p))
-            gplan = to_ground_truth(plan, gt)
-            checks = verify(gplan, pools, spec)
-            print(f"\n=== replay {p}")
+            doc = json.loads(Path(p).read_text())
+            plan = plan_from_artifact_doc(doc.get("plan", doc))
+            checks = run_one(plan, pools, Path(p), None, None, spec, gt,
+                             doc.get("mode", mode),
+                             [Path(v) for v in doc.get("views", [])],
+                             args.defer_grounding, dropped)
+            gplan = prune_parts(to_ground_truth(plan, gt), dropped)
+            print(f"\n=== replay {p} (rewritten)")
             print_report(plan, checks, object_parts(gplan, pools),
-                         bind_roles(gplan, pools, spec))
+                         bind_roles(gplan, pools, spec),
+                         args.defer_grounding, dropped)
             runs.append(checks)
     else:
         if args.marks:
@@ -467,11 +549,12 @@ def main() -> None:
             out = base if args.repeat == 1 else base.with_name(
                 f"{base.stem}.{k}{base.suffix}")
             checks = run_one(plan, pools, out, client.logs, transport.raw,
-                             spec, gt, mode, views)
-            gplan = to_ground_truth(plan, gt)
+                             spec, gt, mode, views, args.defer_grounding, dropped)
+            gplan = prune_parts(to_ground_truth(plan, gt), dropped)
             print(f"\n=== run {k} -> {out}")
             print_report(plan, checks, object_parts(gplan, pools),
-                         bind_roles(gplan, pools, spec))
+                         bind_roles(gplan, pools, spec),
+                         args.defer_grounding, dropped)
             runs.append(checks)
 
     if len(runs) > 1:
@@ -482,8 +565,11 @@ def main() -> None:
             print(f"  {n}/{len(runs)}  {name}")
         allpass = sum(1 for r in runs if all(ok for _, ok, _ in r))
         print(f"  {allpass}/{len(runs)}  ALL")
+        if args.defer_grounding:
+            gated = sum(1 for r in runs if not blocking(r, True))
+            print(f"  {gated}/{len(runs)}  GATE (contract checks only)")
 
-    failed = [c for r in runs for c, ok, _ in r if not ok]
+    failed = [c for r in runs for c in blocking(r, args.defer_grounding)]
     if failed:
         sys.exit(f"[plan-stages] FAILED checks: {sorted(set(failed))} — "
                  "the emitted plan cannot replace select_frames.ROLES")

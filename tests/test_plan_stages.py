@@ -271,3 +271,64 @@ def test_mark_artifact_binds_over_ground_truth(pools, tmp_path):
     assert doc["plan_grounded"]["stages"][0]["active"] == "teapot"
     b = ps.load_bindings(out)
     assert b.roles["transport_passive"][0] == "mug"
+
+
+# ------------------------------------------------- gate policy (deferral)
+
+def _body_interior_plan(vocab):
+    """The live failure of 2026-08-20: extra parts outside the authored
+    band vocabulary ('body', 'interior'); every contract check passes."""
+    return plan(vocab,
+                st("grasp teapot", "teapot", None, ["handle", "body"]),
+                st("move teapot over cup", "teapot", "mug",
+                   {"teapot": ["spout", "body"], "mug": ["rim", "opening"]}),
+                st("tilt teapot to pour", "teapot", "mug",
+                   {"teapot": ["spout", "body"], "mug": ["rim", "interior"]}))
+
+
+def test_extra_parts_block_only_when_grounding_is_strict(vocab, pools):
+    checks = ps.verify(_body_interior_plan(vocab), pools)
+    f = failed(checks)
+    assert {"grounds[stage0]", "menu[teapot]", "menu[mug]"} <= set(f)
+    assert not any(c.startswith(("coverage", "role", "ordering")) for c in f)
+    assert set(ps.blocking(checks)) == set(f)             # strict: all block
+    assert ps.blocking(checks, defer_grounding=True) == []  # deferred: none
+
+
+def test_deferred_artifact_loads_and_strict_one_refuses(vocab, pools, tmp_path):
+    p = _body_interior_plan(vocab)
+    strict, deferred = tmp_path / "s.json", tmp_path / "d.json"
+    ps.run_one(p, pools, strict)
+    ps.run_one(p, pools, deferred, defer_grounding=True)
+    with pytest.raises(SystemExit, match="failed checks"):
+        ps.load_bindings(strict)
+    b = ps.load_bindings(deferred)
+    assert b.object_parts["teapot"] == ("handle", "body", "spout")
+    doc = json.loads(deferred.read_text())
+    assert doc["gate"] == {"defer_grounding": True, "blocking": []}
+
+
+def test_dropped_extra_parts_pass_strict_gate(vocab, pools, tmp_path):
+    """After ground_parts.py records body/interior as ungrounded the
+    strict replay prunes them and every check passes."""
+    g = tmp_path / "grounding"
+    g.mkdir()
+    (g / "grounding.json").write_text(json.dumps(
+        {"ungrounded": {"teapot": ["body"], "mug": ["interior"]}}))
+    dropped = ps.read_dropped(g)
+    out = tmp_path / "a.json"
+    checks = ps.run_one(_body_interior_plan(vocab), pools, out, dropped=dropped)
+    assert failed(checks) == []
+    doc = json.loads(out.read_text())
+    assert doc["parts_dropped"] == {"teapot": ["body"], "mug": ["interior"]}
+    assert doc["object_parts"]["teapot"] == ["handle", "spout"]
+    assert "body" not in json.dumps(doc["plan_grounded"])
+    assert "body" in json.dumps(doc["plan"])              # emitted kept verbatim
+    assert ps.load_bindings(out).roles["grasp"][1].parts == {"teapot": ("handle",)}
+
+
+def test_dropped_required_part_still_fails_contract(vocab, pools, tmp_path):
+    dropped = {"teapot": ("handle",)}
+    checks = ps.run_one(_body_interior_plan(vocab), pools, tmp_path / "a.json",
+                        defer_grounding=True, dropped=dropped)
+    assert {"coverage[teapot]", "role[grasp]"} <= set(ps.blocking(checks, True))

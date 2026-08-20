@@ -245,12 +245,23 @@ def main() -> None:
                                       out, args.provider,
                                       Path(args.masks_root) if args.masks_root else None,
                                       args.write)
-    ung = [f"{o}.{p}" for o, r in results.items() for p, k in r.items() if k == "ungrounded"]
+    ung = {o: [p for p, k in r.items() if k == "ungrounded"] for o, r in results.items()}
+    ung = {o: ps for o, ps in ung.items() if ps}
     if ung:
-        raise SystemExit(f"[ground] ungrounded parts {ung} — call #1 named a part "
-                         "the masks do not cover; that is a typed failure for "
-                         "the repair touchpoint, not something to paper over")
+        # Not fatal here: whether a part the masks do not cover matters is
+        # a CONTRACT question (does a required tag go unreached?), which
+        # plan_stages.py --replay --grounding answers after pruning these
+        # from the plan. A required part dropping is still the typed
+        # failure for the repair touchpoint; an extra part ("body") is not.
+        print(f"[ground] ungrounded parts {ung} — recorded in grounding.json; "
+              f"plan_stages --replay --grounding prunes them and re-gates")
     if args.write:
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "grounding.json").write_text(json.dumps(
+            {"provider": args.provider, "stage_plan": str(args.stage_plan),
+             "ungrounded": ung,
+             "grounded": {o: {p: k for p, k in r.items() if k != "ungrounded"}
+                          for o, r in results.items()}}, indent=2) + "\n")
         print(f"\n[ground] next: re-run plan_stages.py --replay <artifact> --grounding {out}, "
               f"then select_frames.py / plan_pour_tea.py --grounding {out}")
     else:

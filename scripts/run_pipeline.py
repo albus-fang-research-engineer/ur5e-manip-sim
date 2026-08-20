@@ -180,6 +180,8 @@ def main() -> None:
                "--out", str(stage_plan)]
         if not args.text_only:
             cmd += ["--marks", str(marks_dir)]
+        if not args.no_ground:       # pool is produced by `ground`; only
+            cmd += ["--defer-grounding"]   # the contract can gate here
         sh(cmd)                      # exits nonzero if the contract fails
 
     if do("ground") and not args.no_ground:
@@ -189,8 +191,9 @@ def main() -> None:
         if args.masks_root:
             cmd += ["--masks-root", args.masks_root]
         sh(cmd, gl=args.gl)
-        # the plan must still verify against the pools it will now be
-        # selected from; a part that grounded to nothing fails here
+        # re-gate against the GROUNDED pools: parts the provider could
+        # not ground are pruned (grounding.json) and the contract checks
+        # decide whether that loss is fatal; the artifact is rewritten
         sh(["scripts/plan_stages.py", "--scene", args.scene, "--replay",
             str(stage_plan), *(["--marks", str(marks_dir)] if not args.text_only else []),
             *G])
