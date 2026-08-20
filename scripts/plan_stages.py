@@ -1,38 +1,40 @@
-"""VLM touchpoint-#1 driver: one live plan_stages call, written as a
-demo artifact and STRUCTURALLY VERIFIED against the hand-authored
-contract in select_frames.ROLES — the check the live loop needs before
-call #2 is allowed to consume an emitted plan instead of the fixed one.
+"""VLM touchpoint-#1 driver: plan_stages call(s) written as artifacts and
+VERIFIED against what the pipeline downstream can actually consume.
 
-What this is (and is not): the wrapper (Client.plan_stages), prompt
-(build_stage_plan_prompt) and parser (parse_stage_plan) already exist
-and are tested; what has never existed is a driver that makes the call
-and confronts the emission with the structure the pour-tea planner
-actually requires. This script closes exactly that gap without making
-plan_pour_tea.py stage-generic (that waits for the call-#3 emission
-compiler): the emitted plan is compared, logged, and its per-object
-part filters are printed as the render commands they would drive —
-the real #1 -> #2 dependency, human-inspectable before it goes live.
+Three layers of verification, offline-testable (tests/test_plan_stages.py)
+and run live here:
 
-Verification is a CONTRACT check, not string equality — stage names
-and parts are free text by design (GroundedSAM seeds):
+  parser      already in manip_sim.vlm (closed object vocabulary, typed
+              stages) — not re-checked here
+  grounding   every emitted free-text part must ground to >= 1 candidate
+              in the active/passive object's candidates.json, through the
+              SAME matcher vlm_subset uses (selection._part_match). This
+              is the check that matters: vlm_subset degrades silently — an
+              ungroundable token ("grip", "lip") still yields a full menu
+              with zero part-biased marks, and call #2 never learns the
+              stage plan failed to ground.
+  contract    the pour-tea structure select_frames.py hand-authors today
+              (OBJECT_PARTS + ROLES), restated over POOL TAGS: coverage,
+              grasp-before-interaction ordering, and one emitted stage per
+              planner role. Passing means the emitted plan could replace
+              the fixed ROLES.
 
-  coverage   every object the task touches appears as some stage's
-             active; the union of its parts (substring-matched) covers
-             the parts select_frames hands to vlm_subset
-             (teapot: handle+spout, mug: rim)
-  ordering   a teapot-active stage with no passive (the grasp) precedes
-             every teapot-active stage with passive=mug (transport/pour)
-  roles      each of the four planner roles finds at least one emitted
-             stage whose (active, passive, parts) signature matches
+Part attribution: StageSpec.parts is a flat list with no object key (the
+schema is shared with the #2 prompt), so each part is attributed to the
+stage's active or passive object by which pool it grounds in. A part that
+grounds in both (e.g. "handle" — both objects carry the tag) is attributed
+to the active object and FLAGGED; the durable fix is an object-keyed
+`parts` in the schema, which hardware GroundedSAM seeding needs anyway.
 
-Each check prints PASS/FAIL; any FAIL exits nonzero after the artifact
-is written (the failing plan is evidence, not garbage).
+Artifacts (per run k): <out>.json (plan + per-object parts handoff +
+checks), <out>.log.json (Client.logs + raw transport text per attempt).
 
-Requires ANTHROPIC_API_KEY.
+    PYTHONPATH=. python scripts/plan_stages.py                 # 1 live call
+    PYTHONPATH=. python scripts/plan_stages.py --repeat 5      # pass-rate table
+    PYTHONPATH=. python scripts/plan_stages.py --replay outputs/stage_plan/pour_tea.0.json
 
-    PYTHONPATH=. python scripts/plan_stages.py
-    PYTHONPATH=. python scripts/plan_stages.py --task "pour tea" \
-        --out outputs/stage_plan/other.json
+--replay re-verifies saved artifacts offline (no API key); --repeat is
+the repeatability measurement at the module's fixed TEMPERATURE.
 """
 
 from __future__ import annotations
@@ -43,7 +45,9 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from manip_sim.vlm import Client, StagePlan, Vocabulary
+from manip_sim.selection import _part_match, load_pool, vlm_subset
+from manip_sim.vlm import (Client, StagePlan, StageSpec, Vocabulary,
+                           _urllib_transport)
 
 OBJECTS = {
     "teapot": Path("assets/objects/teapot"),
@@ -52,113 +56,245 @@ OBJECTS = {
 TASK = "pour tea from the teapot into the mug"
 OUT = Path("outputs/stage_plan/pour_tea.json")
 
-# the contract select_frames.py currently hand-authors (its OBJECT_PARTS
-# and ROLES) restated as checkable structure. Part terms are matched by
-# substring in either direction ("handle" ~ "handle loop"), lowercased.
-REQUIRED_PARTS: dict[str, tuple[str, ...]] = {
+# Pour-tea contract over POOL TAGS (candidates.json `part` / frames.json
+# symbol names), mirroring select_frames.OBJECT_PARTS / ROLES.
+REQUIRED_TAGS: dict[str, tuple[str, ...]] = {
     "teapot": ("handle", "spout"),
     "mug": ("rim",),
 }
-ROLE_SIGNATURES: dict[str, dict] = {
-    "grasp": {"active": "teapot", "passive": None, "parts": ("handle",)},
-    "transport_active": {"active": "teapot", "passive": "mug",
-                         "parts": ("spout",)},
-    "pour": {"active": "teapot", "passive": "mug", "parts": ("spout",)},
-    "transport_passive": {"active": "mug", "parts": ("rim",)},
+# role -> (active, passive, {object: required tags}); passive "*" = any
+ROLE_SIGNATURES: dict[str, tuple[str, str | None, dict[str, tuple[str, ...]]]] = {
+    "grasp": ("teapot", None, {"teapot": ("handle",)}),
+    "transport_active": ("teapot", "mug", {"teapot": ("spout",)}),
+    "pour": ("teapot", "mug", {"teapot": ("spout",)}),
+    "transport_passive": ("*", "*", {"mug": ("rim",)}),
 }
 
-
-def _part_match(want: str, emitted: tuple[str, ...]) -> bool:
-    w = want.lower()
-    return any(w in p.lower() or p.lower() in w for p in emitted)
+Check = tuple[str, bool, str]
 
 
-def verify(plan: StagePlan) -> list[tuple[str, bool, str]]:
-    """(check, passed, detail) triples — all checks always run."""
-    out: list[tuple[str, bool, str]] = []
+# ---------------------------------------------------------- attribution
 
-    # -- coverage
-    emitted_parts: dict[str, tuple[str, ...]] = {}
+def _grounds_in(part: str, pool: dict[int, dict]) -> bool:
+    return any(_part_match(part, c) for c in pool.values())
+
+
+def attribute(stage: StageSpec, pools: dict[str, dict[int, dict]]
+              ) -> tuple[dict[str, tuple[str, ...]], list[str], list[str]]:
+    """(parts_by_object, ungrounded, ambiguous) for one stage. Parts are
+    attributed to the stage's objects by which pool they ground in."""
+    objs = [stage.active] + ([stage.passive] if stage.passive else [])
+    by_obj: dict[str, list[str]] = {o: [] for o in objs}
+    ungrounded, ambiguous = [], []
+    for p in stage.parts:
+        hits = [o for o in objs if _grounds_in(p, pools[o])]
+        if not hits:
+            ungrounded.append(p)
+        elif len(hits) > 1:
+            ambiguous.append(p)
+            by_obj[stage.active].append(p)
+        else:
+            by_obj[hits[0]].append(p)
+    return {o: tuple(v) for o, v in by_obj.items()}, ungrounded, ambiguous
+
+
+def object_parts(plan: StagePlan, pools: dict[str, dict[int, dict]]
+                 ) -> dict[str, tuple[str, ...]]:
+    """The #1 -> #2 handoff: per-object parts union (what select_frames'
+    OBJECT_PARTS hand-authors), order-preserving, deduplicated."""
+    acc: dict[str, list[str]] = {o: [] for o in pools}
     for s in plan.stages:
-        emitted_parts[s.active] = emitted_parts.get(s.active, ()) + s.parts
-    for obj, req in REQUIRED_PARTS.items():
-        have = emitted_parts.get(obj, ())
-        missing = [p for p in req if not _part_match(p, have)]
-        out.append((
-            f"coverage[{obj}]", not missing,
-            f"needs {list(req)}, emitted {sorted(set(have))}"
-            + (f" — MISSING {missing}" if missing else "")))
+        by_obj, _, _ = attribute(s, pools)
+        for o, ps in by_obj.items():
+            for p in ps:
+                if p not in acc[o]:
+                    acc[o].append(p)
+    return {o: tuple(v) for o, v in acc.items()}
 
-    # -- ordering: grasp-like precedes interaction-like on the teapot
+
+def _tag_covered(tag: str, parts: tuple[str, ...], pool: dict[int, dict]
+                 ) -> bool:
+    """Some attributed part grounds to a candidate carrying `tag`."""
+    tagged = [c for c in pool.values()
+              if str(c.get("part") or "").lower() == tag
+              or str(c.get("symbol") or "").lower() == tag]
+    return any(_part_match(p, c) for p in parts for c in tagged)
+
+
+# --------------------------------------------------------------- verify
+
+def verify(plan: StagePlan, pools: dict[str, dict[int, dict]]) -> list[Check]:
+    """All checks always run; (name, passed, detail)."""
+    out: list[Check] = []
+    per_stage = {s.index: attribute(s, pools) for s in plan.stages}
+
+    # -- grounding: every part grounds in its stage's objects
+    for s in plan.stages:
+        by_obj, ungrounded, ambiguous = per_stage[s.index]
+        detail = "attributed " + json.dumps(by_obj)
+        if ambiguous:
+            detail += f" — AMBIGUOUS (both pools) {ambiguous}, took active"
+        if ungrounded:
+            detail += f" — UNGROUNDED {ungrounded}"
+        out.append((f"grounds[stage{s.index}]", not ungrounded,
+                    f"{s.name}: " + detail))
+
+    # -- menu: the subset call #2 would see carries a mark for each part
+    parts = object_parts(plan, pools)
+    for obj, ps in parts.items():
+        if not ps:
+            continue
+        sub = vlm_subset(pools[obj], list(ps))
+        blind = [p for p in ps
+                 if not any(_part_match(p, c) for c in sub.values())]
+        out.append((f"menu[{obj}]", not blind,
+                    f"parts {list(ps)} -> {len(sub)}-mark menu"
+                    + (f" — NO MARK for {blind}" if blind else "")))
+
+    # -- coverage: required pool tags reached per object
+    for obj, tags in REQUIRED_TAGS.items():
+        missing = [t for t in tags
+                   if not _tag_covered(t, parts.get(obj, ()), pools[obj])]
+        out.append((f"coverage[{obj}]", not missing,
+                    f"needs tags {list(tags)}, attributed {list(parts.get(obj, ()))}"
+                    + (f" — MISSING {missing}" if missing else "")))
+
+    # -- ordering: teapot-only (grasp) precedes teapot->mug (interaction)
     grasp_idx = [s.index for s in plan.stages
                  if s.active == "teapot" and s.passive is None]
     inter_idx = [s.index for s in plan.stages
                  if s.active == "teapot" and s.passive == "mug"]
-    ok = bool(grasp_idx) and bool(inter_idx) and min(grasp_idx) < min(
-        inter_idx)
+    ok = bool(grasp_idx) and bool(inter_idx) and min(grasp_idx) < min(inter_idx)
     out.append(("ordering[grasp<interaction]", ok,
-                f"teapot-only stages at {grasp_idx}, "
-                f"teapot->mug stages at {inter_idx}"))
+                f"teapot-only at {grasp_idx}, teapot->mug at {inter_idx}"))
 
-    # -- role signatures
-    for role, sig in ROLE_SIGNATURES.items():
-        hits = [s for s in plan.stages
-                if s.active == sig["active"]
-                and ("passive" not in sig or s.passive == sig["passive"])
-                and all(_part_match(p, s.parts) for p in sig["parts"])]
-        out.append((
-            f"role[{role}]", bool(hits),
-            "matched stage(s) " + str([f"{s.index}:{s.name}" for s in hits])
-            if hits else f"no stage with signature {sig}"))
+    # -- roles: one emitted stage per planner role
+    for role, (act, pas, need) in ROLE_SIGNATURES.items():
+        hits = []
+        for s in plan.stages:
+            if act != "*" and s.active != act:
+                continue
+            if pas != "*" and s.passive != pas:
+                continue
+            by_obj = per_stage[s.index][0]
+            if all(obj in by_obj and all(
+                    _tag_covered(t, by_obj[obj], pools[obj]) for t in tags)
+                   for obj, tags in need.items()):
+                hits.append(f"{s.index}:{s.name}")
+        out.append((f"role[{role}]", bool(hits),
+                    f"matched {hits}" if hits
+                    else f"no stage with active={act} passive={pas} {need}"))
     return out
+
+
+# ------------------------------------------------------------- plumbing
+
+class RecordingTransport:
+    """Wraps a transport so raw model text survives into the log —
+    Client.logs keeps rejections only, and a verification artifact needs
+    what the model said on the attempt that PASSED the parser too."""
+
+    def __init__(self, inner=None):
+        self.inner = inner or _urllib_transport
+        self.raw: list[str] = []
+
+    def __call__(self, payload: dict) -> str:
+        text = self.inner(payload)
+        self.raw.append(text)
+        return text
+
+
+def plan_from_artifact(path: Path) -> StagePlan:
+    doc = json.loads(Path(path).read_text())
+    doc = doc.get("plan", doc)
+    return StagePlan(task=doc["task"], stages=tuple(
+        StageSpec(**{**s, "parts": tuple(s["parts"])}) for s in doc["stages"]))
+
+
+def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
+            out: Path, logs: list | None = None, raw: list[str] | None = None
+            ) -> list[Check]:
+    checks = verify(plan, pools)
+    parts = object_parts(plan, pools)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({
+        "plan": asdict(plan),
+        "object_parts": {o: list(v) for o, v in parts.items()},
+        "checks": [{"check": c, "pass": ok, "detail": d} for c, ok, d in checks],
+    }, indent=2) + "\n")
+    if logs is not None:
+        out.with_suffix(".log.json").write_text(json.dumps({
+            "client_logs": [asdict(l) for l in logs],
+            "raw_responses": raw or [],
+        }, indent=2, default=str) + "\n")
+    return checks
+
+
+def print_report(plan: StagePlan, checks: list[Check], parts: dict) -> None:
+    print(f"[plan-stages] task: {plan.task}")
+    for s in plan.stages:
+        arrow = f" -> {s.passive}" if s.passive else ""
+        print(f"  [{s.index}] {s.name}: {s.active}{arrow}, parts {list(s.parts)}")
+    print("[plan-stages] verification:")
+    for check, ok, detail in checks:
+        print(f"  {'PASS' if ok else 'FAIL'}  {check}: {detail}")
+    print("[plan-stages] #1 -> #2 handoff (select_frames.OBJECT_PARTS equivalent):")
+    for obj, ps in parts.items():
+        if ps:
+            print(f"  MUJOCO_GL=osmesa PYTHONPATH=. python "
+                  f"scripts/render_candidates.py --object {obj} --vlm "
+                  f"--parts {' '.join(ps)}")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--task", default=TASK)
     ap.add_argument("--out", default=str(OUT), metavar="JSON")
+    ap.add_argument("--repeat", type=int, default=1,
+                    help="live calls to make; artifacts get a .k suffix")
+    ap.add_argument("--replay", nargs="+", metavar="JSON",
+                    help="verify saved artifacts offline; no API call")
     args = ap.parse_args()
 
-    vocab = Vocabulary.from_asset_dirs(OBJECTS)   # no menu: call #1 is
-    client = Client()                             # symbols-only by design
-    plan = client.plan_stages(args.task, vocab)
+    pools = {n: load_pool(d) for n, d in OBJECTS.items()}
+    base = Path(args.out)
 
-    print(f"[plan-stages] task: {args.task}")
-    for s in plan.stages:
-        arrow = f" -> {s.passive}" if s.passive else ""
-        print(f"  [{s.index}] {s.name}: {s.active}{arrow}, "
-              f"parts {list(s.parts)}")
+    runs: list[list[Check]] = []
+    if args.replay:
+        for p in args.replay:
+            plan = plan_from_artifact(Path(p))
+            checks = verify(plan, pools)
+            print(f"\n=== replay {p}")
+            print_report(plan, checks, object_parts(plan, pools))
+            runs.append(checks)
+    else:
+        vocab = Vocabulary.from_asset_dirs(OBJECTS)   # no menu: #1 is symbols-only
+        for k in range(args.repeat):
+            transport = RecordingTransport()
+            client = Client(transport=transport)
+            plan = client.plan_stages(args.task, vocab)
+            out = base if args.repeat == 1 else base.with_name(
+                f"{base.stem}.{k}{base.suffix}")
+            checks = run_one(plan, pools, out, client.logs, transport.raw)
+            print(f"\n=== run {k} -> {out}")
+            print_report(plan, checks, object_parts(plan, pools))
+            runs.append(checks)
 
-    out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(asdict(plan), indent=2) + "\n")
-    log = out.with_suffix(".log.json")
-    log.write_text(json.dumps([asdict(l) for l in client.logs], indent=2,
-                              default=str) + "\n")
-    print(f"[plan-stages] wrote {out} (+ {log})")
+    if len(runs) > 1:
+        print("\n[plan-stages] pass rate per check:")
+        names = [c for c, _, _ in runs[0]]
+        for name in names:
+            n = sum(1 for r in runs for c, ok, _ in r if c == name and ok)
+            print(f"  {n}/{len(runs)}  {name}")
+        allpass = sum(1 for r in runs if all(ok for _, ok, _ in r))
+        print(f"  {allpass}/{len(runs)}  ALL")
 
-    checks = verify(plan)
-    failed = [c for c, ok, _ in checks if not ok]
-    print("\n[plan-stages] contract verification vs select_frames.ROLES:")
-    for check, ok, detail in checks:
-        print(f"  {'PASS' if ok else 'FAIL'}  {check}: {detail}")
-
-    # the #1 -> #2 dependency, printed as the commands it would drive
-    print("\n[plan-stages] render filters this plan implies:")
-    for obj in OBJECTS:
-        parts = sorted({p for s in plan.stages if s.active == obj
-                        for p in s.parts})
-        if parts:
-            print(f"  MUJOCO_GL=osmesa PYTHONPATH=. python "
-                  f"scripts/render_candidates.py --object {obj} --vlm "
-                  f"--parts {' '.join(parts)}")
-
+    failed = [c for r in runs for c, ok, _ in r if not ok]
     if failed:
-        sys.exit(f"[plan-stages] contract FAILED: {failed} — the emitted "
-                 "plan cannot replace the hand-authored ROLES yet")
-    print("\n[plan-stages] contract holds — the emitted plan reproduces "
-          "the hand-authored structure; next: wire select_frames.py to "
-          "consume it (--stage-plan) once call #3 exists to close the loop")
+        sys.exit(f"[plan-stages] FAILED checks: {sorted(set(failed))} — "
+                 "the emitted plan cannot replace select_frames.ROLES")
+    print("\n[plan-stages] contract holds: emitted plan grounds and reproduces "
+          "the hand-authored structure")
 
 
 if __name__ == "__main__":
