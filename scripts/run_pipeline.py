@@ -132,6 +132,9 @@ def main() -> None:
     ap.add_argument("--plan-args", default="",
                     help="extra args for plan_pour_tea.py, e.g. "
                          "'--seed 3 --tilt-deg 95'")
+    ap.add_argument("--exec-args", default="",
+                    help="extra args for execute_pour_tea.py, e.g. "
+                         "'--replan-goal-samples 120'")
     args = ap.parse_args()
     if bool(args.image) != bool(args.masks):
         ap.error("--image and --masks go together")
@@ -223,8 +226,8 @@ def main() -> None:
            gl=args.gl)
 
     if do("exec"):
-        sh(["scripts/execute_pour_tea.py", "--scene", args.scene, *G, "--arm", "vlm"],
-           gl=args.gl)
+        sh(["scripts/execute_pour_tea.py", "--scene", args.scene, *G, "--arm", "vlm",
+            *shlex.split(args.exec_args)], gl=args.gl)
 
     _write_run(status="ok")
     print(f"\n[pipeline] task {task!r} -> {RUN['dir']}/run.json")

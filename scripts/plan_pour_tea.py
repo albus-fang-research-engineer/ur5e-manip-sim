@@ -136,6 +136,37 @@ def _goal_funnel(rep, ik, kin, attached, seeds, containment, label,
     return goals
 
 
+# goal-sample escalation ceiling. Not a flag: the ablation compares
+# --n-goal-samples values, and a per-run cap would make the escalation
+# path itself a hidden variable.
+GOAL_SAMPLE_MAX = 480
+# below this intersection acceptance rate, more draws won't rescue the
+# stage: the subgoal barely meets the path manifold (emission problem,
+# not a sampling problem) -> stop escalating and fail typed.
+MIN_ACCEPT_RATE = 0.02
+
+
+def _sample_funnel_escalating(sampler, constraints, n, rng, funnel_args,
+                              label):
+    """sample_intersection -> _goal_funnel, doubling n on funnel starvation
+    up to GOAL_SAMPLE_MAX. Only re-draws when the intersection itself is
+    healthy: IK/collision attrition is what more samples fix; a thin
+    intersection is not. Returns (report, goals, n_used)."""
+    while True:
+        rep = sample_intersection(sampler, constraints, n=n, rng=rng)
+        print(f"[{label}] intersection (n={n}): {rep.summary()}")
+        goals = _goal_funnel(rep, *funnel_args)
+        if goals or n >= GOAL_SAMPLE_MAX:
+            return rep, goals, n
+        if rep.acceptance_rate < MIN_ACCEPT_RATE:
+            print(f"[{label}] intersection acceptance {rep.acceptance_rate:.3f} "
+                  f"< {MIN_ACCEPT_RATE}: not escalating samples "
+                  "(subgoal/path inconsistency, not attrition)")
+            return rep, goals, n
+        n = min(2 * n, GOAL_SAMPLE_MAX)
+        print(f"[{label}] funnel starved -> escalating to n={n}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--robot", default="UR5e")
@@ -143,7 +174,7 @@ def main() -> None:
     ap.add_argument("--n-proposals", type=int, default=80)
     ap.add_argument("--max-grasp-candidates", type=int, default=6,
                     help="classified grasps to carry through IK + probe")
-    ap.add_argument("--n-goal-samples", type=int, default=30)
+    ap.add_argument("--n-goal-samples", type=int, default=120)
     ap.add_argument("--grasp-elevation", type=float, default=35.0,
                     help="nominal approach elevation below horizontal, deg "
                          "(0 = side grasp; steeper is more reachable but "
@@ -470,11 +501,10 @@ def main() -> None:
     # schema's clearance/slack enum)
     pair = frames.transport(T0_teapot, T0_mug,
                             **({} if ems else dict(transport_kw, height=(0.04, 0.10))))
-    rep2 = sample_intersection(pair.subgoal, [pair.path],
-                               n=args.n_goal_samples, rng=rng)
-    print(f"[transport] intersection: {rep2.summary()}")
-    goals2 = _goal_funnel(rep2, ik_att, kin_att, attached, [q_lift] + seeds,
-                          [pair.path, pair.subgoal], "transport", q_lift)
+    rep2, goals2, _ = _sample_funnel_escalating(
+        pair.subgoal, [pair.path], args.n_goal_samples, rng,
+        (ik_att, kin_att, attached, [q_lift] + seeds,
+         [pair.path, pair.subgoal], "transport", q_lift), "transport")
     if not goals2:
         raise SystemExit("[transport] no feasible goal configs.")
     # stage-2 -> stage-3 lookahead: rank transport goals by whether the
@@ -545,12 +575,10 @@ def main() -> None:
     # actually ended (not where it was nominally aimed)
     T_entry = attached.body_pose(kin_att.fk(q2_end))
     ppair = frames.pour(T_entry, T0_mug, tilt_target)
-    rep3 = sample_intersection(ppair.subgoal, [ppair.path],
-                               n=args.n_goal_samples, rng=rng)
-    print(f"[pour] intersection: {rep3.summary()}")
-    goals3 = _goal_funnel(rep3, ik_att, kin_att, attached, [q2_end] + seeds,
-                          [ppair.path, ppair.subgoal], "pour", q2_end,
-                          ik_kw={"iters": 200})
+    rep3, goals3, _ = _sample_funnel_escalating(
+        ppair.subgoal, [ppair.path], args.n_goal_samples, rng,
+        (ik_att, kin_att, attached, [q2_end] + seeds,
+         [ppair.path, ppair.subgoal], "pour", q2_end, {"iters": 200}), "pour")
     if not goals3:
         raise SystemExit("[pour] no feasible pour configs — try a smaller "
                          "--tilt-deg or a different grasp seed.")
