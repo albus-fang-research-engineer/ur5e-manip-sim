@@ -108,7 +108,8 @@ def _two_pass_inputs(role: str, sel_path: Path):
               "two-pass views unavailable, sending selection only")
         return sel, None
     manifest = json.loads(mpath.read_text())
-    views = [Path(v["path"]) for v in manifest.get("views", [])]
+    # manifest["views"] is {view_name: {path, visible_ids}} (render_candidates)
+    views = [Path(v["path"]) for _, v in sorted(manifest.get("views", {}).items())]
     return sel, views or None
 
 
