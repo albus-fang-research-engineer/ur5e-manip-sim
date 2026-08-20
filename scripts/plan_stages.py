@@ -37,7 +37,18 @@ Two input modes, one verifier:
                 and must not be compared to image-conditioned baselines.
 
 Artifacts (per run k): <out>.json (plan + per-object parts handoff +
-checks), <out>.log.json (Client.logs + raw transport text per attempt).
+checks + ROLE BINDINGS), <out>.log.json (Client.logs + raw transport text
+per attempt).
+
+The artifact is the #1 -> #2/#3 handoff, not just a verification record:
+`plan_grounded` is the plan over manifest names (marks resolved through
+marks.gt.json in sim; raw labels on hardware), `object_parts` the
+per-object part union, and `roles` maps each planner role of the task
+contract to (object, emitted stage index). select_frames.py and
+emit_constraints.py read these via load_bindings() instead of their
+hand-authored ROLES / STAGES tables:
+
+    PYTHONPATH=. python scripts/select_frames.py --stage-plan outputs/stage_plan/pour_tea.marks.json
 
     PYTHONPATH=. python scripts/plan_stages.py --marks outputs/marks/pour_tea
     PYTHONPATH=. python scripts/plan_stages.py                 # text-only arm
@@ -151,6 +162,49 @@ def _tag_covered(tag: str, parts: tuple[str, ...], pool: dict[int, dict]
 
 # --------------------------------------------------------------- verify
 
+def match_roles(plan: StagePlan, pools: dict[str, dict[int, dict]],
+                spec: TaskSpec = TASK_SPEC) -> dict[str, list[int]]:
+    """role -> emitted stage indices satisfying (active, passive, tags).
+    The single matching rule behind BOTH the role[] check and the
+    planner binding, so a plan that verifies is by construction one
+    that binds."""
+    per_stage = {s.index: attribute(s, pools)[0] for s in plan.stages}
+    out: dict[str, list[int]] = {}
+    for role, (act, pas, need) in spec.roles.items():
+        hits = []
+        for s in plan.stages:
+            if act != "*" and s.active != act:
+                continue
+            if pas != "*" and s.passive != pas:
+                continue
+            by_obj = per_stage[s.index]
+            if all(obj in by_obj and obj in pools and all(
+                    _tag_covered(t, by_obj[obj], pools[obj]) for t in tags)
+                   for obj, tags in need.items()):
+                hits.append(s.index)
+        out[role] = hits
+    return out
+
+
+def bind_roles(plan: StagePlan, pools: dict[str, dict[int, dict]],
+               spec: TaskSpec = TASK_SPEC) -> dict[str, dict]:
+    """The planner handoff: role -> {"object", "stage"}. `object` is the
+    object whose tags the role demands (the frame call #2 must place on
+    it); `stage` is the FIRST emitted stage matching the role (None
+    when unmatched — the role[] check already failed). Roles whose
+    contract names more than one object are ambiguous as frame roles
+    and rejected here rather than guessed."""
+    idx = match_roles(plan, pools, spec)
+    out = {}
+    for role, (_act, _pas, need) in spec.roles.items():
+        if len(need) != 1:
+            raise ValueError(f"role {role!r} names {len(need)} objects; a "
+                             "frame role binds exactly one")
+        out[role] = {"object": next(iter(need)),
+                     "stage": idx[role][0] if idx[role] else None}
+    return out
+
+
 def verify(plan: StagePlan, pools: dict[str, dict[int, dict]],
            spec: TaskSpec = TASK_SPEC) -> list[Check]:
     """All checks always run; (name, passed, detail)."""
@@ -198,20 +252,9 @@ def verify(plan: StagePlan, pools: dict[str, dict[int, dict]],
                     + (f" — MISSING {missing}" if missing else "")))
 
     # -- roles: one emitted stage per planner role
-    role_idx: dict[str, list[int]] = {}
+    role_idx = match_roles(plan, pools, spec)
     for role, (act, pas, need) in spec.roles.items():
-        hits = []
-        for s in plan.stages:
-            if act != "*" and s.active != act:
-                continue
-            if pas != "*" and s.passive != pas:
-                continue
-            by_obj = per_stage[s.index][0]
-            if all(obj in by_obj and obj in pools and all(
-                    _tag_covered(t, by_obj[obj], pools[obj]) for t in tags)
-                   for obj, tags in need.items()):
-                hits.append(s.index)
-        role_idx[role] = hits
+        hits = role_idx[role]
         names = [f"{i}:{next(x.name for x in plan.stages if x.index == i)}"
                  for i in hits]
         out.append((f"role[{role}]", bool(hits),
@@ -248,7 +291,51 @@ class RecordingTransport:
 
 def plan_from_artifact(path: Path) -> StagePlan:
     doc = json.loads(Path(path).read_text())
-    doc = doc.get("plan", doc)
+    return plan_from_artifact_doc(doc.get("plan", doc))
+
+
+@dataclass(frozen=True)
+class Bindings:
+    """What downstream consumes from a call-#1 artifact: the grounded
+    plan, the per-object part union, and role -> (object, StageSpec).
+    Roles are the task contract's; the StageSpec is the emitted stage
+    the role matched, RESTRICTED to the role's object's parts so call
+    #2's prompt names the parts on the object whose menu it sees."""
+    plan: StagePlan
+    object_parts: dict[str, tuple[str, ...]]
+    roles: dict[str, tuple[str, StageSpec]]
+    path: Path
+
+
+def load_bindings(path: str | Path) -> Bindings:
+    """Read a plan_stages.py artifact as the #1 -> #2/#3 handoff. Refuses
+    artifacts whose checks failed or whose roles did not bind — the
+    consumer must never plan on a plan the contract rejected."""
+    path = Path(path)
+    doc = json.loads(path.read_text())
+    if "roles" not in doc or "plan_grounded" not in doc:
+        raise SystemExit(f"[plan-stages] {path} predates role bindings; "
+                         "re-run plan_stages.py (or --replay it) to regenerate")
+    bad = [c["check"] for c in doc["checks"] if not c["pass"]]
+    if bad:
+        raise SystemExit(f"[plan-stages] {path} failed checks {bad}; "
+                         "refusing to hand it downstream")
+    gplan = plan_from_artifact_doc(doc["plan_grounded"])
+    by_idx = {s.index: s for s in gplan.stages}
+    roles: dict[str, tuple[str, StageSpec]] = {}
+    for role, b in doc["roles"].items():
+        if b["stage"] is None:
+            raise SystemExit(f"[plan-stages] {path}: role {role!r} unbound")
+        obj, s = b["object"], by_idx[b["stage"]]
+        roles[role] = (obj, StageSpec(
+            index=s.index, name=s.name, active=s.active, passive=s.passive,
+            parts={obj: tuple(s.parts.get(obj, ()))}))
+    return Bindings(plan=gplan,
+                    object_parts={o: tuple(v) for o, v in doc["object_parts"].items()},
+                    roles=roles, path=path)
+
+
+def plan_from_artifact_doc(doc: dict) -> StagePlan:
     stages = tuple(StageSpec(
         index=s["index"], name=s["name"], active=s["active"], passive=s["passive"],
         parts={o: tuple(p) for o, p in s["parts"].items()}) for s in doc["stages"])
@@ -269,16 +356,19 @@ def to_ground_truth(plan: StagePlan, gt: dict[int, str] | None) -> StagePlan:
 def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
             out: Path, logs: list | None = None, raw: list[str] | None = None,
             spec: TaskSpec = TASK_SPEC, gt: dict[int, str] | None = None,
-            mode: str = "text") -> list[Check]:
+            mode: str = "text", views: list[Path] | None = None) -> list[Check]:
     gplan = to_ground_truth(plan, gt)
     checks = verify(gplan, pools, spec)
     parts = object_parts(gplan, pools)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({
         "plan": asdict(plan),                      # as emitted (handles)
+        "plan_grounded": asdict(gplan),            # over manifest names
         "mode": mode,
+        "views": [str(v) for v in (views or [])],
         "task_spec": spec.name,
         "object_parts": {o: list(v) for o, v in parts.items()},
+        "roles": bind_roles(gplan, pools, spec),
         "checks": [{"check": c, "pass": ok, "detail": d} for c, ok, d in checks],
     }, indent=2) + "\n")
     if logs is not None:
@@ -289,7 +379,8 @@ def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
     return checks
 
 
-def print_report(plan: StagePlan, checks: list[Check], parts: dict) -> None:
+def print_report(plan: StagePlan, checks: list[Check], parts: dict,
+                 roles: dict | None = None) -> None:
     print(f"[plan-stages] task: {plan.task}")
     for h, o in plan.objects.items():
         if o.mark is not None:
@@ -307,6 +398,10 @@ def print_report(plan: StagePlan, checks: list[Check], parts: dict) -> None:
             print(f"  MUJOCO_GL=osmesa PYTHONPATH=. python "
                   f"scripts/render_candidates.py --object {obj} --vlm "
                   f"--parts {' '.join(ps)}")
+    if roles:
+        print("[plan-stages] role bindings (select_frames.ROLES equivalent):")
+        for role, b in roles.items():
+            print(f"  {role:18s} -> {b['object']} @ stage {b['stage']}")
 
 
 def main() -> None:
@@ -350,7 +445,8 @@ def main() -> None:
             gplan = to_ground_truth(plan, gt)
             checks = verify(gplan, pools, spec)
             print(f"\n=== replay {p}")
-            print_report(plan, checks, object_parts(gplan, pools))
+            print_report(plan, checks, object_parts(gplan, pools),
+                         bind_roles(gplan, pools, spec))
             runs.append(checks)
     else:
         if args.marks:
@@ -366,9 +462,11 @@ def main() -> None:
             out = base if args.repeat == 1 else base.with_name(
                 f"{base.stem}.{k}{base.suffix}")
             checks = run_one(plan, pools, out, client.logs, transport.raw,
-                             spec, gt, mode)
+                             spec, gt, mode, views)
+            gplan = to_ground_truth(plan, gt)
             print(f"\n=== run {k} -> {out}")
-            print_report(plan, checks, object_parts(to_ground_truth(plan, gt), pools))
+            print_report(plan, checks, object_parts(gplan, pools),
+                         bind_roles(gplan, pools, spec))
             runs.append(checks)
 
     if len(runs) > 1:

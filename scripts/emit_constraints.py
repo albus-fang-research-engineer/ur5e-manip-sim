@@ -8,9 +8,9 @@ that cannot ground (mixed alignment, off-w anchors, empty row
 intersections) fails HERE with a slot-named CompileError, not inside
 the planner.
 
-Per stage (grasp / transport / pour, the fixed pour-tea structure — as
-in select_frames.py, call #1's StagePlan substitutes for this table in
-the full orchestrator; call #3 is what is under test):
+Per stage (grasp / transport / pour: the fixed pour-tea structure
+below, or with --stage-plan the stages call #1 bound to those planner
+roles — same binding select_frames.py uses):
 
   1. emit    Client.emit_constraints(StageSpec, vocab[, selection,
              views]) — two-pass mode (--selections) attaches the
@@ -35,6 +35,8 @@ nonzero.
 Requires ANTHROPIC_API_KEY.
 
     PYTHONPATH=. python scripts/emit_constraints.py
+    PYTHONPATH=. python scripts/emit_constraints.py \
+        --stage-plan outputs/stage_plan/pour_tea.marks.json
     PYTHONPATH=. python scripts/emit_constraints.py \
         --selections outputs/selections/pour_tea.json     # two-pass
     PYTHONPATH=. python scripts/emit_constraints.py \
@@ -112,9 +114,19 @@ def main() -> None:
                          "emission arm (selection + marked renders in "
                          "the prompt)")
     ap.add_argument("--out", default=str(OUT), metavar="JSON")
+    ap.add_argument("--stage-plan", default=None, metavar="JSON",
+                    help="plan_stages.py artifact; the stages bound to the "
+                         "grasp / transport_active / pour roles replace STAGES")
     add_scene_arg(ap)
     args = ap.parse_args()
     asset_dirs = load_scene(args.scene).asset_dirs
+    stages = STAGES
+    if args.stage_plan:
+        from scripts.plan_stages import load_bindings
+        b = load_bindings(args.stage_plan)
+        by_idx = {s.index: s for s in b.plan.stages}   # full parts, both objects
+        stages = tuple((by_idx[b.roles[r][1].index], r)
+                       for r in ("grasp", "transport_active", "pour"))
 
     vocab = Vocabulary.from_asset_dirs(asset_dirs)
     symbols = {n: load_symbols(d) for n, d in asset_dirs.items()}
@@ -122,7 +134,7 @@ def main() -> None:
     client = Client()
 
     emissions, gate = [], []
-    for stage, role in STAGES:
+    for stage, role in stages:
         sel = views = None
         if args.selections:
             sel, views = _two_pass_inputs(role, Path(args.selections))
@@ -134,7 +146,8 @@ def main() -> None:
 
         # feature binding for the gate: stages 2-3 pin the spout tip;
         # the grasp TSR constrains the gripper frame directly (Tw_e=I).
-        feat = spout_tip if stage.name in ("transport", "pour") else None
+        # keyed by ROLE, not stage.name: call-#1 stage names are free text
+        feat = spout_tip if role in ("transport_active", "pour") else None
         try:
             cs = compile_stage(em, symbols, POSES, e_feature=feat)
             for n in cs.notes:
@@ -149,7 +162,8 @@ def main() -> None:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({
-        "task": "pour tea from the teapot into the mug",
+        "task": b.plan.task if args.stage_plan else "pour tea from the teapot into the mug",
+        "stage_plan": args.stage_plan,
         "arm": "two-pass" if args.selections else "schema-only",
         "emissions": [asdict(e) for e in emissions],
         "compiled": [{"stage": n, "grounded": ok, "Bw": rows,

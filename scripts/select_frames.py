@@ -7,9 +7,9 @@ resolver all come from the SAME candidates.json + vlm_subset calls, so
 this script only sequences them.
 
 The four pour-tea roles, their objects, and the parts bias handed to
-vlm_subset (in the full orchestrator these come from VLM call #1's
-StagePlan; here they are the task's fixed structure — call #2 is what
-is under test):
+vlm_subset. With --stage-plan they come from VLM call #1's artifact
+(plan_stages.py `roles` + `object_parts`, the live pipeline); without
+it they are the hand-authored table below (the call-#2-only test):
 
     grasp              teapot   handle    where the gripper holds
     transport_active   teapot   spout     the tip carried to the mug
@@ -32,7 +32,9 @@ trail of what the model actually said before parsing.
 
 Requires ANTHROPIC_API_KEY. Offline dry runs inject a transport:
 
-    PYTHONPATH=. python scripts/select_frames.py            # live
+    PYTHONPATH=. python scripts/select_frames.py            # authored roles
+    PYTHONPATH=. python scripts/select_frames.py \
+        --stage-plan outputs/stage_plan/pour_tea.marks.json  # call-#1 roles
     PYTHONPATH=. python scripts/select_frames.py --out other.json
 
 Then:
@@ -85,11 +87,11 @@ ROLES: dict[str, tuple[str, StageSpec]] = {
 }
 
 
-def role_inputs(obj: str, asset_dirs: dict[str, Path]) -> tuple[Vocabulary, list[Path]]:
+def role_inputs(obj: str, asset_dirs: dict[str, Path],
+                parts: tuple[str, ...]) -> tuple[Vocabulary, list[Path]]:
     """Vocabulary (menu rebuilt from pool + the object's parts filter)
     and the eight view paths, cross-checked against the manifest written
     by render_candidates.py --vlm."""
-    parts = OBJECT_PARTS[obj]
     mpath = VLM_DIR / obj / "manifest.json"
     if not mpath.exists():
         raise SystemExit(
@@ -116,23 +118,35 @@ def role_inputs(obj: str, asset_dirs: dict[str, Path]) -> tuple[Vocabulary, list
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(OUT), metavar="JSON")
+    ap.add_argument("--stage-plan", default=None, metavar="JSON",
+                    help="plan_stages.py artifact; its role bindings and "
+                         "object_parts replace ROLES / OBJECT_PARTS")
     add_scene_arg(ap)
     args = ap.parse_args()
     asset_dirs = load_scene(args.scene).asset_dirs
+    if args.stage_plan:
+        from scripts.plan_stages import load_bindings
+        b = load_bindings(args.stage_plan)
+        roles, object_parts = b.roles, b.object_parts
+        print(f"[select-frames] roles from {b.path}: "
+              + ", ".join(f"{r}->{o}@{st.index}" for r, (o, st) in roles.items()))
+    else:
+        roles, object_parts = ROLES, OBJECT_PARTS
 
     pools = {n: load_pool(d) for n, d in asset_dirs.items()}
     syms = {n: load_symbols(d) for n, d in asset_dirs.items()}
     client = Client()
 
     selections: dict[str, dict] = {}
-    inputs = {obj: role_inputs(obj, asset_dirs) for obj in
-              {o for o, _ in ROLES.values()}}
-    for role, (obj, stage) in ROLES.items():
+    inputs = {obj: role_inputs(obj, asset_dirs, object_parts[obj]) for obj in
+              {o for o, _ in roles.values()}}
+    for role, (obj, stage) in roles.items():
         vocab, views = inputs[obj]
         sel = client.select_point_axis(stage, vocab, views)
         rf = resolve_selection(sel, pools[obj], syms[obj])   # typed gate
         print(f"[select-frames] {role}: {rf.frame.comment}")
-        selections[role] = {"candidate_id": sel.candidate_id,
+        selections[role] = {"object": obj,
+                            "candidate_id": sel.candidate_id,
                             "axis": sel.axis, "sign": sel.sign,
                             "secondary": sel.secondary,
                             "rationale": sel.rationale}
@@ -141,8 +155,10 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(selections, indent=2) + "\n")
     log = out.with_suffix(".log.json")
-    log.write_text(json.dumps([asdict(l) for l in client.logs], indent=2,
-                              default=str) + "\n")
+    log.write_text(json.dumps({
+        "stage_plan": args.stage_plan,
+        "client_logs": [asdict(l) for l in client.logs]}, indent=2,
+        default=str) + "\n")
     print(f"[select-frames] wrote {out} (+ {log})")
     print("  next: preview_selections.py, then plan_pour_tea.py "
           "--selections")

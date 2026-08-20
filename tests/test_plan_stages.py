@@ -216,3 +216,58 @@ def test_verify_accepts_alternate_spec(vocab, pools):
                        ordering=(("remove_lid", ()),))
     f = failed(ps.verify(plan(vocab, *NATURAL), pools, spec))
     assert "role[remove_lid]" in f
+
+
+# ------------------------------------------------------- role bindings
+
+def test_bind_roles_matches_authored_table(vocab, pools):
+    b = ps.bind_roles(plan(vocab, *NATURAL), pools)
+    assert b == {"grasp": {"object": "teapot", "stage": 0},
+                 "transport_active": {"object": "teapot", "stage": 1},
+                 "pour": {"object": "teapot", "stage": 1},
+                 "transport_passive": {"object": "mug", "stage": 1}}
+
+
+def test_bind_roles_unmatched_is_none(vocab, pools):
+    # no stage carries a grounded grasp part -> role unbound, not raised
+    b = ps.bind_roles(plan(vocab, st("grasp", "teapot", None, ["spout"])), pools)
+    assert b["grasp"]["stage"] is None
+
+
+def test_artifact_carries_bindings_and_loads(vocab, pools, tmp_path):
+    import select_frames as sf
+    raw = json.dumps({"stages": list(NATURAL)})
+    client = Client(transport=lambda payload: raw)
+    out = tmp_path / "pour_tea.json"
+    ps.run_one(client.plan_stages(ps.TASK, vocab), pools, out)
+    b = ps.load_bindings(out)
+    assert b.object_parts == sf.OBJECT_PARTS
+    # same (object, parts-on-that-object) per role as the authored table;
+    # stage names/indices are the model's, not the table's
+    for role, (obj, stage) in b.roles.items():
+        a_obj, a_stage = sf.ROLES[role]
+        assert obj == a_obj
+        assert stage.parts == a_stage.parts
+        assert set(stage.parts) == {obj}
+
+
+def test_artifact_with_failed_checks_is_refused(vocab, pools, tmp_path):
+    raw = json.dumps({"stages": [st("grasp", "teapot", None, ["spout"])]})
+    client = Client(transport=lambda payload: raw)
+    out = tmp_path / "bad.json"
+    ps.run_one(client.plan_stages(ps.TASK, vocab), pools, out)
+    with pytest.raises(SystemExit, match="failed checks"):
+        ps.load_bindings(out)
+
+
+def test_mark_artifact_binds_over_ground_truth(pools, tmp_path):
+    p = mplan(st("grasp", 2, None, {"2": ["handle"]}),
+              st("carry", 2, 1, {"2": ["spout"], "1": ["rim"]}),
+              st("pour", 2, 1, {"2": ["spout"], "1": ["rim"]}))
+    out = tmp_path / "marks.json"
+    ps.run_one(p, pools, out, gt=GT, mode="marks")
+    doc = json.loads(out.read_text())
+    assert doc["plan"]["stages"][0]["active"] == "teapot"   # handle from label
+    assert doc["plan_grounded"]["stages"][0]["active"] == "teapot"
+    b = ps.load_bindings(out)
+    assert b.roles["transport_passive"][0] == "mug"
