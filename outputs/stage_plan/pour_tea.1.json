@@ -1,0 +1,121 @@
+{
+  "plan": {
+    "task": "pour tea from the teapot into the mug",
+    "stages": [
+      {
+        "index": 0,
+        "name": "grasp teapot handle",
+        "active": "teapot",
+        "passive": null,
+        "parts": [
+          "handle"
+        ]
+      },
+      {
+        "index": 1,
+        "name": "align teapot spout over mug opening",
+        "active": "teapot",
+        "passive": "mug",
+        "parts": [
+          "spout",
+          "opening"
+        ]
+      },
+      {
+        "index": 2,
+        "name": "tilt teapot to pour",
+        "active": "teapot",
+        "passive": "mug",
+        "parts": [
+          "spout",
+          "opening"
+        ]
+      },
+      {
+        "index": 3,
+        "name": "return teapot to upright",
+        "active": "teapot",
+        "passive": null,
+        "parts": [
+          "handle"
+        ]
+      }
+    ]
+  },
+  "object_parts": {
+    "teapot": [
+      "handle",
+      "spout"
+    ],
+    "mug": [
+      "opening"
+    ]
+  },
+  "checks": [
+    {
+      "check": "grounds[stage0]",
+      "pass": true,
+      "detail": "grasp teapot handle: attributed {\"teapot\": [\"handle\"]}"
+    },
+    {
+      "check": "grounds[stage1]",
+      "pass": true,
+      "detail": "align teapot spout over mug opening: attributed {\"teapot\": [\"spout\"], \"mug\": [\"opening\"]}"
+    },
+    {
+      "check": "grounds[stage2]",
+      "pass": true,
+      "detail": "tilt teapot to pour: attributed {\"teapot\": [\"spout\"], \"mug\": [\"opening\"]}"
+    },
+    {
+      "check": "grounds[stage3]",
+      "pass": true,
+      "detail": "return teapot to upright: attributed {\"teapot\": [\"handle\"]}"
+    },
+    {
+      "check": "menu[teapot]",
+      "pass": true,
+      "detail": "parts ['handle', 'spout'] -> 8-mark menu"
+    },
+    {
+      "check": "menu[mug]",
+      "pass": true,
+      "detail": "parts ['opening'] -> 8-mark menu"
+    },
+    {
+      "check": "coverage[teapot]",
+      "pass": true,
+      "detail": "needs tags ['handle', 'spout'], attributed ['handle', 'spout']"
+    },
+    {
+      "check": "coverage[mug]",
+      "pass": true,
+      "detail": "needs tags ['rim'], attributed ['opening']"
+    },
+    {
+      "check": "ordering[grasp<interaction]",
+      "pass": true,
+      "detail": "teapot-only at [0, 3], teapot->mug at [1, 2]"
+    },
+    {
+      "check": "role[grasp]",
+      "pass": true,
+      "detail": "matched ['0:grasp teapot handle', '3:return teapot to upright']"
+    },
+    {
+      "check": "role[transport_active]",
+      "pass": true,
+      "detail": "matched ['1:align teapot spout over mug opening', '2:tilt teapot to pour']"
+    },
+    {
+      "check": "role[pour]",
+      "pass": true,
+      "detail": "matched ['1:align teapot spout over mug opening', '2:tilt teapot to pour']"
+    },
+    {
+      "check": "role[transport_passive]",
+      "pass": true,
+      "detail": "matched ['1:align teapot spout over mug opening', '2:tilt teapot to pour']"
+    }
+  ]
+}

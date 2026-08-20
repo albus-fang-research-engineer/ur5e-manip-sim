@@ -4,181 +4,225 @@
   "selections": "outputs/selections/pour_tea.json",
   "meshfree": false,
   "stage1_track": {
-    "n_targets": 106,
-    "n_env_steps": 346,
-    "max_track_err": 0.010409666900261794,
-    "mean_track_err": 0.008634959444305352,
+    "n_targets": 112,
+    "n_env_steps": 374,
+    "max_track_err": 0.012305434016801176,
+    "mean_track_err": 0.008608334420062886,
     "stalled": false
   },
   "grasp_contacts": 4,
-  "T_ee_body_delta_mm": 25.8405738688808,
-  "transport_slip_profile": {
-    "reached_90pct_at_frac": 0.383,
-    "final_mm": 37.53,
-    "final_deg": 26.5,
+  "T_ee_body_delta_mm": 25.840576131911778,
+  "lift_slip_profile": {
+    "reached_90pct_at_frac": 0.95,
+    "final_mm": 16.72,
+    "final_deg": 17.38,
     "trace_mm_deg": [
       [
         0.16,
         0.09
       ],
       [
-        12.63,
-        12.08
+        0.49,
+        0.24
       ],
       [
-        20.32,
-        20.87
+        2.69,
+        1.28
       ],
       [
-        23.86,
-        21.91
+        5.64,
+        3.2
       ],
       [
-        29.15,
-        23.59
+        8.0,
+        5.07
       ],
       [
-        32.9,
-        24.75
+        9.11,
+        6.59
       ],
       [
-        36.01,
-        25.88
+        9.56,
+        7.36
       ],
       [
-        38.2,
-        26.75
+        10.67,
+        9.14
       ],
       [
-        39.92,
-        27.44
+        11.91,
+        11.06
       ],
       [
-        40.3,
-        27.62
-      ],
-      [
-        38.87,
-        27.36
-      ],
-      [
-        37.53,
-        26.5
-      ]
-    ]
-  },
-  "transport_track": {
-    "n_targets": 50,
-    "n_env_steps": 168,
-    "max_track_err": 0.012153401551240783,
-    "mean_track_err": 0.009427615866281647,
-    "stalled": false
-  },
-  "transport_measured_excess": 0.20892064818054207,
-  "transport_end": {
-    "tip_lateral_mm": 83.40829408950167,
-    "tip_standoff_mm": 6.9306670197526055,
-    "tip_to_opening_mm": 83.69574462455952,
-    "tip_over_rim": false,
-    "spout_declination_deg": 68.06361273012709,
-    "rim_radius_mm": 44.1,
-    "stream_lands_in_mug": false,
-    "stream_lateral_mm": 91.01139849176961
-  },
-  "boundary_standing_slip": [
-    37.53263684122328,
-    26.501778840001986
-  ],
-  "boundary_tolerance": [
-    5.0,
-    3.0000000000000004
-  ],
-  "boundary_tip_placed": false,
-  "transport_slip_final": {
-    "max_mm": 40.63356075749837,
-    "max_deg": 27.750675681791638
-  },
-  "reanchor": {
-    "fired": true,
-    "ok": false,
-    "from_stage": 2,
-    "stage": 2,
-    "reason": "transport planning failed: start in collision after projection"
-  },
-  "pour_slip_profile": {
-    "reached_90pct_at_frac": 0.772,
-    "final_mm": 15.68,
-    "final_deg": 8.29,
-    "trace_mm_deg": [
-      [
-        0.22,
-        0.15
-      ],
-      [
-        3.57,
-        2.35
-      ],
-      [
-        5.54,
-        3.4
-      ],
-      [
-        7.26,
-        4.29
-      ],
-      [
-        8.81,
-        5.08
-      ],
-      [
-        10.14,
-        5.73
-      ],
-      [
-        11.34,
-        6.31
-      ],
-      [
-        12.38,
-        6.8
-      ],
-      [
-        13.35,
-        7.26
-      ],
-      [
-        14.19,
-        7.65
+        13.34,
+        13.1
       ],
       [
         14.93,
-        7.97
+        15.2
       ],
       [
-        15.68,
-        8.29
+        16.72,
+        17.38
+      ]
+    ]
+  },
+  "lift_track": {
+    "n_targets": 12,
+    "n_env_steps": 21,
+    "max_track_err": 0.012153400828860628,
+    "mean_track_err": 0.010110127504157499,
+    "stalled": false
+  },
+  "lift_measured_excess": 0.0,
+  "boundary_1_2": {
+    "delta_mm": 25.840576131911778,
+    "delta_deg": 2.459281670957849,
+    "tol_mm": 22.05,
+    "tol_deg": 14.999999999999998,
+    "fired": true
+  },
+  "reanchor_1_2": {
+    "fired": true,
+    "ok": true
+  },
+  "retransport_slip_profile": {
+    "reached_90pct_at_frac": 0.18,
+    "final_mm": 24.17,
+    "final_deg": 23.39,
+    "trace_mm_deg": [
+      [
+        17.04,
+        17.74
+      ],
+      [
+        19.18,
+        19.11
+      ],
+      [
+        22.11,
+        21.08
+      ],
+      [
+        25.07,
+        22.86
+      ],
+      [
+        24.55,
+        22.81
+      ],
+      [
+        23.75,
+        22.83
+      ],
+      [
+        23.53,
+        23.06
+      ],
+      [
+        23.66,
+        23.18
+      ],
+      [
+        23.79,
+        23.24
+      ],
+      [
+        23.91,
+        23.29
+      ],
+      [
+        24.05,
+        23.35
+      ],
+      [
+        24.17,
+        23.39
+      ]
+    ]
+  },
+  "retransport_track": {
+    "n_targets": 30,
+    "n_env_steps": 101,
+    "max_track_err": 0.013295925493943095,
+    "mean_track_err": 0.008493521619406783,
+    "stalled": false
+  },
+  "retransport_measured_excess": 0.13134235037093783,
+  "pour_slip_profile": {
+    "reached_90pct_at_frac": 0.0,
+    "final_mm": 19.84,
+    "final_deg": 19.37,
+    "trace_mm_deg": [
+      [
+        24.19,
+        23.4
+      ],
+      [
+        24.32,
+        23.47
+      ],
+      [
+        24.68,
+        23.68
+      ],
+      [
+        24.9,
+        23.76
+      ],
+      [
+        24.88,
+        23.7
+      ],
+      [
+        24.75,
+        23.57
+      ],
+      [
+        24.58,
+        23.42
+      ],
+      [
+        24.41,
+        23.27
+      ],
+      [
+        24.23,
+        23.12
+      ],
+      [
+        24.1,
+        23.0
+      ],
+      [
+        21.57,
+        21.13
+      ],
+      [
+        19.84,
+        19.37
       ]
     ]
   },
   "pour_track": {
-    "n_targets": 116,
-    "n_env_steps": 392,
-    "max_track_err": 0.011859791127626806,
-    "mean_track_err": 0.009582665803049258,
+    "n_targets": 141,
+    "n_env_steps": 364,
+    "max_track_err": 0.011990062852910377,
+    "mean_track_err": 0.009223316230024241,
     "stalled": false
   },
-  "pour_measured_excess": 0.553289850964607,
-  "tilt_measured_deg": 88.36258966503007,
+  "pour_measured_excess": 0.295998979133234,
+  "tilt_measured_deg": 98.16816579775805,
   "tilt_target_deg": 95.0,
-  "slip_max_mm": 15.677653543275945,
-  "slip_max_deg": 8.285757678908618,
+  "slip_max_mm": 25.086750648110943,
+  "slip_max_deg": 23.765677801342562,
   "grasp_retained": true,
-  "tip_lateral_mm": 75.23700351697853,
-  "tip_standoff_mm": 24.689694481545036,
-  "tip_to_opening_mm": 79.18451686918269,
+  "tip_lateral_mm": 46.67721213547198,
+  "tip_standoff_mm": 53.706093330286464,
+  "tip_to_opening_mm": 71.15550993100459,
   "tip_over_rim": false,
-  "spout_declination_deg": 25.53867586824621,
+  "spout_declination_deg": 17.46515006124199,
   "rim_radius_mm": 44.1,
   "stream_lands_in_mug": false,
-  "stream_lateral_mm": 85.79790305919518
+  "stream_lateral_mm": 62.485874468515796
 }

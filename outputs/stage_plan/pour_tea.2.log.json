@@ -1,0 +1,16 @@
+{
+  "client_logs": [
+    {
+      "touchpoint": "plan_stages",
+      "attempts": 2,
+      "rejections": [
+        "'robot' is not a licensed token for stage[0].active; allowed: ['teapot', 'mug']"
+      ],
+      "flags": []
+    }
+  ],
+  "raw_responses": [
+    "{\"stages\": [{\"name\": \"grasp_teapot\", \"active\": \"robot\", \"passive\": \"teapot\", \"parts\": [\"handle\"]}, {\"name\": \"align_spout_over_mug\", \"active\": \"teapot\", \"passive\": \"mug\", \"parts\": [\"spout\", \"opening\"]}, {\"name\": \"tilt_teapot_to_pour\", \"active\": \"teapot\", \"passive\": \"mug\", \"parts\": [\"spout\", \"opening\"]}, {\"name\": \"return_teapot_upright\", \"active\": \"teapot\", \"passive\": null, \"parts\": [\"handle\"]}, {\"name\": \"place_teapot\", \"active\": \"teapot\", \"passive\": null, \"parts\": [\"handle\", \"base\"]}]}",
+    "{\"stages\": [{\"name\": \"grasp_teapot\", \"active\": \"teapot\", \"passive\": null, \"parts\": [\"handle\"]}, {\"name\": \"align_spout_over_mug\", \"active\": \"teapot\", \"passive\": \"mug\", \"parts\": [\"spout\", \"opening\"]}, {\"name\": \"tilt_teapot_to_pour\", \"active\": \"teapot\", \"passive\": \"mug\", \"parts\": [\"spout\", \"opening\"]}, {\"name\": \"return_teapot_upright\", \"active\": \"teapot\", \"passive\": null, \"parts\": [\"handle\"]}, {\"name\": \"place_teapot\", \"active\": \"teapot\", \"passive\": null, \"parts\": [\"handle\", \"base\"]}]}"
+  ]
+}

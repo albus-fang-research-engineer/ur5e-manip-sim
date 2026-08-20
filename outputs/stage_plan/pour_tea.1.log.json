@@ -1,0 +1,13 @@
+{
+  "client_logs": [
+    {
+      "touchpoint": "plan_stages",
+      "attempts": 1,
+      "rejections": [],
+      "flags": []
+    }
+  ],
+  "raw_responses": [
+    "{\"stages\": [{\"name\": \"grasp teapot handle\", \"active\": \"teapot\", \"passive\": null, \"parts\": [\"handle\"]}, {\"name\": \"align teapot spout over mug opening\", \"active\": \"teapot\", \"passive\": \"mug\", \"parts\": [\"spout\", \"opening\"]}, {\"name\": \"tilt teapot to pour\", \"active\": \"teapot\", \"passive\": \"mug\", \"parts\": [\"spout\", \"opening\"]}, {\"name\": \"return teapot to upright\", \"active\": \"teapot\", \"passive\": null, \"parts\": [\"handle\"]}]}"
+  ]
+}

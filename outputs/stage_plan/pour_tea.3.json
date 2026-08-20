@@ -1,0 +1,137 @@
+{
+  "plan": {
+    "task": "pour tea from the teapot into the mug",
+    "stages": [
+      {
+        "index": 0,
+        "name": "grasp_teapot",
+        "active": "teapot",
+        "passive": null,
+        "parts": [
+          "handle"
+        ]
+      },
+      {
+        "index": 1,
+        "name": "align_spout_over_mug",
+        "active": "teapot",
+        "passive": "mug",
+        "parts": [
+          "spout",
+          "opening"
+        ]
+      },
+      {
+        "index": 2,
+        "name": "tilt_teapot_to_pour",
+        "active": "teapot",
+        "passive": "mug",
+        "parts": [
+          "spout",
+          "opening"
+        ]
+      },
+      {
+        "index": 3,
+        "name": "return_teapot_upright",
+        "active": "teapot",
+        "passive": null,
+        "parts": [
+          "handle"
+        ]
+      },
+      {
+        "index": 4,
+        "name": "place_teapot_down",
+        "active": "teapot",
+        "passive": null,
+        "parts": [
+          "handle",
+          "base"
+        ]
+      }
+    ]
+  },
+  "object_parts": {
+    "teapot": [
+      "handle",
+      "spout",
+      "base"
+    ],
+    "mug": [
+      "opening"
+    ]
+  },
+  "checks": [
+    {
+      "check": "grounds[stage0]",
+      "pass": true,
+      "detail": "grasp_teapot: attributed {\"teapot\": [\"handle\"]}"
+    },
+    {
+      "check": "grounds[stage1]",
+      "pass": true,
+      "detail": "align_spout_over_mug: attributed {\"teapot\": [\"spout\"], \"mug\": [\"opening\"]}"
+    },
+    {
+      "check": "grounds[stage2]",
+      "pass": true,
+      "detail": "tilt_teapot_to_pour: attributed {\"teapot\": [\"spout\"], \"mug\": [\"opening\"]}"
+    },
+    {
+      "check": "grounds[stage3]",
+      "pass": true,
+      "detail": "return_teapot_upright: attributed {\"teapot\": [\"handle\"]}"
+    },
+    {
+      "check": "grounds[stage4]",
+      "pass": true,
+      "detail": "place_teapot_down: attributed {\"teapot\": [\"handle\", \"base\"]}"
+    },
+    {
+      "check": "menu[teapot]",
+      "pass": true,
+      "detail": "parts ['handle', 'spout', 'base'] -> 8-mark menu"
+    },
+    {
+      "check": "menu[mug]",
+      "pass": true,
+      "detail": "parts ['opening'] -> 8-mark menu"
+    },
+    {
+      "check": "coverage[teapot]",
+      "pass": true,
+      "detail": "needs tags ['handle', 'spout'], attributed ['handle', 'spout', 'base']"
+    },
+    {
+      "check": "coverage[mug]",
+      "pass": true,
+      "detail": "needs tags ['rim'], attributed ['opening']"
+    },
+    {
+      "check": "ordering[grasp<interaction]",
+      "pass": true,
+      "detail": "teapot-only at [0, 3, 4], teapot->mug at [1, 2]"
+    },
+    {
+      "check": "role[grasp]",
+      "pass": true,
+      "detail": "matched ['0:grasp_teapot', '3:return_teapot_upright', '4:place_teapot_down']"
+    },
+    {
+      "check": "role[transport_active]",
+      "pass": true,
+      "detail": "matched ['1:align_spout_over_mug', '2:tilt_teapot_to_pour']"
+    },
+    {
+      "check": "role[pour]",
+      "pass": true,
+      "detail": "matched ['1:align_spout_over_mug', '2:tilt_teapot_to_pour']"
+    },
+    {
+      "check": "role[transport_passive]",
+      "pass": true,
+      "detail": "matched ['1:align_spout_over_mug', '2:tilt_teapot_to_pour']"
+    }
+  ]
+}
