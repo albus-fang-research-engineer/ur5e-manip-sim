@@ -67,11 +67,11 @@ VLM_DIR = Path("outputs/candidates/vlm")
 # `role` keys the --selections artifact for the two-pass arm.
 STAGES = (
     (StageSpec(index=1, name="grasp", active="teapot", passive=None,
-               parts=("handle",)), "grasp"),
+               parts={"teapot": ("handle",)}), "grasp"),
     (StageSpec(index=2, name="transport", active="teapot", passive="mug",
-               parts=("spout", "rim")), "transport_active"),
+               parts={"teapot": ("spout",), "mug": ("rim",)}), "transport_active"),
     (StageSpec(index=3, name="pour", active="teapot", passive="mug",
-               parts=("spout", "rim")), "pour"),
+               parts={"teapot": ("spout",), "mug": ("rim",)}), "pour"),
 )
 
 # canonical upright scene attitude for the compile gate (see docstring)

@@ -42,8 +42,16 @@ def plan(vocab, *stages):
 
 
 def st(name, active, passive, parts):
+    """parts: dict object -> list, or a flat list routed by the test's own
+    rule (rim -> mug, everything else -> active) for brevity."""
+    if not isinstance(parts, dict):
+        d = {}
+        for part in parts:
+            o = passive if (part == "rim" and passive) else active
+            d.setdefault(o, []).append(part)
+        parts = d
     return {"name": name, "active": active, "passive": passive,
-            "parts": list(parts)}
+            "parts": {o: list(v) for o, v in parts.items()}}
 
 
 def failed(checks):
@@ -58,9 +66,8 @@ NATURAL = (st("grasp the teapot by its handle", "teapot", None, ["handle"]),
 # ---------------------------------------------------------------- PASS
 
 def test_natural_plan_passes(vocab, pools):
-    """Mug is passive in every stage and 'rim' rides in the pour stage's
-    flat parts list — the plan the model is most likely to emit. Pool
-    attribution must route 'rim' to the mug."""
+    """Mug is passive in every stage; 'rim' is keyed to the mug — the
+    plan the model is most likely to emit."""
     checks = ps.verify(plan(vocab, *NATURAL), pools)
     assert failed(checks) == [], checks
 
@@ -119,12 +126,55 @@ def test_ordering_fails_when_interaction_precedes_grasp(vocab, pools):
     assert any(c.startswith("ordering[grasp<") for c in failed(ps.verify(p, pools)))
 
 
-def test_ambiguous_part_goes_to_active_and_is_flagged(vocab, pools):
-    """'handle' is a pool tag on both objects."""
-    s = plan(vocab, st("pour", "teapot", "mug", ["handle"])).stages[0]
-    by_obj, ungrounded, ambiguous = ps.attribute(s, pools)
-    assert by_obj["teapot"] == ("handle",) and by_obj["mug"] == ()
-    assert ambiguous == ["handle"] and ungrounded == []
+def test_part_grounds_only_in_its_own_object(vocab, pools):
+    """'handle' is a pool tag on both objects; keyed parts make the
+    attribution explicit, so a rim keyed to the teapot is UNGROUNDED
+    even though the mug has one."""
+    s = plan(vocab, st("pour", "teapot", "mug",
+                       {"teapot": ["handle", "rim"], "mug": ["handle"]})).stages[0]
+    by_obj, ungrounded, unknown = ps.attribute(s, pools)
+    assert by_obj == {"teapot": ("handle", "rim"), "mug": ("handle",)}
+    assert ungrounded == ["teapot.rim"] and unknown == []
+
+
+# ------------------------------------------------------- mark-addressed
+
+MARK_VOCAB = Vocabulary(objects={}, marks={1: "a", 2: "b", 3: "c"})
+GT = {1: "mug", 2: "teapot", 3: "bowl"}
+
+
+def mplan(*stages, objects=None):
+    objects = objects or {"2": "teapot", "1": "mug"}
+    return parse_stage_plan(json.dumps({"objects": objects,
+                                        "stages": list(stages)}),
+                            MARK_VOCAB, ps.TASK)
+
+
+def test_mark_plan_passes_through_ground_truth(pools):
+    p = mplan(st("grasp", 2, None, {"2": ["handle"]}),
+              st("carry", 2, 1, {"2": ["spout"], "1": ["rim"]}),
+              st("pour", 2, 1, {"2": ["spout"], "1": ["rim"]}))
+    g = ps.to_ground_truth(p, GT)
+    assert g.stages[1].parts == {"teapot": ("spout",), "mug": ("rim",)}
+    checks = ps.verify(g, pools)
+    assert failed(checks) == [], checks
+    assert "identity[teapot]" in [c for c, _, _ in checks]
+
+
+def test_mark_plan_wrong_object_fails_identity_and_roles(pools):
+    # model picks the bowl (mark 3) as the thing to pour from
+    p = mplan(st("grasp", 3, None, {"3": ["handle"]}),
+              st("pour", 3, 1, {"3": ["spout"], "1": ["rim"]}),
+              objects={"3": "teapot", "1": "mug"})
+    f = failed(ps.verify(ps.to_ground_truth(p, GT), pools))
+    assert "identity[bowl]" in f and "role[grasp]" in f and "role[pour]" in f
+
+
+def test_mark_plan_hardware_mode_keeps_handles(pools):
+    p = mplan(st("grasp", 2, None, {"2": ["handle"]}))
+    assert ps.to_ground_truth(p, None) is p
+    f = failed(ps.verify(p, pools))
+    assert "identity[teapot]" not in f          # label happened to match
 
 
 # --------------------------------------------------------- end-to-end
@@ -138,6 +188,7 @@ def test_client_to_artifact_roundtrip(vocab, pools, tmp_path):
     checks = ps.run_one(p, pools, out, client.logs, transport.raw)
     assert failed(checks) == []
     doc = json.loads(out.read_text())
+    assert doc["mode"] == "text"
     assert doc["object_parts"] == {"teapot": ["handle", "spout"],
                                    "mug": ["rim"]}
     log = json.loads(out.with_suffix(".log.json").read_text())

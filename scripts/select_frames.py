@@ -72,16 +72,16 @@ OBJECT_PARTS: dict[str, tuple[str, ...]] = {
 ROLES: dict[str, tuple[str, StageSpec]] = {
     "grasp": ("teapot", StageSpec(
         index=1, name="grasp teapot handle", active="teapot",
-        passive=None, parts=("handle",))),
+        passive=None, parts={"teapot": ("handle",)})),
     "transport_active": ("teapot", StageSpec(
         index=2, name="carry spout tip over the mug opening",
-        active="teapot", passive="mug", parts=("spout",))),
+        active="teapot", passive="mug", parts={"teapot": ("spout",)})),
     "pour": ("teapot", StageSpec(
         index=3, name="tilt about the spout tip to pour", active="teapot",
-        passive="mug", parts=("spout",))),
+        passive="mug", parts={"teapot": ("spout",)})),
     "transport_passive": ("mug", StageSpec(
         index=2, name="the mug opening the spout must reach", active="mug",
-        passive=None, parts=("rim",))),
+        passive=None, parts={"mug": ("rim",)})),
 }
 
 

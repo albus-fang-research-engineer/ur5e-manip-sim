@@ -24,17 +24,23 @@ Scene objects come from scenes/<scene>.json (--scene); the manifest is
 ground truth for verification only and is not shown to the model beyond
 the symbol vocabulary (until call #1 becomes mark-addressed).
 
-Part attribution: StageSpec.parts is a flat list with no object key (the
-schema is shared with the #2 prompt), so each part is attributed to the
-stage's active or passive object by which pool it grounds in. A part that
-grounds in both (e.g. "handle" — both objects carry the tag) is attributed
-to the active object and FLAGGED; the durable fix is an object-keyed
-`parts` in the schema, which hardware GroundedSAM seeding needs anyway.
+Two input modes, one verifier:
+
+  --marks DIR   mark-addressed (default pipeline, OmniManip order): the
+                model sees marked.png and emits mark ids + labels; the
+                verifier maps ids -> manifest names through marks.gt.json
+                (sim only) and adds an identity[] check per role. Build
+                the directory with scripts/mark_scene.py.
+  (no --marks)  text-only ablation arm: object names + symbols in the
+                prompt, no image. This is the arm the first 5/5 was
+                measured on; it isolates decomposition from perception
+                and must not be compared to image-conditioned baselines.
 
 Artifacts (per run k): <out>.json (plan + per-object parts handoff +
 checks), <out>.log.json (Client.logs + raw transport text per attempt).
 
-    PYTHONPATH=. python scripts/plan_stages.py                 # 1 live call
+    PYTHONPATH=. python scripts/plan_stages.py --marks outputs/marks/pour_tea
+    PYTHONPATH=. python scripts/plan_stages.py                 # text-only arm
     PYTHONPATH=. python scripts/plan_stages.py --repeat 5      # pass-rate table
     PYTHONPATH=. python scripts/plan_stages.py --replay outputs/stage_plan/pour_tea.0.json
     PYTHONPATH=. python scripts/plan_stages.py --scene scenes/X.json --task-spec tasks/X.json
@@ -52,8 +58,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from manip_sim.selection import _part_match, load_pool, vlm_subset
-from manip_sim.vlm import (Client, StagePlan, StageSpec, Vocabulary,
-                           _urllib_transport)
+from manip_sim.perception.marks import load_gt, load_marks
+from manip_sim.vlm import (Client, ObjectRef, StagePlan, StageSpec,
+                           Vocabulary, _urllib_transport)
 from manip_sim.scene import add_scene_arg, load_scene
 
 REPO = Path(__file__).resolve().parents[1]
@@ -98,7 +105,7 @@ TASK = json.loads((REPO / "scenes/pour_tea.json").read_text())["task"]
 Check = tuple[str, bool, str]
 
 
-# ---------------------------------------------------------- attribution
+# ------------------------------------------------------------ grounding
 
 def _grounds_in(part: str, pool: dict[int, dict]) -> bool:
     return any(_part_match(part, c) for c in pool.values())
@@ -106,21 +113,18 @@ def _grounds_in(part: str, pool: dict[int, dict]) -> bool:
 
 def attribute(stage: StageSpec, pools: dict[str, dict[int, dict]]
               ) -> tuple[dict[str, tuple[str, ...]], list[str], list[str]]:
-    """(parts_by_object, ungrounded, ambiguous) for one stage. Parts are
-    attributed to the stage's objects by which pool they ground in."""
-    objs = [stage.active] + ([stage.passive] if stage.passive else [])
-    by_obj: dict[str, list[str]] = {o: [] for o in objs}
-    ungrounded, ambiguous = [], []
-    for p in stage.parts:
-        hits = [o for o in objs if _grounds_in(p, pools[o])]
-        if not hits:
-            ungrounded.append(p)
-        elif len(hits) > 1:
-            ambiguous.append(p)
-            by_obj[stage.active].append(p)
-        else:
-            by_obj[hits[0]].append(p)
-    return {o: tuple(v) for o, v in by_obj.items()}, ungrounded, ambiguous
+    """(parts_by_object, ungrounded, unknown_object). Parts are already
+    object-keyed by the schema; this checks each grounds in ITS object's
+    pool. Objects with no pool (handle did not map to a registered
+    asset) are reported as unknown rather than raising."""
+    ungrounded, unknown = [], []
+    by_obj = {o: stage.parts.get(o, ()) for o in stage.objects()}
+    for o, ps in by_obj.items():
+        if o not in pools:
+            unknown.append(o)
+            continue
+        ungrounded += [f"{o}.{p}" for p in ps if not _grounds_in(p, pools[o])]
+    return by_obj, ungrounded, unknown
 
 
 def object_parts(plan: StagePlan, pools: dict[str, dict[int, dict]]
@@ -129,10 +133,9 @@ def object_parts(plan: StagePlan, pools: dict[str, dict[int, dict]]
     OBJECT_PARTS hand-authors), order-preserving, deduplicated."""
     acc: dict[str, list[str]] = {o: [] for o in pools}
     for s in plan.stages:
-        by_obj, _, _ = attribute(s, pools)
-        for o, ps in by_obj.items():
+        for o, ps in s.parts.items():
             for p in ps:
-                if p not in acc[o]:
+                if p not in acc.setdefault(o, []):
                     acc[o].append(p)
     return {o: tuple(v) for o, v in acc.items()}
 
@@ -154,21 +157,29 @@ def verify(plan: StagePlan, pools: dict[str, dict[int, dict]],
     out: list[Check] = []
     per_stage = {s.index: attribute(s, pools) for s in plan.stages}
 
-    # -- grounding: every part grounds in its stage's objects
+    # -- identity (mark mode): every used object resolved to a manifest
+    #    name, i.e. the model picked a mark that IS a scene object
+    for h, ref in plan.objects.items():
+        if ref.mark is not None:
+            out.append((f"identity[{h}]", h in pools,
+                        f"mark {ref.mark} labelled {ref.label!r} -> {h}"
+                        + ("" if h in pools else " (no registered asset)")))
+
+    # -- grounding: every part grounds in its own object's pool
     for s in plan.stages:
-        by_obj, ungrounded, ambiguous = per_stage[s.index]
-        detail = "attributed " + json.dumps(by_obj)
-        if ambiguous:
-            detail += f" — AMBIGUOUS (both pools) {ambiguous}, took active"
+        by_obj, ungrounded, unknown = per_stage[s.index]
+        detail = "parts " + json.dumps({o: list(p) for o, p in by_obj.items()})
+        if unknown:
+            detail += f" — UNKNOWN OBJECT {unknown}"
         if ungrounded:
             detail += f" — UNGROUNDED {ungrounded}"
-        out.append((f"grounds[stage{s.index}]", not ungrounded,
+        out.append((f"grounds[stage{s.index}]", not (ungrounded or unknown),
                     f"{s.name}: " + detail))
 
     # -- menu: the subset call #2 would see carries a mark for each part
     parts = object_parts(plan, pools)
     for obj, ps in parts.items():
-        if not ps:
+        if not ps or obj not in pools:
             continue
         sub = vlm_subset(pools[obj], list(ps))
         blind = [p for p in ps
@@ -180,7 +191,8 @@ def verify(plan: StagePlan, pools: dict[str, dict[int, dict]],
     # -- coverage: required pool tags reached per object
     for obj, tags in spec.required_tags.items():
         missing = [t for t in tags
-                   if not _tag_covered(t, parts.get(obj, ()), pools[obj])]
+                   if obj not in pools
+                   or not _tag_covered(t, parts.get(obj, ()), pools[obj])]
         out.append((f"coverage[{obj}]", not missing,
                     f"needs tags {list(tags)}, attributed {list(parts.get(obj, ()))}"
                     + (f" — MISSING {missing}" if missing else "")))
@@ -195,7 +207,7 @@ def verify(plan: StagePlan, pools: dict[str, dict[int, dict]],
             if pas != "*" and s.passive != pas:
                 continue
             by_obj = per_stage[s.index][0]
-            if all(obj in by_obj and all(
+            if all(obj in by_obj and obj in pools and all(
                     _tag_covered(t, by_obj[obj], pools[obj]) for t in tags)
                    for obj, tags in need.items()):
                 hits.append(s.index)
@@ -237,18 +249,34 @@ class RecordingTransport:
 def plan_from_artifact(path: Path) -> StagePlan:
     doc = json.loads(Path(path).read_text())
     doc = doc.get("plan", doc)
-    return StagePlan(task=doc["task"], stages=tuple(
-        StageSpec(**{**s, "parts": tuple(s["parts"])}) for s in doc["stages"]))
+    stages = tuple(StageSpec(
+        index=s["index"], name=s["name"], active=s["active"], passive=s["passive"],
+        parts={o: tuple(p) for o, p in s["parts"].items()}) for s in doc["stages"])
+    objects = {h: ObjectRef(**o) for h, o in doc.get("objects", {}).items()}
+    return StagePlan(task=doc["task"], stages=stages, objects=objects)
+
+
+def to_ground_truth(plan: StagePlan, gt: dict[int, str] | None) -> StagePlan:
+    """Mark mode: rewrite handles to manifest names so the contract
+    (written over names) applies. Marks without ground truth keep their
+    handle and fail identity[]."""
+    if not gt or not plan.objects:
+        return plan
+    return plan.relabel({h: gt[o.mark] for h, o in plan.objects.items()
+                         if o.mark in gt})
 
 
 def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
             out: Path, logs: list | None = None, raw: list[str] | None = None,
-            spec: TaskSpec = TASK_SPEC) -> list[Check]:
-    checks = verify(plan, pools, spec)
-    parts = object_parts(plan, pools)
+            spec: TaskSpec = TASK_SPEC, gt: dict[int, str] | None = None,
+            mode: str = "text") -> list[Check]:
+    gplan = to_ground_truth(plan, gt)
+    checks = verify(gplan, pools, spec)
+    parts = object_parts(gplan, pools)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({
-        "plan": asdict(plan),
+        "plan": asdict(plan),                      # as emitted (handles)
+        "mode": mode,
         "task_spec": spec.name,
         "object_parts": {o: list(v) for o, v in parts.items()},
         "checks": [{"check": c, "pass": ok, "detail": d} for c, ok, d in checks],
@@ -263,9 +291,13 @@ def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
 
 def print_report(plan: StagePlan, checks: list[Check], parts: dict) -> None:
     print(f"[plan-stages] task: {plan.task}")
+    for h, o in plan.objects.items():
+        if o.mark is not None:
+            print(f"  mark {o.mark} -> {h!r} ({o.label})")
     for s in plan.stages:
         arrow = f" -> {s.passive}" if s.passive else ""
-        print(f"  [{s.index}] {s.name}: {s.active}{arrow}, parts {list(s.parts)}")
+        print(f"  [{s.index}] {s.name}: {s.active}{arrow}, parts "
+              f"{ {o: list(p) for o, p in s.parts.items()} }")
     print("[plan-stages] verification:")
     for check, ok, detail in checks:
         print(f"  {'PASS' if ok else 'FAIL'}  {check}: {detail}")
@@ -287,6 +319,9 @@ def main() -> None:
                     help="verify saved artifacts offline; no API call")
     ap.add_argument("--task-spec", default=str(DEFAULT_TASK_SPEC), metavar="JSON",
                     help="planner contract the plan is verified against")
+    ap.add_argument("--marks", default=None, metavar="DIR",
+                    help="mark set from scripts/mark_scene.py -> mark-addressed "
+                         "mode with the scene image; absent -> text-only arm")
     add_scene_arg(ap)
     args = ap.parse_args()
     scene = load_scene(args.scene)
@@ -295,27 +330,45 @@ def main() -> None:
         args.task = scene.task
 
     pools = {n: load_pool(d) for n, d in scene.asset_dirs.items()}
+    mode = "marks" if args.marks else "text"
+    gt = None
+    if args.marks:
+        markset = load_marks(args.marks)
+        gt_path = Path(args.marks) / "marks.gt.json"
+        gt = load_gt(gt_path) if gt_path.exists() else None
+        if gt is None:
+            print("[plan-stages] no marks.gt.json: identity/contract checks "
+                  "run over raw handles (hardware mode)")
     base = Path(args.out)
+    if args.out == str(OUT):                       # default -> tag by mode
+        base = base.with_name(f"{base.stem}.{mode}{base.suffix}")
 
     runs: list[list[Check]] = []
     if args.replay:
         for p in args.replay:
             plan = plan_from_artifact(Path(p))
-            checks = verify(plan, pools, spec)
+            gplan = to_ground_truth(plan, gt)
+            checks = verify(gplan, pools, spec)
             print(f"\n=== replay {p}")
-            print_report(plan, checks, object_parts(plan, pools))
+            print_report(plan, checks, object_parts(gplan, pools))
             runs.append(checks)
     else:
-        vocab = Vocabulary.from_asset_dirs(scene.asset_dirs)   # no menu: #1 is symbols-only
+        if args.marks:
+            vocab = Vocabulary.from_marks(markset)
+            views = [markset.dir / markset.marked]
+        else:
+            vocab = Vocabulary.from_asset_dirs(scene.asset_dirs)
+            views = None
         for k in range(args.repeat):
             transport = RecordingTransport()
             client = Client(transport=transport)
-            plan = client.plan_stages(args.task, vocab)
+            plan = client.plan_stages(args.task, vocab, views)
             out = base if args.repeat == 1 else base.with_name(
                 f"{base.stem}.{k}{base.suffix}")
-            checks = run_one(plan, pools, out, client.logs, transport.raw, spec)
+            checks = run_one(plan, pools, out, client.logs, transport.raw,
+                             spec, gt, mode)
             print(f"\n=== run {k} -> {out}")
-            print_report(plan, checks, object_parts(plan, pools))
+            print_report(plan, checks, object_parts(to_ground_truth(plan, gt), pools))
             runs.append(checks)
 
     if len(runs) > 1:

@@ -141,6 +141,9 @@ class Vocabulary:
     objects: dict[str, dict[str, tuple[str, ...]]]
     # candidate menu for touchpoint #2: id -> short human tag
     menu: dict[int, str] = field(default_factory=dict)
+    # object marks for touchpoint #1 (mark-addressed mode): id -> one-line
+    # description of the mark (bbox/area; NEVER the object name)
+    marks: dict[int, str] = field(default_factory=dict)
 
     # -- construction ----------------------------------------------------
 
@@ -173,6 +176,15 @@ class Vocabulary:
             }
         return Vocabulary(objects=objects, menu=dict(menu or {}))
 
+    @staticmethod
+    def from_marks(markset) -> "Vocabulary":
+        """Touchpoint #1, mark-addressed: the accept set is the mark IDs
+        on the scene image; no object names, no symbols (nothing is
+        registered before the model says what matters)."""
+        return Vocabulary(objects={}, marks={
+            i: f"bbox {list(m.bbox)}, area {m.area} px"
+            for i, m in sorted(markset.marks.items())})
+
     # -- membership ------------------------------------------------------
 
     def _qualified(self, table: str) -> set[str]:
@@ -201,6 +213,9 @@ class Vocabulary:
         lines.append(f"world axes: {', '.join(WORLD_AXES)}")
         return "\n".join(lines)
 
+    def describe_marks(self) -> str:
+        return "\n".join(f"  mark {i}: {d}" for i, d in sorted(self.marks.items()))
+
     def describe_menu(self) -> str:
         if not self.menu:
             return "(no candidate menu)"
@@ -212,20 +227,56 @@ class Vocabulary:
 
 @dataclass(frozen=True)
 class StageSpec:
-    """#1 output element. Part names are FREE TEXT by design — they are
-    semantic identity seeds for GroundedSAM, the one licensed use of
-    unconstrained strings (2D touches identity, never coordinates)."""
+    """#1 output element. `active`/`passive` are object HANDLES: in
+    mark-addressed mode the model emits mark IDs and the parser derives
+    a handle from its free-text label (StagePlan.objects keeps the
+    id<->handle map); in text-only mode handles are the given names.
+    Part names are FREE TEXT by design — semantic identity seeds for
+    GroundedSAM, the one licensed use of unconstrained strings (2D
+    touches identity, never coordinates) — keyed by the handle whose
+    crop gets the seed."""
     index: int
     name: str
-    active: str            # object name (must be in vocabulary)
-    passive: str | None    # object name or None (e.g. reach stage)
-    parts: tuple[str, ...] # free-text part names to segment/ground
+    active: str
+    passive: str | None           # None for single-object stages
+    parts: dict[str, tuple[str, ...]] = field(default_factory=dict)
+
+    def objects(self) -> tuple[str, ...]:
+        return (self.active,) + ((self.passive,) if self.passive else ())
+
+    def all_parts(self) -> tuple[str, ...]:
+        return tuple(p for ps in self.parts.values() for p in ps)
+
+
+@dataclass(frozen=True)
+class ObjectRef:
+    """What call #1 said about one scene object. `mark` is None in
+    text-only mode. `label` is the model's free-text name — the naming
+    seed for mesh generation/registration on hardware."""
+    handle: str
+    label: str
+    mark: int | None = None
 
 
 @dataclass(frozen=True)
 class StagePlan:
     task: str
     stages: tuple[StageSpec, ...]
+    objects: dict[str, ObjectRef] = field(default_factory=dict)
+
+    def handle_of_mark(self) -> dict[int, str]:
+        return {o.mark: h for h, o in self.objects.items() if o.mark is not None}
+
+    def relabel(self, names: dict[str, str]) -> "StagePlan":
+        """Rewrite handles (e.g. to sim ground-truth names, or to
+        registered asset names). Unmapped handles are kept."""
+        f = lambda h: names.get(h, h) if h is not None else None
+        stages = tuple(StageSpec(
+            index=s.index, name=s.name, active=f(s.active), passive=f(s.passive),
+            parts={f(h): ps for h, ps in s.parts.items()}) for s in self.stages)
+        objects = {f(h): ObjectRef(handle=f(h), label=o.label, mark=o.mark)
+                   for h, o in self.objects.items()}
+        return StagePlan(task=self.task, stages=stages, objects=objects)
 
 
 @dataclass(frozen=True)
@@ -453,28 +504,102 @@ def _no_numbers(obj, ctx: str):
 
 # ------------------------------------------------- per-touchpoint parsing
 
+def _slug(label: str) -> str:
+    out = re.sub(r"[^a-z0-9]+", "_", label.strip().lower()).strip("_")
+    return out or "object"
+
+
+def _parse_parts(raw, allowed: tuple[str, ...], ctx: str,
+                 to_handle=lambda k: k) -> dict[str, tuple[str, ...]]:
+    """`parts` is keyed by the stage's objects (mark id or name as the
+    model addressed them); values are non-empty free-text lists."""
+    if not isinstance(raw, dict):
+        raise ParseRejection(f"{ctx}.parts must be an object keyed by the "
+                             f"stage's active/passive")
+    out = {}
+    for k, v in raw.items():
+        h = to_handle(k)
+        if h not in allowed:
+            raise ParseRejection(f"{ctx}.parts key {k!r} is not this stage's "
+                                 f"active/passive ({list(allowed)})")
+        if not isinstance(v, list) or not all(isinstance(p, str) and p.strip() for p in v):
+            raise ParseRejection(f"{ctx}.parts[{k!r}] must be a list of non-empty strings")
+        out[h] = tuple(v)
+    return out
+
+
 def parse_stage_plan(raw: str, vocab: Vocabulary, task: str) -> StagePlan:
+    """Mark-addressed when `vocab.marks` is set (active/passive/parts keys
+    are mark IDs, plus an `objects` map id -> label); text-only otherwise
+    (names from `vocab.objects`)."""
     doc = _load_json(raw)
     stages_raw = _need(doc, "stages", list, "stage plan")
     if not stages_raw:
         raise ParseRejection("stage plan has no stages")
-    objs = set(vocab.objects)
+
+    if vocab.marks:
+        objs_raw = _need(doc, "objects", dict, "stage plan")
+        refs: dict[str, ObjectRef] = {}
+        handle_of: dict[int, str] = {}
+        for k, label in objs_raw.items():
+            try:
+                mid = int(k)
+            except (TypeError, ValueError):
+                raise ParseRejection(f"objects key {k!r} is not a mark id")
+            if mid not in vocab.marks:
+                raise ParseRejection(f"mark {mid} is not on the image; offered "
+                                     f"marks: {sorted(vocab.marks)}")
+            if not isinstance(label, str) or not label.strip():
+                raise ParseRejection(f"objects[{k}] must be a non-empty label")
+            h = base = _slug(label)
+            n = 2
+            while h in refs:
+                h, n = f"{base}_{n}", n + 1
+            refs[h] = ObjectRef(handle=h, label=label.strip(), mark=mid)
+            handle_of[mid] = h
+
+        def obj(v, ctx):
+            if not isinstance(v, int) or isinstance(v, bool):
+                raise ParseRejection(f"{ctx} must be a mark id (int)")
+            if v not in handle_of:
+                raise ParseRejection(f"{ctx}: mark {v} is not declared in "
+                                     f"`objects` ({sorted(handle_of)})")
+            return handle_of[v]
+
+        def key(k):
+            try:
+                return handle_of.get(int(k), k)
+            except (TypeError, ValueError):
+                return k
+    else:
+        names = set(vocab.objects)
+        refs = {n: ObjectRef(handle=n, label=n, mark=None) for n in names}
+
+        def obj(v, ctx):
+            return _enum(v, names, ctx)
+
+        def key(k):
+            return k
+
     stages = []
-    for i, s in enumerate(stages_raw):
-        if not isinstance(s, dict):
+    for i, st in enumerate(stages_raw):
+        if not isinstance(st, dict):
             raise ParseRejection(f"stage[{i}] must be an object")
-        name = _need(s, "name", str, f"stage[{i}]")
-        active = _enum(_need(s, "active", str, f"stage[{i}]"), objs,
-                       f"stage[{i}].active")
-        passive = s.get("passive")
+        name = _need(st, "name", str, f"stage[{i}]")
+        active = obj(st.get("active"), f"stage[{i}].active")
+        passive = st.get("passive")
         if passive is not None:
-            passive = _enum(passive, objs, f"stage[{i}].passive")
-        parts = tuple(_need(s, "parts", list, f"stage[{i}]"))
-        if not all(isinstance(p, str) and p.strip() for p in parts):
-            raise ParseRejection(f"stage[{i}].parts must be non-empty strings")
+            passive = obj(passive, f"stage[{i}].passive")
+        if passive == active:
+            raise ParseRejection(f"stage[{i}]: passive equals active")
+        allowed = (active,) + ((passive,) if passive else ())
+        parts = _parse_parts(_need(st, "parts", dict, f"stage[{i}]"),
+                             allowed, f"stage[{i}]", key)
         stages.append(StageSpec(index=i, name=name, active=active,
                                 passive=passive, parts=parts))
-    return StagePlan(task=task, stages=tuple(stages))
+    used = {h for s in stages for h in s.objects()}
+    return StagePlan(task=task, stages=tuple(stages),
+                     objects={h: r for h, r in refs.items() if h in used})
 
 
 def parse_point_axis(raw: str, vocab: Vocabulary) -> PointAxisSelection:
@@ -677,19 +802,43 @@ def _text(t: str) -> dict:
     return {"type": "text", "text": t}
 
 
-def build_stage_plan_prompt(task: str, vocab: Vocabulary) -> tuple[str, list]:
-    system = (
-        "You are the task-planning module of a robotic manipulation "
-        "pipeline. You decompose a task into an ordered list of stages. "
-        "You make only discrete symbolic choices; all geometry is "
-        "computed downstream.\n\nScene objects and grounded symbols:\n"
-        f"{vocab.describe_symbols()}\n\n"
-        "Output schema: {\"stages\": [{\"name\": str, \"active\": <object>, "
-        "\"passive\": <object|null>, \"parts\": [str, ...]}]}. `parts` are "
-        "the part names (free text) that must be segmented and grounded "
-        "for this stage (e.g. \"handle\", \"spout\", \"rim\"). "
-        + _JSON_ONLY)
-    return system, [{"role": "user", "content": [_text(f"Task: {task}")]}]
+def build_stage_plan_prompt(task: str, vocab: Vocabulary,
+                            view_paths: list[Path] | None = None
+                            ) -> tuple[str, list]:
+    """Mark-addressed (vocab.marks + scene image) or text-only
+    (vocab.objects, the ablation baseline)."""
+    head = ("You are the task-planning module of a robotic manipulation "
+            "pipeline. You decompose a task into an ordered list of stages. "
+            "You make only discrete symbolic choices; all geometry is "
+            "computed downstream.\n\n")
+    if vocab.marks:
+        if not view_paths:
+            raise ValueError("mark-addressed stage planning needs the marked "
+                             "scene image")
+        system = (head +
+            "The image shows the scene with every foreground object "
+            "labelled by a numbered mark. Decide which marks the task "
+            "involves and name them; ignore the rest. Each stage has one "
+            "active object (the one that moves) and at most one passive "
+            "object it is constrained against.\n\n"
+            f"Marks on the image:\n{vocab.describe_marks()}\n\n"
+            "Output schema: {\"objects\": {\"<mark id>\": \"<short name>\", ...}, "
+            "\"stages\": [{\"name\": str, \"active\": <mark id>, "
+            "\"passive\": <mark id|null>, \"parts\": {\"<mark id>\": [str, ...]}}]}. "
+            "`parts` lists, per object in the stage, the part names (free "
+            "text) that must be segmented and grounded for this stage "
+            "(e.g. \"handle\", \"spout\", \"rim\"). Use only mark ids "
+            "that appear on the image. " + _JSON_ONLY)
+    else:
+        system = (head +
+            f"Scene objects and grounded symbols:\n{vocab.describe_symbols()}\n\n"
+            "Output schema: {\"stages\": [{\"name\": str, \"active\": <object>, "
+            "\"passive\": <object|null>, \"parts\": {\"<object>\": [str, ...]}}]}. "
+            "`parts` lists, per object in the stage, the part names (free "
+            "text) that must be segmented and grounded for this stage "
+            "(e.g. \"handle\", \"spout\", \"rim\"). " + _JSON_ONLY)
+    content = [_text(f"Task: {task}")] + [image_block(p) for p in (view_paths or [])]
+    return system, [{"role": "user", "content": content}]
 
 
 def build_point_axis_prompt(stage: StageSpec, vocab: Vocabulary,
@@ -709,7 +858,7 @@ def build_point_axis_prompt(stage: StageSpec, vocab: Vocabulary,
         "\"rationale\": str}. " + _JSON_ONLY)
     content: list[dict] = [_text(
         f"Stage {stage.index} ({stage.name}): active={stage.active}, "
-        f"passive={stage.passive}, parts={list(stage.parts)}. Select the "
+        f"passive={stage.passive}, parts={ {h: list(p) for h, p in stage.parts.items()} }. Select the "
         "interaction point and axis.")]
     content += [image_block(p) for p in view_paths]
     return system, [{"role": "user", "content": content}]
@@ -883,8 +1032,9 @@ class Client:
 
     # -- touchpoints -----------------------------------------------------
 
-    def plan_stages(self, task: str, vocab: Vocabulary) -> StagePlan:
-        system, messages = build_stage_plan_prompt(task, vocab)
+    def plan_stages(self, task: str, vocab: Vocabulary,
+                    view_paths: list[Path] | None = None) -> StagePlan:
+        system, messages = build_stage_plan_prompt(task, vocab, view_paths)
         return self._ask("plan_stages", system, messages,
                          lambda raw: parse_stage_plan(raw, vocab, task))
 

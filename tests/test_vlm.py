@@ -45,7 +45,7 @@ def canned(*texts):
 
 
 STAGE = StageSpec(index=1, name="transport", active="teapot",
-                  passive="mug", parts=("spout", "rim"))
+                  passive="mug", parts={"teapot": ("spout",), "mug": ("rim",)})
 
 
 # ------------------------------------------------------------ vocabulary
@@ -91,17 +91,53 @@ def test_expr_rejects_malformed():
 def test_stage_plan_parses(vocab):
     raw = json.dumps({"stages": [
         {"name": "grasp", "active": "teapot", "passive": None,
-         "parts": ["handle"]},
+         "parts": {"teapot": ["handle"]}},
         {"name": "pour", "active": "teapot", "passive": "mug",
-         "parts": ["spout", "rim"]}]})
+         "parts": {"teapot": ["spout"], "mug": ["rim"]}}]})
     plan = parse_stage_plan(raw, vocab, "pour tea")
     assert plan.stages[1].passive == "mug"
-    assert plan.stages[0].parts == ("handle",)
+    assert plan.stages[0].parts == {"teapot": ("handle",)}
+    assert plan.objects["mug"].mark is None
+
+
+def test_stage_plan_rejects_part_key_outside_stage(vocab):
+    raw = json.dumps({"stages": [
+        {"name": "grasp", "active": "teapot", "passive": None,
+         "parts": {"mug": ["rim"]}}]})
+    with pytest.raises(ParseRejection):
+        parse_stage_plan(raw, vocab, "pour tea")
+
+
+def test_stage_plan_mark_addressed():
+    vocab = Vocabulary(objects={}, marks={1: "bbox", 2: "bbox", 3: "bbox"})
+    raw = json.dumps({
+        "objects": {"2": "tea pot", "3": "mug"},
+        "stages": [
+            {"name": "grasp", "active": 2, "passive": None,
+             "parts": {"2": ["handle"]}},
+            {"name": "pour", "active": 2, "passive": 3,
+             "parts": {"2": ["spout"], "3": ["rim"]}}]})
+    plan = parse_stage_plan(raw, vocab, "pour tea")
+    assert plan.stages[0].active == "tea_pot" and plan.stages[1].passive == "mug"
+    assert plan.stages[1].parts == {"tea_pot": ("spout",), "mug": ("rim",)}
+    assert plan.objects["tea_pot"].mark == 2 and plan.objects["mug"].label == "mug"
+    assert plan.handle_of_mark() == {2: "tea_pot", 3: "mug"}
+    gt = plan.relabel({"tea_pot": "teapot"})
+    assert gt.stages[1].parts == {"teapot": ("spout",), "mug": ("rim",)}
+    # undeclared / off-image marks are hard rejections
+    for bad in ({"objects": {"2": "a"}, "stages": [{"name": "x", "active": 9,
+                                                   "passive": None, "parts": {}}]},
+                {"objects": {"7": "a"}, "stages": [{"name": "x", "active": 7,
+                                                   "passive": None, "parts": {}}]},
+                {"objects": {"2": "a"}, "stages": [{"name": "x", "active": "2",
+                                                   "passive": None, "parts": {}}]}):
+        with pytest.raises(ParseRejection):
+            parse_stage_plan(json.dumps(bad), vocab, "t")
 
 
 def test_stage_plan_rejects_unknown_object(vocab):
     raw = json.dumps({"stages": [{"name": "grasp", "active": "kettle",
-                                  "passive": None, "parts": ["handle"]}]})
+                                  "passive": None, "parts": {"kettle": ["handle"]}}]})
     with pytest.raises(ParseRejection):
         parse_stage_plan(raw, vocab, "pour tea")
 
