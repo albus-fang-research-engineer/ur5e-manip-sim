@@ -13,11 +13,16 @@ and run live here:
               ungroundable token ("grip", "lip") still yields a full menu
               with zero part-biased marks, and call #2 never learns the
               stage plan failed to ground.
-  contract    the pour-tea structure select_frames.py hand-authors today
-              (OBJECT_PARTS + ROLES), restated over POOL TAGS: coverage,
-              grasp-before-interaction ordering, and one emitted stage per
-              planner role. Passing means the emitted plan could replace
-              the fixed ROLES.
+  contract    the structure select_frames.py hand-authors today
+              (OBJECT_PARTS + ROLES), restated over POOL TAGS and loaded
+              from tasks/<task>.json (--task-spec): coverage, one emitted
+              stage per planner role, and role-level ordering (grasp
+              before every interaction role). Passing means the emitted
+              plan could replace the fixed ROLES.
+
+Scene objects come from scenes/<scene>.json (--scene); the manifest is
+ground truth for verification only and is not shown to the model beyond
+the symbol vocabulary (until call #1 becomes mark-addressed).
 
 Part attribution: StageSpec.parts is a flat list with no object key (the
 schema is shared with the #2 prompt), so each part is attributed to the
@@ -32,6 +37,7 @@ checks), <out>.log.json (Client.logs + raw transport text per attempt).
     PYTHONPATH=. python scripts/plan_stages.py                 # 1 live call
     PYTHONPATH=. python scripts/plan_stages.py --repeat 5      # pass-rate table
     PYTHONPATH=. python scripts/plan_stages.py --replay outputs/stage_plan/pour_tea.0.json
+    PYTHONPATH=. python scripts/plan_stages.py --scene scenes/X.json --task-spec tasks/X.json
 
 --replay re-verifies saved artifacts offline (no API key); --repeat is
 the repeatability measurement at the module's fixed TEMPERATURE.
@@ -42,33 +48,52 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from manip_sim.selection import _part_match, load_pool, vlm_subset
 from manip_sim.vlm import (Client, StagePlan, StageSpec, Vocabulary,
                            _urllib_transport)
+from manip_sim.scene import add_scene_arg, load_scene
 
-OBJECTS = {
-    "teapot": Path("assets/objects/teapot"),
-    "mug": Path("assets/objects/mug"),
-}
-TASK = "pour tea from the teapot into the mug"
+REPO = Path(__file__).resolve().parents[1]
+DEFAULT_TASK_SPEC = REPO / "tasks/pour_tea.json"
 OUT = Path("outputs/stage_plan/pour_tea.json")
 
-# Pour-tea contract over POOL TAGS (candidates.json `part` / frames.json
-# symbol names), mirroring select_frames.OBJECT_PARTS / ROLES.
-REQUIRED_TAGS: dict[str, tuple[str, ...]] = {
-    "teapot": ("handle", "spout"),
-    "mug": ("rim",),
-}
-# role -> (active, passive, {object: required tags}); passive "*" = any
-ROLE_SIGNATURES: dict[str, tuple[str, str | None, dict[str, tuple[str, ...]]]] = {
-    "grasp": ("teapot", None, {"teapot": ("handle",)}),
-    "transport_active": ("teapot", "mug", {"teapot": ("spout",)}),
-    "pour": ("teapot", "mug", {"teapot": ("spout",)}),
-    "transport_passive": ("*", "*", {"mug": ("rim",)}),
-}
+
+# --------------------------------------------------------- task contract
+
+@dataclass(frozen=True)
+class TaskSpec:
+    """The planner-side contract a stage plan must satisfy, as data
+    (tasks/<name>.json) so a scene variant can swap it (a lid-on variant
+    adds a `remove_lid` role and an ordering edge).
+
+      required_tags  object -> pool tags some attributed part must reach
+      roles          role -> (active, passive, {object: tags}); "*" = any
+      ordering       [{before: role, after: [role, ...]}] over role hits
+    """
+    name: str
+    required_tags: dict[str, tuple[str, ...]]
+    roles: dict[str, tuple[str, str | None, dict[str, tuple[str, ...]]]]
+    ordering: tuple[tuple[str, tuple[str, ...]], ...]
+
+
+def load_task_spec(path: str | Path = DEFAULT_TASK_SPEC) -> TaskSpec:
+    doc = json.loads(Path(path).read_text())
+    return TaskSpec(
+        name=doc["name"],
+        required_tags={o: tuple(t) for o, t in doc["required_tags"].items()},
+        roles={r: (v["active"], v.get("passive"),
+                   {o: tuple(t) for o, t in v["tags"].items()})
+               for r, v in doc["roles"].items()},
+        ordering=tuple((e["before"], tuple(e["after"]))
+                       for e in doc.get("ordering", [])))
+
+
+TASK_SPEC = load_task_spec()
+# scene default task string; --task overrides
+TASK = json.loads((REPO / "scenes/pour_tea.json").read_text())["task"]
 
 Check = tuple[str, bool, str]
 
@@ -123,7 +148,8 @@ def _tag_covered(tag: str, parts: tuple[str, ...], pool: dict[int, dict]
 
 # --------------------------------------------------------------- verify
 
-def verify(plan: StagePlan, pools: dict[str, dict[int, dict]]) -> list[Check]:
+def verify(plan: StagePlan, pools: dict[str, dict[int, dict]],
+           spec: TaskSpec = TASK_SPEC) -> list[Check]:
     """All checks always run; (name, passed, detail)."""
     out: list[Check] = []
     per_stage = {s.index: attribute(s, pools) for s in plan.stages}
@@ -152,24 +178,16 @@ def verify(plan: StagePlan, pools: dict[str, dict[int, dict]]) -> list[Check]:
                     + (f" — NO MARK for {blind}" if blind else "")))
 
     # -- coverage: required pool tags reached per object
-    for obj, tags in REQUIRED_TAGS.items():
+    for obj, tags in spec.required_tags.items():
         missing = [t for t in tags
                    if not _tag_covered(t, parts.get(obj, ()), pools[obj])]
         out.append((f"coverage[{obj}]", not missing,
                     f"needs tags {list(tags)}, attributed {list(parts.get(obj, ()))}"
                     + (f" — MISSING {missing}" if missing else "")))
 
-    # -- ordering: teapot-only (grasp) precedes teapot->mug (interaction)
-    grasp_idx = [s.index for s in plan.stages
-                 if s.active == "teapot" and s.passive is None]
-    inter_idx = [s.index for s in plan.stages
-                 if s.active == "teapot" and s.passive == "mug"]
-    ok = bool(grasp_idx) and bool(inter_idx) and min(grasp_idx) < min(inter_idx)
-    out.append(("ordering[grasp<interaction]", ok,
-                f"teapot-only at {grasp_idx}, teapot->mug at {inter_idx}"))
-
     # -- roles: one emitted stage per planner role
-    for role, (act, pas, need) in ROLE_SIGNATURES.items():
+    role_idx: dict[str, list[int]] = {}
+    for role, (act, pas, need) in spec.roles.items():
         hits = []
         for s in plan.stages:
             if act != "*" and s.active != act:
@@ -180,10 +198,22 @@ def verify(plan: StagePlan, pools: dict[str, dict[int, dict]]) -> list[Check]:
             if all(obj in by_obj and all(
                     _tag_covered(t, by_obj[obj], pools[obj]) for t in tags)
                    for obj, tags in need.items()):
-                hits.append(f"{s.index}:{s.name}")
+                hits.append(s.index)
+        role_idx[role] = hits
+        names = [f"{i}:{next(x.name for x in plan.stages if x.index == i)}"
+                 for i in hits]
         out.append((f"role[{role}]", bool(hits),
-                    f"matched {hits}" if hits
+                    f"matched {names}" if hits
                     else f"no stage with active={act} passive={pas} {need}"))
+
+    # -- ordering: role-level precedence (first hit of `before` precedes
+    #    the first hit of every `after` role)
+    for before, afters in spec.ordering:
+        b = role_idx.get(before, [])
+        a = {r: role_idx.get(r, []) for r in afters}
+        ok = bool(b) and all(v and min(b) < min(v) for v in a.values())
+        out.append((f"ordering[{before}<{','.join(afters)}]", ok,
+                    f"{before} at {b}, " + ", ".join(f"{r} at {v}" for r, v in a.items())))
     return out
 
 
@@ -212,13 +242,14 @@ def plan_from_artifact(path: Path) -> StagePlan:
 
 
 def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
-            out: Path, logs: list | None = None, raw: list[str] | None = None
-            ) -> list[Check]:
-    checks = verify(plan, pools)
+            out: Path, logs: list | None = None, raw: list[str] | None = None,
+            spec: TaskSpec = TASK_SPEC) -> list[Check]:
+    checks = verify(plan, pools, spec)
     parts = object_parts(plan, pools)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({
         "plan": asdict(plan),
+        "task_spec": spec.name,
         "object_parts": {o: list(v) for o, v in parts.items()},
         "checks": [{"check": c, "pass": ok, "detail": d} for c, ok, d in checks],
     }, indent=2) + "\n")
@@ -254,28 +285,35 @@ def main() -> None:
                     help="live calls to make; artifacts get a .k suffix")
     ap.add_argument("--replay", nargs="+", metavar="JSON",
                     help="verify saved artifacts offline; no API call")
+    ap.add_argument("--task-spec", default=str(DEFAULT_TASK_SPEC), metavar="JSON",
+                    help="planner contract the plan is verified against")
+    add_scene_arg(ap)
     args = ap.parse_args()
+    scene = load_scene(args.scene)
+    spec = load_task_spec(args.task_spec)
+    if args.task == TASK:
+        args.task = scene.task
 
-    pools = {n: load_pool(d) for n, d in OBJECTS.items()}
+    pools = {n: load_pool(d) for n, d in scene.asset_dirs.items()}
     base = Path(args.out)
 
     runs: list[list[Check]] = []
     if args.replay:
         for p in args.replay:
             plan = plan_from_artifact(Path(p))
-            checks = verify(plan, pools)
+            checks = verify(plan, pools, spec)
             print(f"\n=== replay {p}")
             print_report(plan, checks, object_parts(plan, pools))
             runs.append(checks)
     else:
-        vocab = Vocabulary.from_asset_dirs(OBJECTS)   # no menu: #1 is symbols-only
+        vocab = Vocabulary.from_asset_dirs(scene.asset_dirs)   # no menu: #1 is symbols-only
         for k in range(args.repeat):
             transport = RecordingTransport()
             client = Client(transport=transport)
             plan = client.plan_stages(args.task, vocab)
             out = base if args.repeat == 1 else base.with_name(
                 f"{base.stem}.{k}{base.suffix}")
-            checks = run_one(plan, pools, out, client.logs, transport.raw)
+            checks = run_one(plan, pools, out, client.logs, transport.raw, spec)
             print(f"\n=== run {k} -> {out}")
             print_report(plan, checks, object_parts(plan, pools))
             runs.append(checks)

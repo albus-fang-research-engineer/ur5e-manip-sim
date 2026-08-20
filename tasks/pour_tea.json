@@ -1,0 +1,11 @@
+{
+  "name": "pour_tea",
+  "required_tags": {"teapot": ["handle", "spout"], "mug": ["rim"]},
+  "roles": {
+    "grasp":             {"active": "teapot", "passive": null,  "tags": {"teapot": ["handle"]}},
+    "transport_active":  {"active": "teapot", "passive": "mug", "tags": {"teapot": ["spout"]}},
+    "pour":              {"active": "teapot", "passive": "mug", "tags": {"teapot": ["spout"]}},
+    "transport_passive": {"active": "*",      "passive": "*",   "tags": {"mug": ["rim"]}}
+  },
+  "ordering": [{"before": "grasp", "after": ["transport_active", "pour"]}]
+}

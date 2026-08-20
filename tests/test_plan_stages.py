@@ -116,7 +116,7 @@ def test_ordering_fails_when_interaction_precedes_grasp(vocab, pools):
     p = plan(vocab,
              st("pour", "teapot", "mug", ["spout", "rim"]),
              st("grasp", "teapot", None, ["handle"]))
-    assert "ordering[grasp<interaction]" in failed(ps.verify(p, pools))
+    assert any(c.startswith("ordering[grasp<") for c in failed(ps.verify(p, pools)))
 
 
 def test_ambiguous_part_goes_to_active_and_is_flagged(vocab, pools):
@@ -144,3 +144,24 @@ def test_client_to_artifact_roundtrip(vocab, pools, tmp_path):
     assert log["raw_responses"] == [raw]
     # artifact replays to the same verdict
     assert failed(ps.verify(ps.plan_from_artifact(out), pools)) == []
+
+
+# ---------------------------------------------------------- task spec
+
+def test_task_spec_round_trips_the_hardcoded_contract():
+    spec = ps.load_task_spec()
+    assert spec.required_tags == {"teapot": ("handle", "spout"), "mug": ("rim",)}
+    assert set(spec.roles) == {"grasp", "transport_active", "pour",
+                               "transport_passive"}
+    assert spec.roles["grasp"] == ("teapot", None, {"teapot": ("handle",)})
+    assert spec.roles["transport_passive"][:2] == ("*", "*")
+    assert spec.ordering == (("grasp", ("transport_active", "pour")),)
+
+
+def test_verify_accepts_alternate_spec(vocab, pools):
+    # same plan, a spec that demands a role the plan cannot satisfy
+    spec = ps.TaskSpec(name="x", required_tags={},
+                       roles={"remove_lid": ("teapot", None, {"teapot": ("lid",)})},
+                       ordering=(("remove_lid", ()),))
+    f = failed(ps.verify(plan(vocab, *NATURAL), pools, spec))
+    assert "role[remove_lid]" in f

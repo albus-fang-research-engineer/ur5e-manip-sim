@@ -53,10 +53,9 @@ from pathlib import Path
 import imageio
 import mujoco
 import numpy as np
-import robosuite as suite  # noqa: F401  (env built via the scene factory)
 from scipy.spatial.transform import Rotation as R
 
-from scripts.demos.demo_pour_tea import make_env
+from manip_sim.scene import add_scene_arg, load_scene, make_env
 from manip_sim.execution import (
     GRIPPER_OPEN,
     GRIPPER_CLOSE,
@@ -193,7 +192,9 @@ def main() -> None:
                     help="goal-sample budget for execution-time re-plans "
                          "(the offline planner uses --n-goal-samples; the "
                          "old hardcoded 30 left the funnel with ~2 goals)")
+    add_scene_arg(ap)
     args = ap.parse_args()
+    scene = load_scene(args.scene)
 
     import os, time as _time
     plan_file = resolve_plan_path(args.plan, args.arm)
@@ -225,7 +226,7 @@ def main() -> None:
     # scene with the joint-position tracking controller injected through
     # the single factory (controller choice does not move the scene)
     cfg = tracking_controller_config(args.robot, output_max=ARM_OUTPUT_MAX)
-    env, objs = make_env(robot=args.robot, has_renderer=False,
+    env, objs = make_env(scene, robot=args.robot, has_renderer=False,
                          controller_configs=cfg)
     have_teapot = "teapot" in objs
     if not have_teapot and not args.allow_meshfree:
@@ -239,8 +240,8 @@ def main() -> None:
                      "selections": read_selections(plan) or "",
                      "meshfree": not have_teapot}
 
-    teapot_sym = load_symbols("assets/objects/teapot")
-    mug_sym = load_symbols("assets/objects/mug")
+    teapot_sym = load_symbols(scene.asset_dirs["teapot"])
+    mug_sym = load_symbols(scene.asset_dirs["mug"])
     rim_radius = mug_sym.quantities.get("rim_radius", 0.044)
     # The executor REBUILDS stage pairs (the pour freeze at the measured
     # entry, and now a whole re-plan), so it has to resolve the same
@@ -251,8 +252,7 @@ def main() -> None:
         from manip_sim.selection import (load_pool, load_selections,
                                          resolve_selection)
         sels = load_selections(sel_path)
-        pools = {"teapot": load_pool("assets/objects/teapot"),
-                 "mug": load_pool("assets/objects/mug")}
+        pools = {n: load_pool(d) for n, d in scene.asset_dirs.items()}
         syms = {"teapot": teapot_sym, "mug": mug_sym}
 
         def _frame(role):

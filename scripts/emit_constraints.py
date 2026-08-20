@@ -58,9 +58,8 @@ from manip_sim.compile_tsr import CompileError, compile_stage
 from manip_sim.frames import load_symbols
 from manip_sim.tsr import make_pose
 from manip_sim.vlm import Client, StageSpec, Vocabulary
+from manip_sim.scene import add_scene_arg, load_scene
 
-OBJECTS = {"teapot": Path("assets/objects/teapot"),
-           "mug": Path("assets/objects/mug")}
 OUT = Path("outputs/emissions/pour_tea.json")
 VLM_DIR = Path("outputs/candidates/vlm")
 
@@ -113,10 +112,12 @@ def main() -> None:
                          "emission arm (selection + marked renders in "
                          "the prompt)")
     ap.add_argument("--out", default=str(OUT), metavar="JSON")
+    add_scene_arg(ap)
     args = ap.parse_args()
+    asset_dirs = load_scene(args.scene).asset_dirs
 
-    vocab = Vocabulary.from_asset_dirs(OBJECTS)
-    symbols = {n: load_symbols(d) for n, d in OBJECTS.items()}
+    vocab = Vocabulary.from_asset_dirs(asset_dirs)
+    symbols = {n: load_symbols(d) for n, d in asset_dirs.items()}
     spout_tip = symbols["teapot"].frame("spout_tip", "pour_axis")
     client = Client()
 

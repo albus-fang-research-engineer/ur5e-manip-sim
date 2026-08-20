@@ -37,10 +37,8 @@ import time
 from pathlib import Path
 
 import numpy as np
-import robosuite as suite  # noqa: F401  (env built via the scene factory)
-from scipy.spatial.transform import Rotation as R
 
-from scripts.demos.demo_pour_tea import MUG_XY, TEAPOT_XY, make_env
+from manip_sim.scene import add_scene_arg, load_scene, make_env
 from manip_sim.frames import load_symbols
 from manip_sim.grasping import (
     ProbeContext,
@@ -55,9 +53,8 @@ from manip_sim.planning import (ArmKinematics, AttachedArmKinematics,
                                 AttachedObject, MinkIK, plan_constrained)
 from manip_sim.provenance import LABEL, arm_of_run, plan_path, stamp
 from manip_sim.pour_stages import pour_pair, transport_pair
-from manip_sim.tsr import make_pose, pose_from_pos_quat_wxyz, sample_intersection
+from manip_sim.tsr import pose_from_pos_quat_wxyz, sample_intersection
 
-TABLE_TOP_Z = 0.8
 # the four frame roles this task consumes from a --selections artifact
 ROLES = {"grasp", "transport_active", "pour", "transport_passive"}
 PREGRASP_STANDOFF = 0.08          # meters back along the approach axis
@@ -65,17 +62,13 @@ LIFT_HEIGHT = 0.05                # straight-up retreat after closing
 APPROACH_STEPS = 12               # joint-interp steps pre-grasp -> grasp
 
 
-def _synthetic_object_poses(teapot_sym):
-    """Mesh-free fallback: the canonical scene poses, teapot yawed so the
-    spout (frames.json pour_axis, not the retired SPOUT_YAW_OFFSET
-    constant) faces the mug — same geometry the factory commands."""
-    bearing = MUG_XY - TEAPOT_XY
-    pour = teapot_sym.axes["pour_axis"]
-    yaw = float(np.arctan2(bearing[1], bearing[0])) - \
-        float(np.arctan2(pour[1], pour[0]))
-    z0 = TABLE_TOP_Z + 0.06
-    T0_teapot = make_pose([*TEAPOT_XY, z0], R.from_euler("z", yaw).as_matrix())
-    T0_mug = make_pose([*MUG_XY, z0])
+def _synthetic_object_poses(scene):
+    """Mesh-free fallback: the manifest's spawn poses (teapot yawed via
+    frames.json pour_axis to face the mug) — same geometry the factory
+    commands, before settling."""
+    fp = scene.fixed_poses()
+    T0_teapot = pose_from_pos_quat_wxyz(*fp["teapot"])
+    T0_mug = pose_from_pos_quat_wxyz(*fp["mug"])
     return T0_teapot, T0_mug
 
 
@@ -167,8 +160,10 @@ def main() -> None:
     ap.add_argument("--selections", default=None, metavar="JSON",
                     help="role-keyed touchpoint-#2 selections artifact; "
                          "absent -> hand-authored frames.json arm")
+    add_scene_arg(ap)
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
+    scene = load_scene(args.scene)
 
     # the arm is decided here, by whether --selections was passed, and is
     # stamped into the artifact so render/execute never have to guess
@@ -176,10 +171,10 @@ def main() -> None:
     print(f"[pour_tea] arm '{arm}': {LABEL[arm]}")
 
     # ---- THE canonical scene ----------------------------------------------
-    env, objs = make_env(robot=args.robot, has_renderer=False)
+    env, objs = make_env(scene, robot=args.robot, has_renderer=False)
 
-    teapot_sym = load_symbols("assets/objects/teapot")
-    mug_sym = load_symbols("assets/objects/mug")
+    teapot_sym = load_symbols(scene.asset_dirs["teapot"])
+    mug_sym = load_symbols(scene.asset_dirs["mug"])
     if args.selections:
         # VLM-selected arm: the four task frames resolved from a role-
         # keyed touchpoint-#2 artifact (candidate mark ID + grounded
@@ -193,8 +188,7 @@ def main() -> None:
         if missing:
             raise SystemExit(f"[pour_tea] selections file lacks roles "
                              f"{sorted(missing)} (has {sorted(sels)})")
-        pools = {"teapot": load_pool("assets/objects/teapot"),
-                 "mug": load_pool("assets/objects/mug")}
+        pools = {n: load_pool(d) for n, d in scene.asset_dirs.items()}
         syms = {"teapot": teapot_sym, "mug": mug_sym}
 
         def _frame(role):
@@ -225,7 +219,7 @@ def main() -> None:
         print(f"[pour_tea] settled poses from sim: teapot "
               f"{np.round(T0_teapot[:3, 3], 3)}, mug {np.round(T0_mug[:3, 3], 3)}")
     else:
-        T0_teapot, T0_mug = _synthetic_object_poses(teapot_sym)
+        T0_teapot, T0_mug = _synthetic_object_poses(scene)
         print(f"[pour_tea] meshes absent -> synthetic poses: teapot "
               f"{np.round(T0_teapot[:3, 3], 3)}, mug {np.round(T0_mug[:3, 3], 3)}")
 

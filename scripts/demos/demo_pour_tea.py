@@ -22,110 +22,34 @@ import os
 from pathlib import Path
 
 import numpy as np
-import robosuite as suite
-from robosuite.environments.base import register_env
+
 from scipy.spatial.transform import Rotation as R
 
-import manip_sim  # noqa: F401
-from manip_sim.envs.tabletop import TableTop
+import manip_sim  # noqa: F401  registers TableTop
 
 # ----------------------------------------------------------------- scene spec
-TABLE_SIZE = (1.2, 1.2, 0.05)
-TABLE_TOP_Z = 0.8
-TEAPOT_XY = np.array([0.0, -0.25])
-MUG_XY = np.array([0.0, 0.25])            # 0.5 m from the teapot
-SPOUT_YAW_OFFSET = 2.381                    # rad; set to YOUR calibrated value
-                                          # and keep demo_pour_tea.py in sync
-DROP_HEIGHT = 0.06
-SETTLE_STEPS = 20
+# The scene now lives in scenes/pour_tea.json (manip_sim.scene). These
+# module constants are kept as a compatibility shim for older scripts that
+# import them; new code takes --scene and reads the Scene object.
+from manip_sim.scene import (DEFAULT_SCENE, load_scene,  # noqa: E402
+                             make_env as _make_env, yaw_quat_wxyz)  # noqa: F401  (re-export)
 
-OBJECTS = {
-    "teapot": "assets/objects/teapot/teapot.xml",
-    "mug": "assets/objects/mug/mug.xml",
-}
-
-
-def yaw_quat_wxyz(yaw: float) -> np.ndarray:
-    return np.array([np.cos(yaw / 2), 0.0, 0.0, np.sin(yaw / 2)])
-
-
-class PourTeaSceneLive(TableTop):
-    """TableTop with deterministic object placement (viewer flavor)."""
-
-    def __init__(self, robots, fixed_poses, **kwargs):
-        self.fixed_poses = fixed_poses  # name -> (pos[3], quat_wxyz[4])
-        super().__init__(robots=robots, **kwargs)
-
-    def _reset_internal(self):
-        super()._reset_internal()
-        for name, (pos, quat) in self.fixed_poses.items():
-            if name in self.objects:
-                self.sim.data.set_joint_qpos(
-                    self.objects[name].joints[0], np.concatenate([pos, quat])
-                )
-        self.sim.forward()
-
-
-register_env(PourTeaSceneLive)
-
-
-def _try_make(robot, objs, fixed_poses, has_renderer, **make_kwargs):
-    try:
-        return suite.make(
-            "PourTeaSceneLive",
-            robots=robot,
-            object_xmls=objs,
-            fixed_poses=fixed_poses,
-            table_full_size=TABLE_SIZE,
-            table_offset=(0.0, 0.0, TABLE_TOP_Z),
-            has_renderer=has_renderer,
-            render_camera=None,
-            has_offscreen_renderer=False,
-            use_camera_obs=False,
-            control_freq=20,
-            ignore_done=True,
-            **make_kwargs,
-        )
-    except ValueError as e:
-        if objs and ("No such file" in str(e) or "Error opening file" in str(e)):
-            return None
-        raise
+SCENE = load_scene(DEFAULT_SCENE)
+TABLE_SIZE = SCENE.table_size
+TABLE_TOP_Z = SCENE.table_top_z
+TEAPOT_XY = SCENE.xy("teapot")
+MUG_XY = SCENE.xy("mug")
+DROP_HEIGHT = SCENE.drop_height
+SETTLE_STEPS = SCENE.settle_steps
+OBJECTS = SCENE.object_xmls
 
 
 def make_env(robot: str = "UR5e", has_renderer: bool = True,
-             settle: bool = True, **make_kwargs):
-    """Build the canonical pour-tea scene: meshes, fixed poses, calibrated
-    spout yaw, physics settle. THE single scene factory -- planners,
-    renderers, and demos all build here so scene setup cannot drift.
-    Returns (env, objs); objs maps loaded object names to xml paths."""
-    objs = {}
-    for name, path in OBJECTS.items():
-        if Path(path).exists():
-            objs[name] = path
-        else:
-            print(f"[pour_tea] skipping '{name}' (not converted yet: {path})")
-
-    bearing = MUG_XY - TEAPOT_XY
-    teapot_yaw = float(np.arctan2(bearing[1], bearing[0])) - SPOUT_YAW_OFFSET
-    z0 = TABLE_TOP_Z + DROP_HEIGHT
-    fixed_poses = {
-        "teapot": (np.array([*TEAPOT_XY, z0]), yaw_quat_wxyz(teapot_yaw)),
-        "mug": (np.array([*MUG_XY, z0]), yaw_quat_wxyz(0.0)),
-    }
-
-    env = _try_make(robot, objs, fixed_poses, has_renderer, **make_kwargs)
-    if env is None:                     # xmls present but mesh files absent
-        print("[pour_tea] mesh files missing -> building object-free scene")
-        objs = {}
-        env = _try_make(robot, {}, {}, has_renderer, **make_kwargs)
-    env.reset()
-    if settle:
-        for _ in range(SETTLE_STEPS):
-            env.step(np.zeros(env.action_dim))
-            if has_renderer:
-                env.render()
-    return env, objs
-
+             settle: bool = True, scene=SCENE, **make_kwargs):
+    """Compat wrapper: build `scene` (default scenes/pour_tea.json).
+    Returns (env, objs)."""
+    return _make_env(scene, robot=robot, has_renderer=has_renderer,
+                     settle=settle, **make_kwargs)
 
 
 def main() -> None:
@@ -144,15 +68,13 @@ def main() -> None:
     print(f"[view_pour_tea] running: {Path(__file__).resolve()}")
 
     env, objs = make_env(robot=args.robot, has_renderer=True)
-    bearing = MUG_XY - TEAPOT_XY
-    teapot_yaw = float(np.arctan2(bearing[1], bearing[0])) - SPOUT_YAW_OFFSET
+    teapot_yaw = SCENE.yaw("teapot")
 
     # factory already settled physics; report the realized yaw
     if "teapot" in objs:
         q = env.sim.data.body_xquat[env.obj_body_ids["teapot"]]
         measured = R.from_quat(q, scalar_first=True).as_euler("zyx")[0]
-        print(f"[view_pour_tea] offset {np.rad2deg(SPOUT_YAW_OFFSET):+.1f} deg -> "
-              f"commanded yaw {np.rad2deg(teapot_yaw):+.1f} deg, "
+        print(f"[view_pour_tea] commanded yaw {np.rad2deg(teapot_yaw):+.1f} deg, "
               f"measured settled yaw {np.rad2deg(measured):+.1f} deg")
 
     sep = np.linalg.norm(MUG_XY - TEAPOT_XY)

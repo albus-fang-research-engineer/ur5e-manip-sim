@@ -29,26 +29,13 @@ import argparse
 import os
 
 import numpy as np
-import robosuite as suite
 from scipy.spatial.transform import Rotation as R
 
 import manip_sim  # noqa: F401
 from manip_sim.frames import load_symbols
 from manip_sim.pour_stages import pour_pair, transport_pair
 from manip_sim.tsr import displacement_to_pose, pose_from_pos_quat_wxyz, sample_intersection
-
-# scene spec -- mirrors view_pour_tea.py
-TABLE_SIZE = (1.2, 1.2, 0.05)
-TABLE_TOP_Z = 0.8
-TEAPOT_XY = np.array([0.0, -0.25])
-MUG_XY = np.array([0.0, 0.25])
-DROP_HEIGHT = 0.06
-SETTLE_STEPS = 30
-
-OBJECTS = {
-    "teapot": "assets/objects/teapot",
-    "mug": "assets/objects/mug",
-}
+from manip_sim.scene import add_scene_arg, load_scene, make_env
 
 
 def pose_to_qpos(T: np.ndarray) -> np.ndarray:
@@ -66,49 +53,22 @@ def main() -> None:
     ap.add_argument("--tilt-deg", type=float, default=95.0)
     ap.add_argument("--sweep-steps", type=int, default=150)
     ap.add_argument("--seed", type=int, default=0)
+    add_scene_arg(ap)
     args = ap.parse_args()
+    scene = load_scene(args.scene)
 
     if not os.environ.get("DISPLAY"):
         raise SystemExit("[play_tsr_pour] $DISPLAY is empty -- see view_pour_tea.py header.")
 
     # ---- symbols (grounding layer) and composed task frames (DSL layer) ----
-    teapot_sym = load_symbols(OBJECTS["teapot"])
-    mug_sym = load_symbols(OBJECTS["mug"])
+    teapot_sym = load_symbols(scene.asset_dirs["teapot"])
+    mug_sym = load_symbols(scene.asset_dirs["mug"])
     spout_tip = teapot_sym.frame("spout_tip", "pour_axis")
     tilt_frame = teapot_sym.frame("spout_tip", "tilt_axis", secondary="pour_axis")
     opening = mug_sym.frame("opening_center", "up_axis")
 
-    # ---- scene: reuse the deterministic placement from view_pour_tea ------
-    bearing = MUG_XY - TEAPOT_XY
-    pour_dir = teapot_sym.axes["pour_axis"]
-    spout_yaw_body = float(np.arctan2(pour_dir[1], pour_dir[0]))
-    teapot_yaw = float(np.arctan2(bearing[1], bearing[0])) - spout_yaw_body
-    z0 = TABLE_TOP_Z + DROP_HEIGHT
-
-    from scripts.demos.demo_pour_tea import PourTeaSceneLive, yaw_quat_wxyz  # reuse env
-
-    fixed_poses = {
-        "teapot": (np.array([*TEAPOT_XY, z0]), yaw_quat_wxyz(teapot_yaw)),
-        "mug": (np.array([*MUG_XY, z0]), yaw_quat_wxyz(0.0)),
-    }
-    env = suite.make(
-        "PourTeaSceneLive",
-        robots=args.robot,
-        object_xmls={k: f"{v}/{k}.xml" for k, v in OBJECTS.items()},
-        fixed_poses=fixed_poses,
-        table_full_size=TABLE_SIZE,
-        table_offset=(0.0, 0.0, TABLE_TOP_Z),
-        has_renderer=True,
-        render_camera=None,
-        has_offscreen_renderer=False,
-        use_camera_obs=False,
-        control_freq=20,
-        ignore_done=True,
-    )
-    env.reset()
-    for _ in range(SETTLE_STEPS):
-        env.step(np.zeros(env.action_dim))
-        env.render()
+    # ---- scene: manifest placement via the single factory -----------------
+    env, _ = make_env(scene, robot=args.robot, has_renderer=True)
 
     # ---- read settled world poses (ground truth: the sim-study pose source)
     from manip_sim.state import PoseReader

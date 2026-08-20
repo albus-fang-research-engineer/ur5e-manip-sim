@@ -76,11 +76,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 from manip_sim.proposal import load_obj, propose
 from manip_sim.selection import load_pool, menu_from_pool, vlm_subset
+from manip_sim.scene import add_scene_arg, load_scene
 
-OBJECTS = {
-    "teapot": Path("assets/objects/teapot"),
-    "mug": Path("assets/objects/mug"),
-}
 OUT_DIR = Path("outputs/candidates")
 
 VIEW_PX = 640                # per-view render size (square)
@@ -383,8 +380,8 @@ def run_vlm(name: str, obj_dir: Path, parts: list[str]) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--object", choices=sorted(OBJECTS),
-                    help="restrict to one object (default: both)")
+    ap.add_argument("--object", default=None,
+                    help="restrict to one scene object (default: all)")
     ap.add_argument("--vlm", action="store_true",
                     help="touchpoint-#2 variant: individual full-res "
                          "views of the filtered menu subset, from the "
@@ -392,10 +389,14 @@ def main() -> None:
     ap.add_argument("--parts", nargs="*", default=[],
                     help="(--vlm only) stage part names biasing the "
                          "subset, e.g. --parts handle spout")
+    add_scene_arg(ap)
     args = ap.parse_args()
     if args.parts and not args.vlm:
         raise SystemExit("--parts only applies to --vlm")
-    for name, obj_dir in OBJECTS.items():
+    scene = load_scene(args.scene)
+    if args.object and args.object not in scene.objects:
+        raise SystemExit(f"--object must be one of {sorted(scene.objects)}")
+    for name, obj_dir in scene.asset_dirs.items():
         if args.object and name != args.object:
             continue
         if args.vlm:

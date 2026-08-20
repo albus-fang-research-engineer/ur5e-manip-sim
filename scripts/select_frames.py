@@ -54,11 +54,8 @@ from manip_sim.frames import load_symbols
 from manip_sim.selection import (load_pool, menu_from_pool,
                                  resolve_selection, vlm_subset)
 from manip_sim.vlm import Client, StageSpec, Vocabulary
+from manip_sim.scene import add_scene_arg, load_scene
 
-OBJECTS = {
-    "teapot": Path("assets/objects/teapot"),
-    "mug": Path("assets/objects/mug"),
-}
 VLM_DIR = Path("outputs/candidates/vlm")
 OUT = Path("outputs/selections/pour_tea.json")
 
@@ -88,7 +85,7 @@ ROLES: dict[str, tuple[str, StageSpec]] = {
 }
 
 
-def role_inputs(obj: str) -> tuple[Vocabulary, list[Path]]:
+def role_inputs(obj: str, asset_dirs: dict[str, Path]) -> tuple[Vocabulary, list[Path]]:
     """Vocabulary (menu rebuilt from pool + the object's parts filter)
     and the eight view paths, cross-checked against the manifest written
     by render_candidates.py --vlm."""
@@ -106,13 +103,12 @@ def role_inputs(obj: str) -> tuple[Vocabulary, list[Path]]:
             f"[select-frames] {mpath} was rendered with parts filter "
             f"{manifest.get('parts_filter')} but this task needs "
             f"{list(parts)} — re-render with matching --parts")
-    menu = menu_from_pool(vlm_subset(load_pool(OBJECTS[obj]), list(parts)))
+    menu = menu_from_pool(vlm_subset(load_pool(asset_dirs[obj]), list(parts)))
     if {str(i): t for i, t in menu.items()} != manifest["menu"]:
         raise SystemExit(
             f"[select-frames] menu rebuilt from candidates.json differs "
             f"from {mpath} — stale render; re-run --vlm")
-    vocab = Vocabulary.from_asset_dirs(
-        {n: d for n, d in OBJECTS.items()}, menu=menu)
+    vocab = Vocabulary.from_asset_dirs(asset_dirs, menu=menu)
     paths = [Path(v["path"]) for _, v in sorted(manifest["views"].items())]
     return vocab, paths
 
@@ -120,14 +116,16 @@ def role_inputs(obj: str) -> tuple[Vocabulary, list[Path]]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(OUT), metavar="JSON")
+    add_scene_arg(ap)
     args = ap.parse_args()
+    asset_dirs = load_scene(args.scene).asset_dirs
 
-    pools = {n: load_pool(d) for n, d in OBJECTS.items()}
-    syms = {n: load_symbols(d) for n, d in OBJECTS.items()}
+    pools = {n: load_pool(d) for n, d in asset_dirs.items()}
+    syms = {n: load_symbols(d) for n, d in asset_dirs.items()}
     client = Client()
 
     selections: dict[str, dict] = {}
-    inputs = {obj: role_inputs(obj) for obj in
+    inputs = {obj: role_inputs(obj, asset_dirs) for obj in
               {o for o, _ in ROLES.values()}}
     for role, (obj, stage) in ROLES.items():
         vocab, views = inputs[obj]

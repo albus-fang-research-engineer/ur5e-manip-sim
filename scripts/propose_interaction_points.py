@@ -44,11 +44,7 @@ from pathlib import Path
 import numpy as np
 
 from manip_sim.proposal import load_obj, pool_to_json, propose
-
-OBJECTS = {
-    "teapot": Path("assets/objects/teapot"),
-    "mug": Path("assets/objects/mug"),
-}
+from manip_sim.scene import add_scene_arg, load_scene
 
 
 def _fmt(v) -> str:
@@ -97,13 +93,17 @@ def run(name: str, obj_dir: Path, write: bool) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--object", choices=sorted(OBJECTS),
-                    help="restrict to one object (default: both)")
+    ap.add_argument("--object", default=None,
+                    help="restrict to one scene object (default: all)")
     ap.add_argument("--write", action="store_true",
                     help="save assets/objects/<name>/candidates.json")
+    add_scene_arg(ap)
     args = ap.parse_args()
+    scene = load_scene(args.scene)
+    if args.object and args.object not in scene.objects:
+        raise SystemExit(f"--object must be one of {sorted(scene.objects)}")
 
-    for name, obj_dir in OBJECTS.items():
+    for name, obj_dir in scene.asset_dirs.items():
         if args.object and name != args.object:
             continue
         run(name, obj_dir, args.write)

@@ -44,11 +44,7 @@ from manip_sim.frames import load_symbols
 from manip_sim.proposal import load_obj
 from manip_sim.selection import (extremal_band, load_pool, load_selections,
                                  refine_body_basis, resolve_selection)
-
-OBJECTS = {
-    "teapot": Path("assets/objects/teapot"),
-    "mug": Path("assets/objects/mug"),
-}
+from manip_sim.scene import add_scene_arg, load_scene
 
 
 def _unit(v):
@@ -103,7 +99,9 @@ def main() -> None:
     ap.add_argument("--tilt-deg", type=float, default=25.0)
     ap.add_argument("--front-tilt-deg", type=float, default=20.0)
     ap.add_argument("--render", default=None, metavar="PNG")
+    add_scene_arg(ap)
     args = ap.parse_args()
+    scene = load_scene(args.scene)
 
     sels = load_selections(args.selections)
     by_obj: dict[str, dict] = {}
@@ -112,7 +110,7 @@ def main() -> None:
 
     panels = []
     for name, roles in sorted(by_obj.items()):
-        obj_dir = OBJECTS[name]
+        obj_dir = scene.asset_dirs[name]
         V, _ = load_obj(obj_dir / "meshes" / f"{name}_visual.obj")
         spec = json.loads((obj_dir / "frames.json").read_text())
         sym = load_symbols(obj_dir)
