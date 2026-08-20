@@ -153,10 +153,15 @@ def object_parts(plan: StagePlan, pools: dict[str, dict[int, dict]]
 
 def _tag_covered(tag: str, parts: tuple[str, ...], pool: dict[int, dict]
                  ) -> bool:
-    """Some attributed part grounds to a candidate carrying `tag`."""
+    """Some attributed part grounds to a candidate carrying `tag`. A tag
+    may list alternatives ("rim|opening"): under runtime grounding the
+    pool's part labels are whatever call #1 named the part, so the
+    contract names the acceptable spellings instead of one band name."""
+    alts = [t.strip().lower() for t in tag.split("|")]
     tagged = [c for c in pool.values()
-              if str(c.get("part") or "").lower() == tag
-              or str(c.get("symbol") or "").lower() == tag]
+              if str(c.get("part") or "").lower() in alts
+              or str(c.get("symbol") or "").lower() in alts
+              or any(str(c.get("part") or "").lower().startswith(a) for a in alts)]
     return any(_part_match(p, c) for p in parts for c in tagged)
 
 
@@ -419,7 +424,7 @@ def main() -> None:
                          "mode with the scene image; absent -> text-only arm")
     add_scene_arg(ap)
     args = ap.parse_args()
-    scene = load_scene(args.scene)
+    scene = load_scene(args.scene, getattr(args, "grounding", None))
     spec = load_task_spec(args.task_spec)
     if args.task == TASK:
         args.task = scene.task

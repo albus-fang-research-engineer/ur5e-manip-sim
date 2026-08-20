@@ -92,7 +92,7 @@ def main() -> None:
     ap.add_argument("--source", default="sam",
                     help="provider tag recorded with --from-masks")
     args = ap.parse_args()
-    scene = load_scene(args.scene)
+    scene = load_scene(args.scene, getattr(args, "grounding", None))
     out = Path(args.out or f"outputs/marks/{scene.name}")
 
     if args.from_masks:

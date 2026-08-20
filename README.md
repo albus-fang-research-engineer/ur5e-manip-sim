@@ -7,6 +7,23 @@ To see candidate points of specified objects:
 MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa \
 python scripts/render_candidates.py --object mug 
 ```
+
+# One-shot pipeline: scene picture + language query -> plan -> video
+
+```
+export ANTHROPIC_API_KEY=...
+MUJOCO_GL=osmesa PYTHONPATH=. python scripts/run_pipeline.py --task "pour tea"
+```
+Steps (each its own script; `--from STEP` resumes, `--until STEP` stops):
+pool, mark, plan (VLM #1), ground (part names -> runtime frames.json,
+`outputs/grounding/<scene>`), render, select (VLM #2), preview, emit (VLM #3,
+compile-gated), path, video, exec. Arms: `--text-only`, `--no-ground`
+(authored sidecars), `--no-emit` (pour_stages hand compilers),
+`--ground-provider masks --masks-root DIR` (SAM part masks instead of the
+oracle bands). Each run writes `outputs/runs/<stamp>/run.json` with the
+commands issued and artifact paths. Any downstream script accepts
+`--grounding outputs/grounding/<scene>` to read the runtime symbol tables.
+
 # Perception wing: FoundationPose + PointSO + ROS2 bridge
 
 Three new services following the existing `grasp` sidecar pattern. Everything

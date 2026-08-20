@@ -101,7 +101,7 @@ def main() -> None:
     ap.add_argument("--render", default=None, metavar="PNG")
     add_scene_arg(ap)
     args = ap.parse_args()
-    scene = load_scene(args.scene)
+    scene = load_scene(args.scene, getattr(args, "grounding", None))
 
     sels = load_selections(args.selections)
     by_obj: dict[str, dict] = {}

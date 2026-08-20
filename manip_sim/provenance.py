@@ -65,7 +65,7 @@ def metrics_path(stem: str, arm: str) -> Path:
 
 
 # ------------------------------------------------------------- npz stamping
-def stamp(arm: str, selections=None) -> dict:
+def stamp(arm: str, selections=None, emissions=None) -> dict:
     """Provenance fields to splat into np.savez(**stamp(...)).
 
     Stored as 0-d unicode arrays, so np.load reads them back without
@@ -74,7 +74,8 @@ def stamp(arm: str, selections=None) -> dict:
     if arm not in ARMS:
         raise ValueError(f"unknown arm {arm!r} (expected one of {ARMS})")
     return {"arm": np.array(arm),
-            "selections": np.array(str(selections or ""))}
+            "selections": np.array(str(selections or "")),
+            "emissions": np.array(str(emissions or ""))}
 
 
 def _read_str(plan, key):
@@ -95,6 +96,12 @@ def read_arm(plan):
 def read_selections(plan):
     """Selections path stamped in a loaded npz ('' on the hand arm)."""
     return _read_str(plan, "selections")
+
+
+def read_emissions(plan):
+    """Emissions path stamped in a loaded npz ('' when stages 2-3 were
+    planned on pour_stages.*; None for a pre-provenance plan)."""
+    return _read_str(plan, "emissions")
 
 
 # ------------------------------------------------------------ CLI resolution

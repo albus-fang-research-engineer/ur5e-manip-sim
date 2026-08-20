@@ -66,9 +66,8 @@ from manip_sim.execution import (
     tracking_controller_config,
 )
 from manip_sim.frames import load_symbols
-from manip_sim.pour_stages import pour_pair, transport_pair
 from manip_sim.provenance import (add_arm_flag, announce, metrics_path,
-                                  read_selections, resolve_arm,
+                                  read_emissions, read_selections, resolve_arm,
                                   resolve_plan_path, video_path)
 from manip_sim.replan import (ReplanError, TaskFrames, replan_from_stage,
                               slip_exceeds)
@@ -194,7 +193,7 @@ def main() -> None:
                          "old hardcoded 30 left the funnel with ~2 goals)")
     add_scene_arg(ap)
     args = ap.parse_args()
-    scene = load_scene(args.scene)
+    scene = load_scene(args.scene, getattr(args, "grounding", None))
 
     import os, time as _time
     plan_file = resolve_plan_path(args.plan, args.arm)
@@ -272,6 +271,25 @@ def main() -> None:
                                       secondary="pour_axis")
         opening = mug_sym.frame("opening_center", "up_axis")
 
+    # stage-pair source follows the plan's stamp: an emitted plan is
+    # executed (and re-anchored) under compile_stage, a hand plan under
+    # pour_stages.* — one TaskFrames switch, same as the planner's
+    em_path = read_emissions(plan) or None
+    ems = None
+    if em_path:
+        from manip_sim.vlm import load_emissions
+        ems = load_emissions(em_path)
+        print(f"[execute] stage 2-3 constraints <- {em_path}")
+    metrics["emissions"] = em_path or ""
+    frames = TaskFrames(spout_tip=spout_tip, tilt_frame=tilt_frame,
+                        opening=opening, rim_margin=rim_radius * 0.5,
+                        emissions=ems,
+                        symbols={"teapot": teapot_sym, "mug": mug_sym})
+    # the standoff band the offline goals were sampled from (hand arm;
+    # the emitted arm's band is the schema's)
+    transport_kw = {} if ems else {"height": (0.04, 0.10),
+                                   "z_corridor": (-0.02, 0.45)}
+
     # overlay: a readout of the frames and TSRs in force this step. `live`
     # is mutated as the run advances so the video always shows the CURRENT
     # constraint, including a re-anchored pour pair.
@@ -342,14 +360,8 @@ def main() -> None:
 
     # execution-time constraint frames, built from MEASURED state
     if have_teapot:
-        tpair = transport_pair(
-            T0_mug_body=T0_mug_plan, mug_opening=opening, spout_tip=spout_tip,
-            teapot_body_pos_now=arm.body_pose("teapot")[:3, 3],
-            rim_margin=rim_radius * 0.5,
-            # match plan_pour_tea.py: the standoff band the goals were
-            # actually sampled from, not pour_stages' default
-            height=(0.04, 0.10),
-            z_corridor=(-0.02, 0.45))
+        tpair = frames.transport(arm.body_pose("teapot"), T0_mug_plan,
+                                 **transport_kw)
         live["tsrs"] = [(tpair.subgoal, "tsr_transport")]
 
     def staged_run(label, p, path_tsr):
@@ -398,17 +410,11 @@ def main() -> None:
             from_stage, env=env, q_now=arm.q(), T_ee_body=T_ee,
             T_teapot_now=arm.body_pose("teapot"),
             T0_mug=T0_mug_plan,
-            frames=TaskFrames(
-                spout_tip=spout_tip, tilt_frame=tilt_frame,
-                opening=opening,
-                rim_margin=mug_sym.quantities.get(
-                    "rim_radius", 0.04) * 0.5),
+            frames=frames,
             tilt_target=tilt_target,
             object_joint=env.objects["teapot"].joints[0],
             n_goal_samples=args.replan_goal_samples,
-            # the standoff band the offline goals came from
-            transport_kw={"height": (0.04, 0.10),
-                          "z_corridor": (-0.02, 0.45)})
+            transport_kw=transport_kw)
 
     p2_lift, p2_move = (p2[:n_lift], p2[n_lift:]) \
         if 0 < n_lift < len(p2) else (None, p2)
@@ -482,8 +488,7 @@ def main() -> None:
     if have_teapot and reflow is None and not args.no_reanchor \
             and slip.history:
         standing = slip.history[-1]
-        probe = pour_pair(arm.body_pose("teapot"), tilt_frame,
-                          tilt_target=tilt_target)
+        probe = frames.pour(arm.body_pose("teapot"), T0_mug_plan, tilt_target)
         grip_stale, tol_pos, tol_rot = slip_exceeds(standing, probe.subgoal)
         # WHERE to restart is decided by which constraint the slip broke,
         # not by the residual's size. The pour pair is rooted at the spout
@@ -562,8 +567,7 @@ def main() -> None:
     print("\n================= stage 3: pour ================")
     if have_teapot and ppair is None:
         # frozen at the MEASURED entry — where transport actually ended
-        ppair = pour_pair(arm.body_pose("teapot"), tilt_frame,
-                          tilt_target=tilt_target)
+        ppair = frames.pour(arm.body_pose("teapot"), T0_mug_plan, tilt_target)
     if have_teapot:
         live["tsrs"] = live["tsrs"] + [(ppair.subgoal, "tsr_pour")]
     last_track = "pour_track"

@@ -343,6 +343,34 @@ class StageEmission:
     verify: str            # free-text predicate for the render check
 
 
+def emission_from_json(d: dict) -> StageEmission:
+    """Inverse of dataclasses.asdict on a StageEmission (the emissions
+    artifact emit_constraints.py writes)."""
+    def spec(t):
+        return TSRSpec(rot=tuple(RotRow(**r) for r in t["rot"]),
+                       trans=tuple(TransTerm(**{**x, "flags": tuple(x.get("flags", ()))})
+                                   for x in t["trans"]))
+    return StageEmission(stage=int(d["stage"]), name=d["name"], active=d["active"],
+                         passive=d.get("passive"), w_origin=d["w_origin"],
+                         w_axis=d["w_axis"], path_tsr=spec(d["path_tsr"]),
+                         subgoal_tsr=spec(d["subgoal_tsr"]), verify=d.get("verify", ""))
+
+
+def load_emissions(path) -> dict[str, StageEmission]:
+    """Role-keyed emissions from an emit_constraints.py artifact. Refuses
+    artifacts whose compile gate failed — the planner must never receive
+    an emission the compiler already rejected."""
+    doc = json.loads(Path(path).read_text())
+    bad = [c["stage"] for c in doc.get("compiled", []) if not c["grounded"]]
+    if bad:
+        raise SystemExit(f"[vlm] {path}: compile gate failed for {bad}; "
+                         "refusing to plan on it")
+    roles = doc.get("roles")
+    if not roles:
+        raise SystemExit(f"[vlm] {path} has no role keys; re-run emit_constraints.py")
+    return {r: emission_from_json(e) for r, e in zip(roles, doc["emissions"])}
+
+
 @dataclass(frozen=True)
 class CriticEdit:
     """A one-token diff against a named authored slot. `target` is the

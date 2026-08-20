@@ -393,7 +393,7 @@ def main() -> None:
     args = ap.parse_args()
     if args.parts and not args.vlm:
         raise SystemExit("--parts only applies to --vlm")
-    scene = load_scene(args.scene)
+    scene = load_scene(args.scene, getattr(args, "grounding", None))
     if args.object and args.object not in scene.objects:
         raise SystemExit(f"--object must be one of {sorted(scene.objects)}")
     for name, obj_dir in scene.asset_dirs.items():

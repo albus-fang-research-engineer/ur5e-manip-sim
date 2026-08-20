@@ -55,7 +55,7 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     add_scene_arg(ap)
     args = ap.parse_args()
-    scene = load_scene(args.scene)
+    scene = load_scene(args.scene, getattr(args, "grounding", None))
 
     if not os.environ.get("DISPLAY"):
         raise SystemExit("[play_tsr_pour] $DISPLAY is empty -- see view_pour_tea.py header.")

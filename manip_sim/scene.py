@@ -65,11 +65,20 @@ class Scene:
     settle_steps: int
     objects: dict[str, SceneObject] = field(default_factory=dict)
     path: Path | None = None
+    grounding: Path | None = None      # runtime symbol tables (--grounding)
 
     # -- what the scripts consume --------------------------------------
     @property
     def asset_dirs(self) -> dict[str, Path]:
-        return {n: o.asset for n, o in self.objects.items()}
+        """Per-object artifact dirs (frames.json, candidates.json, mesh,
+        xml). With a grounding dir, objects grounded at runtime
+        (scripts/ground_parts.py --write) resolve there instead of the
+        authored asset; the spawn xml always stays the authored one."""
+        out = {}
+        for n, o in self.objects.items():
+            g = (self.grounding / n) if self.grounding else None
+            out[n] = g if g is not None and (g / "frames.json").exists() else o.asset
+        return out
 
     @property
     def object_xmls(self) -> dict[str, str]:
@@ -104,7 +113,8 @@ def yaw_quat_wxyz(yaw: float) -> np.ndarray:
     return np.array([np.cos(yaw / 2), 0.0, 0.0, np.sin(yaw / 2)])
 
 
-def load_scene(path: str | Path = DEFAULT_SCENE) -> Scene:
+def load_scene(path: str | Path = DEFAULT_SCENE,
+               grounding: str | Path | None = None) -> Scene:
     path = Path(path)
     doc = json.loads(path.read_text())
     objects = {}
@@ -118,7 +128,8 @@ def load_scene(path: str | Path = DEFAULT_SCENE) -> Scene:
                  table_size=tuple(t["size"]), table_top_z=float(t["top_z"]),
                  drop_height=float(doc.get("drop_height", 0.06)),
                  settle_steps=int(doc.get("settle_steps", 20)),
-                 objects=objects, path=path)
+                 objects=objects, path=path,
+                 grounding=Path(grounding) if grounding else None)
 
 
 # ---------------------------------------------------------------- argparse
@@ -126,6 +137,11 @@ def load_scene(path: str | Path = DEFAULT_SCENE) -> Scene:
 def add_scene_arg(ap) -> None:
     ap.add_argument("--scene", default=str(DEFAULT_SCENE), metavar="JSON",
                     help="scene manifest (objects, assets, placement)")
+    ap.add_argument("--grounding", default=None, metavar="DIR",
+                    help="runtime-grounded symbol tables (ground_parts.py "
+                         "--write); objects found there override the "
+                         "authored frames.json/candidates.json")
+
 
 
 # ----------------------------------------------------------------- env

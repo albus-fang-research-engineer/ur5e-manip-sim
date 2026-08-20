@@ -26,6 +26,7 @@ plan_transport.py).
 
     PYTHONPATH=. python scripts/plan_pour_tea.py
     PYTHONPATH=. python scripts/plan_pour_tea.py --tilt-deg 95 --seed 3
+    PYTHONPATH=. python scripts/plan_pour_tea.py --selections S.json --emissions E.json
 
 Render the saved plan:
 
@@ -52,7 +53,6 @@ from manip_sim.grasping import (
 from manip_sim.planning import (ArmKinematics, AttachedArmKinematics,
                                 AttachedObject, MinkIK, plan_constrained)
 from manip_sim.provenance import LABEL, arm_of_run, plan_path, stamp
-from manip_sim.pour_stages import pour_pair, transport_pair
 from manip_sim.tsr import pose_from_pos_quat_wxyz, sample_intersection
 
 # the four frame roles this task consumes from a --selections artifact
@@ -160,10 +160,16 @@ def main() -> None:
     ap.add_argument("--selections", default=None, metavar="JSON",
                     help="role-keyed touchpoint-#2 selections artifact; "
                          "absent -> hand-authored frames.json arm")
+    ap.add_argument("--emissions", default=None, metavar="JSON",
+                    help="emit_constraints.py artifact (compile gate passed): "
+                         "stages 2-3 TSR pairs come from compile_stage over "
+                         "the emitted schema instead of pour_stages.*; stage 1 "
+                         "stays on handle_grasp_tsr (gripper nominal is not "
+                         "in the emission vocabulary)")
     add_scene_arg(ap)
     args = ap.parse_args()
     rng = np.random.default_rng(args.seed)
-    scene = load_scene(args.scene)
+    scene = load_scene(args.scene, getattr(args, "grounding", None))
 
     # the arm is decided here, by whether --selections was passed, and is
     # stamped into the artifact so render/execute never have to guess
@@ -210,6 +216,27 @@ def main() -> None:
         tilt_frame = teapot_sym.frame("spout_tip", "tilt_axis",
                                       secondary="pour_axis")
         opening = mug_sym.frame("opening_center", "up_axis")
+
+    # ---- stage 2-3 constraint source: hand compilers or emitted schema ---
+    # TaskFrames is the one switch (shared with the executor's re-anchor
+    # path): emissions present -> compile_stage over the call-#3 schema;
+    # absent -> pour_stages.* hand compilers.
+    from manip_sim.pour_stages import TaskFrames
+    ems = None
+    if args.emissions:
+        from manip_sim.vlm import load_emissions
+        ems = load_emissions(args.emissions)
+        for r in ("transport_active", "pour"):
+            if r not in ems:
+                raise SystemExit(f"[pour_tea] emissions file lacks role {r!r}")
+        print(f"[pour_tea] stages 2-3 from emitted schema {args.emissions}")
+    frames = TaskFrames(spout_tip=spout_tip, tilt_frame=tilt_frame,
+                        opening=opening,
+                        rim_margin=mug_sym.quantities.get("rim_radius", 0.04) * 0.5,
+                        emissions=ems,
+                        symbols={"teapot": teapot_sym, "mug": mug_sym})
+    transport_kw = {} if ems else {"z_corridor": (-0.02, 0.45)}
+    tilt_target = np.deg2rad(args.tilt_deg)
 
     if objs:
         from manip_sim.state import PoseReader
@@ -282,11 +309,7 @@ def main() -> None:
 
     # lookahead feasibility probe: shared downstream samples, one score per
     # candidate. Inter-stage coupling lives HERE, not in the grasp TSR.
-    tpair_probe = transport_pair(
-        T0_mug_body=T0_mug, mug_opening=opening, spout_tip=spout_tip,
-        teapot_body_pos_now=T0_teapot[:3, 3],
-        rim_margin=mug_sym.quantities.get("rim_radius", 0.04) * 0.5,
-        z_corridor=(-0.02, 0.45))
+    tpair_probe = frames.transport(T0_teapot, T0_mug, **transport_kw)
     rep2p = sample_intersection(tpair_probe.subgoal, [tpair_probe.path],
                                 n=args.n_probe, rng=rng)
     # pour probes are built over SEVERAL candidate entries, not one: the
@@ -295,8 +318,7 @@ def main() -> None:
     # tilt), and a single lucky entry would zero every candidate's score
     pour_samples = []
     for entry_probe in rep2p.accepted[: max(1, args.n_probe // 2)]:
-        ppair_probe = pour_pair(entry_probe, tilt_frame,
-                                tilt_target=np.deg2rad(args.tilt_deg))
+        ppair_probe = frames.pour(entry_probe, T0_mug, tilt_target)
         rep3p = sample_intersection(ppair_probe.subgoal, [ppair_probe.path],
                                     n=2, rng=rng)
         pour_samples.extend(rep3p.accepted)
@@ -441,17 +463,13 @@ def main() -> None:
 
     # ==================================================== STAGE 2: TRANSPORT
     print("\n============== stage 2: transport ==============")
-    pair = transport_pair(
-        T0_mug_body=T0_mug, mug_opening=opening, spout_tip=spout_tip,
-        teapot_body_pos_now=T0_teapot[:3, 3],
-        rim_margin=mug_sym.quantities.get("rim_radius", 0.04) * 0.5,
-        # rim standoff raised vs the pour_stages default: with the tip
-        # 12 cm out the spout, low hovers put the pot's belly at mug-wall
-        # height — the attached-collision checker prunes those, so give
-        # the funnel a band with survivors
-        height=(0.04, 0.10),
-        # start sits at the frame origin: corridor must contain z = 0
-        z_corridor=(-0.02, 0.45))
+    # rim standoff raised vs the pour_stages default: with the tip 12 cm
+    # out the spout, low hovers put the pot's belly at mug-wall height —
+    # the attached-collision checker prunes those, so give the funnel a
+    # band with survivors (hand arm only; the emitted arm's band is the
+    # schema's clearance/slack enum)
+    pair = frames.transport(T0_teapot, T0_mug,
+                            **({} if ems else dict(transport_kw, height=(0.04, 0.10))))
     rep2 = sample_intersection(pair.subgoal, [pair.path],
                                n=args.n_goal_samples, rng=rng)
     print(f"[transport] intersection: {rep2.summary()}")
@@ -468,8 +486,7 @@ def main() -> None:
     ranked2 = []
     for q in goals2[: min(len(goals2), 10)]:
         T_ent = attached.body_pose(kin_att.fk(q))
-        pp = pour_pair(T_ent, tilt_frame,
-                       tilt_target=np.deg2rad(args.tilt_deg))
+        pp = frames.pour(T_ent, T0_mug, tilt_target)
         # nominal(), NOT zero(): the pour pair's Tw_e composes zero()
         # back to the entry pose itself (IK to where the arm already is
         # — a gate that always passes). The Bw midpoint is the actual
@@ -527,8 +544,7 @@ def main() -> None:
     # pair FROZEN AT ENTRY: w = tilt axis at the spout tip where transport
     # actually ended (not where it was nominally aimed)
     T_entry = attached.body_pose(kin_att.fk(q2_end))
-    ppair = pour_pair(T_entry, tilt_frame,
-                      tilt_target=np.deg2rad(args.tilt_deg))
+    ppair = frames.pour(T_entry, T0_mug, tilt_target)
     rep3 = sample_intersection(ppair.subgoal, [ppair.path],
                                n=args.n_goal_samples, rng=rng)
     print(f"[pour] intersection: {rep3.summary()}")
@@ -545,11 +561,17 @@ def main() -> None:
         raise SystemExit(f"[pour] planning failed: {res3.reason}")
     print(f"[pour] path: {res3.stats['n_waypoints']} waypoints in "
           f"{res3.solve_time:.2f}s; max path-TSR excess {res3.max_excess:.4f}")
-    tilt_achieved = ppair.subgoal.displacement(
-        attached.body_pose(kin_att.fk(res3.path[-1])))[3]
-    print(f"[pour] achieved tilt {np.rad2deg(tilt_achieved):.1f} deg "
-          f"(target {args.tilt_deg:.0f}); holding {args.dwell} dwell "
-          f"waypoints (pour termination is perceptual, not a pose event)")
+    d_end = ppair.subgoal.displacement(
+        attached.body_pose(kin_att.fk(res3.path[-1])))
+    tilt_achieved = d_end[3]
+    if args.emissions:
+        print(f"[pour] subgoal displacement at end (x y z r p y): "
+              f"{np.round(np.r_[d_end[:3], np.rad2deg(d_end[3:])], 3)}; "
+              f"holding {args.dwell} dwell waypoints")
+    else:
+        print(f"[pour] achieved tilt {np.rad2deg(tilt_achieved):.1f} deg "
+              f"(target {args.tilt_deg:.0f}); holding {args.dwell} dwell "
+              f"waypoints (pour termination is perceptual, not a pose event)")
     dwell = np.repeat(res3.path[-1][None, :], args.dwell, axis=0)
 
     # ---- combined artifact -------------------------------------------------
@@ -568,7 +590,7 @@ def main() -> None:
              q_grasp=q_grasp, T_ee_body=T_ee_body,
              T0_teapot_init=T0_teapot, T0_mug=T0_mug,
              tilt_target=np.deg2rad(args.tilt_deg),
-             **stamp(arm, args.selections))
+             **stamp(arm, args.selections, args.emissions))
     print(f"\n[pour_tea] {len(path)} waypoints "
           f"(grasp {len(path1)} | transport {len(lift)}+{len(res2.path)} | "
           f"pour {len(res3.path)}+{args.dwell} dwell) -> {out}")

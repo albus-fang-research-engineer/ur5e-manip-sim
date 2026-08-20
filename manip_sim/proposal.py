@@ -183,6 +183,19 @@ def _q(x: np.ndarray, quantile: float) -> np.ndarray:
     return x >= np.quantile(x, quantile)
 
 
+def _masks_from_points(P: np.ndarray,
+                       part_points: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    from scipy.spatial import cKDTree
+    masks = {}
+    for part, Q in part_points.items():
+        Q = np.asarray(Q, float)
+        if len(Q) == 0:
+            continue
+        d, _ = cKDTree(Q).query(P, distance_upper_bound=NMS_RADIUS_M)
+        masks[part] = np.isfinite(d)
+    return {k: m for k, m in masks.items() if m.sum() >= 3}
+
+
 def part_masks(name: str, P: np.ndarray, spec: dict) -> dict[str, np.ndarray]:
     """Boolean sample masks per named part region, derived from the SAME
     calibrated frames.json symbols the compiler consumes. Unknown objects
@@ -218,16 +231,32 @@ def part_masks(name: str, P: np.ndarray, spec: dict) -> dict[str, np.ndarray]:
 # are computed here, from the same band logic.
 # ---------------------------------------------------------------------------
 
-def constructed_candidates(name: str, V: np.ndarray,
-                           spec: dict) -> list[dict]:
+def _part_of_symbol(sym: str, parts) -> str | None:
+    """Grounded symbol names are <part>_<kind>; the authored sidecars use
+    task names, mapped explicitly."""
+    authored = {"spout_tip": "spout", "handle_center": "handle",
+                "opening_center": "rim"}
+    if sym in authored:
+        return authored[sym]
+    for kind in ("_center", "_tip"):
+        if sym.endswith(kind) and sym[: -len(kind)] in parts:
+            return sym[: -len(kind)]
+    return None
+
+
+def constructed_candidates(name: str, V: np.ndarray, spec: dict,
+                           parts=(), grounded: bool = False) -> list[dict]:
     out = []
-    part_of = {"spout_tip": "spout", "handle_center": "handle",
-               "opening_center": "rim"}
     for sym, entry in spec.get("points", {}).items():
         out.append({"xyz": np.asarray(entry["xyz"], dtype=float),
                     "source": "constructed", "symbol": sym,
-                    "part": part_of.get(sym),
+                    "part": _part_of_symbol(sym, parts),
                     "on_surface": False})
+    if grounded:
+        # a grounded frames.json carries its own constructed points
+        # (<part>_center / <part>_tip); the name-keyed extras below read
+        # authored symbols that do not exist there
+        return out
     z = V[:, 2]
     if name == "mug":
         oc = np.asarray(spec["points"]["opening_center"]["xyz"], dtype=float)
@@ -277,7 +306,12 @@ class Pool:
 
 
 def propose(name: str, V: np.ndarray, F: np.ndarray, spec: dict,
-            seed: int = SEED) -> Pool:
+            seed: int = SEED,
+            part_points: dict[str, np.ndarray] | None = None) -> Pool:
+    """`part_points` (runtime grounding: {part: (M,3) surface points}
+    from manip_sim.part_grounding) replaces the name-keyed geometric
+    bands: dense samples are labelled by nearest grounded part point
+    within NMS_RADIUS_M. Absent -> the sim-native band oracle."""
     rng = np.random.default_rng(seed)
     P, fi = surface_samples(V, F, DENSE_SAMPLES, rng)
     defect = vertex_defects(V, F)
@@ -285,11 +319,16 @@ def propose(name: str, V: np.ndarray, F: np.ndarray, spec: dict,
 
     raw: list[dict] = []
 
-    # constructed (priority 0)
-    raw += constructed_candidates(name, V, spec)
+    # part-aware (priority 1): FPS quota inside each part region
+    if part_points is None:
+        masks = part_masks(name, P, spec)
+    else:
+        masks = _masks_from_points(P, part_points)
 
-    # part-aware (priority 1): FPS quota inside each geometric part band
-    masks = part_masks(name, P, spec)
+    # constructed (priority 0)
+    raw += constructed_candidates(name, V, spec, parts=tuple(masks),
+                                  grounded=part_points is not None)
+
     for part, m in sorted(masks.items()):
         Pp = P[m]
         for i in fps(Pp, PART_QUOTA_EACH):

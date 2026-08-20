@@ -199,3 +199,44 @@ def test_cross_object_w_rejected():
     doc = dict(TRANSPORT)
     doc["w_axis"] = "teapot.up_axis"
     assert "cross-object" in _expect(doc).reason
+
+
+# ------------------------------------------ emissions artifact round trip
+
+def test_emission_json_round_trip_and_taskframes_switch(tmp_path):
+    from dataclasses import asdict
+
+    from manip_sim.pour_stages import TaskFrames
+    from manip_sim.vlm import emission_from_json, load_emissions
+
+    em_t, em_p = emission(TRANSPORT), emission(POUR)
+    assert emission_from_json(asdict(em_t)) == em_t
+    art = tmp_path / "em.json"
+    art.write_text(json.dumps({
+        "roles": ["transport_active", "pour"],
+        "emissions": [asdict(em_t), asdict(em_p)],
+        "compiled": [{"stage": "transport", "grounded": True},
+                     {"stage": "pour", "grounded": True}]}))
+    ems = load_emissions(art)
+    assert set(ems) == {"transport_active", "pour"}
+
+    tp, mg = SYMBOLS["teapot"], SYMBOLS["mug"]
+    common = dict(spout_tip=tp.frame("spout_tip", "pour_axis"),
+                  tilt_frame=tp.frame("spout_tip", "tilt_axis", secondary="pour_axis"),
+                  opening=mg.frame("opening_center", "up_axis"), symbols=SYMBOLS)
+    hand = TaskFrames(**common)
+    emitted = TaskFrames(**common, emissions=ems)
+    h2 = hand.transport(POSES["teapot"], POSES["mug"])
+    e2 = emitted.transport(POSES["teapot"], POSES["mug"])
+    # same w placement, both pairs expose .path/.subgoal TSRs
+    assert np.allclose(h2.subgoal.T0_w, e2.subgoal.T0_w)
+    assert np.allclose(h2.subgoal.Tw_e[:3, 3], e2.subgoal.Tw_e[:3, 3])
+    h3 = hand.pour(POSES["teapot"], POSES["mug"], np.deg2rad(95))
+    e3 = emitted.pour(POSES["teapot"], POSES["mug"], np.deg2rad(95))
+    assert np.allclose(h3.subgoal.T0_w[:3, 3], e3.subgoal.T0_w[:3, 3])
+
+    # gate: a failed compile is refused
+    art.write_text(json.dumps({"roles": ["pour"], "emissions": [asdict(em_p)],
+                               "compiled": [{"stage": "pour", "grounded": False}]}))
+    with pytest.raises(SystemExit, match="compile gate failed"):
+        load_emissions(art)

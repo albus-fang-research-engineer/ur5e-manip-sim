@@ -99,7 +99,7 @@ def main() -> None:
                     help="save assets/objects/<name>/candidates.json")
     add_scene_arg(ap)
     args = ap.parse_args()
-    scene = load_scene(args.scene)
+    scene = load_scene(args.scene, getattr(args, "grounding", None))
     if args.object and args.object not in scene.objects:
         raise SystemExit(f"--object must be one of {sorted(scene.objects)}")
 

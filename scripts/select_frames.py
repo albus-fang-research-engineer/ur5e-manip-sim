@@ -123,7 +123,7 @@ def main() -> None:
                          "object_parts replace ROLES / OBJECT_PARTS")
     add_scene_arg(ap)
     args = ap.parse_args()
-    asset_dirs = load_scene(args.scene).asset_dirs
+    asset_dirs = load_scene(args.scene, getattr(args, "grounding", None)).asset_dirs
     if args.stage_plan:
         from scripts.plan_stages import load_bindings
         b = load_bindings(args.stage_plan)

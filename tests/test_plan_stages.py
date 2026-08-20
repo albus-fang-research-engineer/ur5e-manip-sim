@@ -201,7 +201,7 @@ def test_client_to_artifact_roundtrip(vocab, pools, tmp_path):
 
 def test_task_spec_round_trips_the_hardcoded_contract():
     spec = ps.load_task_spec()
-    assert spec.required_tags == {"teapot": ("handle", "spout"), "mug": ("rim",)}
+    assert spec.required_tags == {"teapot": ("handle", "spout"), "mug": ("rim|opening|lip",)}
     assert set(spec.roles) == {"grasp", "transport_active", "pour",
                                "transport_passive"}
     assert spec.roles["grasp"] == ("teapot", None, {"teapot": ("handle",)})

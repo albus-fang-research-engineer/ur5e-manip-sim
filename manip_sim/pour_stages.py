@@ -233,3 +233,48 @@ def pour_pair(
                      "pour/subgoal(tilt_target)"),
         path=_tsr(tilt_range, "pour/path(tilt_corridor)"),
     )
+
+
+# ------------------------------------------------------------ arm switch
+
+@dataclass
+class TaskFrames:
+    """The passive/active task frames stages 2-3 consume — resolved once
+    (hand-authored or VLM arm, the re-plan is arm-agnostic) and reused
+    verbatim: slip does not change WHAT the constraints say.
+
+    `emissions` (role-keyed StageEmissions, the compile-gated call-#3
+    artifact) switches the stage-pair source from pour_stages.* to
+    compile_stage — the SAME switch plan_pour_tea.py --emissions makes,
+    so a re-anchored stage is re-planned under the constraints it was
+    planned under. `symbols` is required with emissions."""
+    spout_tip: Frame
+    tilt_frame: Frame
+    opening: Frame
+    rim_margin: float = 0.02
+    emissions: dict | None = None
+    symbols: dict | None = None
+
+    def transport(self, T_teapot_now: np.ndarray, T0_mug: np.ndarray,
+                  **kw):
+        """Stage-2 pair (.path/.subgoal) at the given body poses."""
+        if self.emissions is None:
+            return transport_pair(
+                T0_mug_body=T0_mug, mug_opening=self.opening,
+                spout_tip=self.spout_tip,
+                teapot_body_pos_now=T_teapot_now[:3, 3],
+                rim_margin=self.rim_margin, **kw)
+        from .compile_tsr import compile_stage
+        return compile_stage(self.emissions["transport_active"], self.symbols,
+                             {"teapot": T_teapot_now, "mug": T0_mug},
+                             e_feature=self.spout_tip)
+
+    def pour(self, T_entry: np.ndarray, T0_mug: np.ndarray,
+             tilt_target: float):
+        """Stage-3 pair frozen at the entry body pose."""
+        if self.emissions is None:
+            return pour_pair(T_entry, self.tilt_frame, tilt_target=tilt_target)
+        from .compile_tsr import compile_stage
+        return compile_stage(self.emissions["pour"], self.symbols,
+                             {"teapot": T_entry, "mug": T0_mug},
+                             e_feature=self.spout_tip)

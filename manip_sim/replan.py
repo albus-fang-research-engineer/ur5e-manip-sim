@@ -47,7 +47,7 @@ import numpy as np
 from .frames import Frame
 from .planning import (ArmKinematics, AttachedArmKinematics, AttachedObject,
                        MinkIK, plan_constrained, project_config)
-from .pour_stages import pour_pair, transport_pair
+from .pour_stages import TaskFrames  # noqa: F401  (re-export: executor imports it here)
 from .tsr import TSR, sample_intersection
 
 _FREE_ROT_WIDTH = 2.0 * np.pi - 1e-9
@@ -192,17 +192,6 @@ def goal_funnel(rep, ik, kin, attached, seeds, containment, label, q_ref,
 
 
 @dataclass
-class TaskFrames:
-    """The passive/active task frames stages 2-3 consume — resolved once
-    (hand-authored or VLM arm, the re-plan is arm-agnostic) and reused
-    verbatim: slip does not change WHAT the constraints say."""
-    spout_tip: Frame
-    tilt_frame: Frame
-    opening: Frame
-    rim_margin: float = 0.02
-
-
-@dataclass
 class ReplanResult:
     paths: list = field(default_factory=list)     # [(stage_id, np.ndarray)]
     pairs: dict = field(default_factory=dict)     # stage_id -> stage pair
@@ -245,11 +234,8 @@ def replan_from_stage(stage: int, *, env, q_now: np.ndarray,
 
     if stage == 2:
         def _leg(q_from, T_body_from):
-            tpair = transport_pair(
-                T0_mug_body=T0_mug, mug_opening=frames.opening,
-                spout_tip=frames.spout_tip,
-                teapot_body_pos_now=T_body_from[:3, 3],
-                rim_margin=frames.rim_margin, **(transport_kw or {}))
+            tpair = frames.transport(T_body_from, T0_mug,
+                                     **(transport_kw or {}))
             rep = sample_intersection(tpair.subgoal, [tpair.path],
                                       n=n_goal_samples, rng=rng)
             goals = goal_funnel(rep, ik, kin, attached, seeds,
@@ -288,7 +274,7 @@ def replan_from_stage(stage: int, *, env, q_now: np.ndarray,
         q_entry = res.path[-1]
         T_entry = attached.body_pose(kin.fk(q_entry))
 
-    ppair = pour_pair(T_entry, frames.tilt_frame, tilt_target=tilt_target)
+    ppair = frames.pour(T_entry, T0_mug, tilt_target)
     rep = sample_intersection(ppair.subgoal, [ppair.path],
                               n=n_goal_samples, rng=rng)
     goals = goal_funnel(rep, ik, kin, attached, [q_entry] + seeds,
