@@ -297,3 +297,37 @@ def test_menu_required_for_selection(vocab):
     with pytest.raises(ValueError):
         c.select_point_axis(STAGE, Vocabulary(objects=vocab.objects),
                             view_paths=[])
+
+def test_emission_prompt_single_object_stage_forbids_relation_rows(vocab):
+    """Grasp (no passive) constrains the gripper frame with Tw_e = I; the
+    compiler's nominal gate rejects relation rows there, so the prompt
+    must steer the model to free rows. Two-object stages get no such
+    instruction."""
+    from manip_sim.vlm import build_emission_prompt
+    grasp = StageSpec(index=0, name="grasp", active="teapot", passive=None,
+                      parts={"teapot": ("handle",)})
+    _, msgs = build_emission_prompt(grasp, vocab)
+    text = msgs[0]["content"][0]["text"]
+    assert "no passive object" in text and '"relation": "free"' in text
+    _, msgs = build_emission_prompt(STAGE, vocab)
+    assert "no passive object" not in msgs[0]["content"][0]["text"]
+
+
+def test_emission_retry_appends_rejections_as_user_turns(vocab):
+    """Compile-gate rejections ride into the next emission as follow-up
+    user turns (emit_constraints.py's stopgap for touchpoint #5)."""
+    seen = []
+    def transport(payload):
+        seen.append(payload)
+        return json.dumps({
+            "stage": 1, "name": "transport", "active": "teapot",
+            "passive": "mug", "w_origin": "mug.opening_center",
+            "w_axis": "mug.up_axis",
+            "path_tsr": {"rot": "free", "trans": "free"},
+            "subgoal_tsr": {"rot": "free", "trans": "free"},
+            "verify": "x"})
+    Client(transport=transport).emit_constraints(
+        STAGE, vocab, rejections=["s.rot[0]: bad"])
+    turns = seen[0]["messages"]
+    assert turns[-1]["role"] == "user"
+    assert "s.rot[0]: bad" in turns[-1]["content"][0]["text"]

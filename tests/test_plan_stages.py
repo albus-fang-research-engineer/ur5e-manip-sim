@@ -224,7 +224,7 @@ def test_bind_roles_matches_authored_table(vocab, pools):
     b = ps.bind_roles(plan(vocab, *NATURAL), pools)
     assert b == {"grasp": {"object": "teapot", "stage": 0},
                  "transport_active": {"object": "teapot", "stage": 1},
-                 "pour": {"object": "teapot", "stage": 1},
+                 "pour": {"object": "teapot", "stage": 2},
                  "transport_passive": {"object": "mug", "stage": 1}}
 
 
@@ -332,3 +332,21 @@ def test_dropped_required_part_still_fails_contract(vocab, pools, tmp_path):
     checks = ps.run_one(_body_interior_plan(vocab), pools, tmp_path / "a.json",
                         defer_grounding=True, dropped=dropped)
     assert {"coverage[teapot]", "role[grasp]"} <= set(ps.blocking(checks, True))
+
+
+def test_pour_binds_strictly_after_transport(vocab, pools):
+    """transport_active and pour share one predicate; `after` makes pour
+    bind the LATER matching stage instead of the same one."""
+    p = plan(vocab,
+             st("grasp", "teapot", None, ["handle"]),
+             st("move over", "teapot", "mug", ["spout", "rim"]),
+             st("tilt", "teapot", "mug", ["spout", "rim"]))
+    b = ps.bind_roles(p, pools)
+    assert b["transport_active"]["stage"] == 1 and b["pour"]["stage"] == 2
+
+
+def test_pour_unbound_when_no_later_stage(vocab, pools):
+    p = plan(vocab,
+             st("grasp", "teapot", None, ["handle"]),
+             st("move and pour", "teapot", "mug", ["spout", "rim"]))
+    assert ps.bind_roles(p, pools)["pour"]["stage"] is None

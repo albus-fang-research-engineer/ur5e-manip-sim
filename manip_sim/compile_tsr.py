@@ -401,7 +401,9 @@ def compile_stage(emission: StageEmission,
                     "relation row with Tw_e = I but w attitude differs "
                     "from the active body's beyond ALIGN_TOL — the "
                     "nominal displacement is not zero and the row would "
-                    "mis-center; supply e_feature or re-anchor w_axis"))
+                    "mis-center; supply e_feature, re-anchor w_axis, or "
+                    "(single-object stage, e = gripper) emit the row as "
+                    "{\"relation\": \"free\", \"row\": ...}"))
             a_own, _ = _split(r.axis, slot)
             if a_own != emission.active:
                 raise CompileError(slot, (

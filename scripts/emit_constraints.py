@@ -63,6 +63,9 @@ from manip_sim.frames import Symbols, load_symbols
 from manip_sim.vlm import Client, StageSpec, Vocabulary
 from manip_sim.scene import add_scene_arg, load_scene
 
+COMPILE_RETRIES = 2      # re-emissions per stage on a CompileError (stopgap
+                         # for touchpoint #5); attempts = 1 + retries
+
 OUT = Path("outputs/emissions/pour_tea.json")
 VLM_DIR = Path("outputs/candidates/vlm")
 
@@ -163,26 +166,35 @@ def main() -> None:
         sel = views = None
         if args.selections:
             sel, views = _two_pass_inputs(role, Path(args.selections))
-        em = client.emit_constraints(stage, vocab, selection=sel,
-                                     view_paths=views)
-        emissions.append(em)
-        print(f"[emit] stage {em.stage} ({em.name}): "
-              f"w = frame({em.w_origin}, {em.w_axis})")
-
         # feature binding for the gate: stages 2-3 pin the spout tip;
         # the grasp TSR constrains the gripper frame directly (Tw_e=I).
         # keyed by ROLE, not stage.name: call-#1 stage names are free text
         feat = feature if role in ("transport_active", "pour") else None
-        try:
-            cs = compile_stage(em, symbols, poses, e_feature=feat)
+        rejections: list[str] = []
+        err: dict | None = None
+        for attempt in range(1 + COMPILE_RETRIES):
+            em = client.emit_constraints(stage, vocab, selection=sel,
+                                         view_paths=views,
+                                         rejections=rejections)
+            print(f"[emit] stage {em.stage} ({em.name}) attempt {attempt}: "
+                  f"w = frame({em.w_origin}, {em.w_axis})")
+            try:
+                cs = compile_stage(em, symbols, poses, e_feature=feat)
+            except CompileError as e:
+                rejections.append(f"{e.slot}: {e.reason}")
+                print(f"         compile rejected: {e.slot}: {e.reason}")
+                err = {"slot": e.slot, "reason": e.reason}
+                continue
             for n in cs.notes:
                 print(f"         {n}")
             rows = {k: np.round(getattr(cs, k).Bw, 4).tolist()
                     for k in ("path", "subgoal")}
             gate.append((em.name, True, rows, None))
-        except CompileError as e:
+            break
+        else:
             gate.append((em.name, False, None,
-                         {"slot": e.slot, "reason": e.reason}))
+                         {**err, "rejections": rejections}))
+        emissions.append(em)
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

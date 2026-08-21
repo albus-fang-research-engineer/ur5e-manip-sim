@@ -92,7 +92,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from manip_sim.selection import _part_match, load_pool, vlm_subset
@@ -117,11 +117,17 @@ class TaskSpec:
       required_tags  object -> pool tags some attributed part must reach
       roles          role -> (active, passive, {object: tags}); "*" = any
       ordering       [{before: role, after: [role, ...]}] over role hits
+      role_after     role -> role it must bind STRICTLY LATER than. Needed
+                     when two roles share one predicate (transport_active
+                     and pour both = teapot->mug on spout): without it
+                     both bind the first matching stage and the later
+                     emitted stage is never used.
     """
     name: str
     required_tags: dict[str, tuple[str, ...]]
     roles: dict[str, tuple[str, str | None, dict[str, tuple[str, ...]]]]
     ordering: tuple[tuple[str, tuple[str, ...]], ...]
+    role_after: dict[str, str] = field(default_factory=dict)
 
 
 def load_task_spec(path: str | Path = DEFAULT_TASK_SPEC) -> TaskSpec:
@@ -133,7 +139,9 @@ def load_task_spec(path: str | Path = DEFAULT_TASK_SPEC) -> TaskSpec:
                    {o: tuple(t) for o, t in v["tags"].items()})
                for r, v in doc["roles"].items()},
         ordering=tuple((e["before"], tuple(e["after"]))
-                       for e in doc.get("ordering", [])))
+                       for e in doc.get("ordering", [])),
+        role_after={r: v["after"] for r, v in doc["roles"].items()
+                    if v.get("after")})
 
 
 TASK_SPEC = load_task_spec()
@@ -252,18 +260,31 @@ def bind_roles(plan: StagePlan, pools: dict[str, dict[int, dict]],
                spec: TaskSpec = TASK_SPEC) -> dict[str, dict]:
     """The planner handoff: role -> {"object", "stage"}. `object` is the
     object whose tags the role demands (the frame call #2 must place on
-    it); `stage` is the FIRST emitted stage matching the role (None
-    when unmatched — the role[] check already failed). Roles whose
+    it); `stage` is the FIRST emitted stage matching the role — or, for
+    a role with `after`, the first match strictly later than the stage
+    that role bound (None when unmatched / none later). Roles whose
     contract names more than one object are ambiguous as frame roles
     and rejected here rather than guessed."""
     idx = match_roles(plan, pools, spec)
-    out = {}
-    for role, (_act, _pas, need) in spec.roles.items():
+    out: dict[str, dict] = {}
+    pending = list(spec.roles.items())
+    while pending:                      # resolve `after` dependencies first
+        role, (_act, _pas, need) = pending.pop(0)
         if len(need) != 1:
             raise ValueError(f"role {role!r} names {len(need)} objects; a "
                              "frame role binds exactly one")
+        dep = spec.role_after.get(role)
+        if dep and dep not in out:
+            if dep not in spec.roles:
+                raise ValueError(f"role {role!r} is after unknown role {dep!r}")
+            pending.append((role, (_act, _pas, need)))
+            continue
+        hits = idx[role]
+        if dep is not None:
+            floor = out[dep]["stage"]
+            hits = [i for i in hits if floor is not None and i > floor]
         out[role] = {"object": next(iter(need)),
-                     "stage": idx[role][0] if idx[role] else None}
+                     "stage": hits[0] if hits else None}
     return out
 
 

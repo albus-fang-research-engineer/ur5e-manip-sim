@@ -926,11 +926,24 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
         "{\"term\": \"along\", \"axis\": \"obj.axis\", \"sign\": \"+\"|\"-\"} | "
         "{\"term\": \"inside\", \"anchor\": \"obj.point\", \"slack\": str} | "
         "{\"term\": \"expr\", \"row\": \"x\"|\"y\"|\"z\", \"lo\": str, "
-        "\"hi\": str}. Use exactly these key names. "
+        "\"hi\": str}. Use exactly these key names.\n"
+        "Compilability rule: a rot row is grounded only if its axis and "
+        "its reference are BOTH aligned with w_axis (parallel or "
+        "antiparallel to it) or BOTH perpendicular to w_axis; a mix is "
+        "rejected. Choose w_axis so every rot row you write satisfies "
+        "this — e.g. to keep an object upright anchor w_axis on its "
+        "up-axis and relate that axis to world.z. "
         + _JSON_ONLY)
     parts: list[dict] = [_text(
         f"Emit the TSR pair for stage {stage.index} ({stage.name}): "
         f"active={stage.active}, passive={stage.passive}."
+        + ("" if stage.passive else
+           " This stage has no passive object: the constrained frame is "
+           "the GRIPPER (the grasp defines the body-to-gripper transform), "
+           "so there is no static reference and relation rot rows cannot "
+           "be grounded. Write every rot row as {\"relation\": \"free\", "
+           "\"row\": ...} (unaddressed rows stay tight); use e.g. a free "
+           "yaw row for wrap about w_axis.")
         + (f" Selected interaction point candidate "
            f"{selection.candidate_id}, axis {selection.axis}, sign "
            f"{selection.sign}." if selection else ""))]
@@ -1088,10 +1101,19 @@ class Client:
 
     def emit_constraints(self, stage: StageSpec, vocab: Vocabulary,
                          selection: PointAxisSelection | None = None,
-                         view_paths: list[Path] | None = None
+                         view_paths: list[Path] | None = None,
+                         rejections: list[str] | None = None
                          ) -> StageEmission:
+        """`rejections`: slot-named CompileError texts from earlier
+        attempts at this stage, appended as follow-up user turns. The
+        minimal form of touchpoint #5 (repair) until it exists: the
+        compiler's typed failure is what the model sees, nothing else."""
         system, messages = build_emission_prompt(stage, vocab, selection,
                                                  view_paths)
+        for r in rejections or []:
+            messages = messages + [{"role": "user", "content": [_text(
+                f"Your previous emission for this stage was rejected by the "
+                f"compiler: {r}. Re-emit the corrected JSON object only.")]}]
         emission = self._ask("emit_constraints", system, messages,
                              lambda raw: parse_emission(raw, vocab))
         # surface literal flags into the call log
