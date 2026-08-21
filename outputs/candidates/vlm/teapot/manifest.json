@@ -1,101 +1,89 @@
 {
   "object": "teapot",
-  "source": "assets/objects/teapot/candidates.json",
+  "source": "outputs/grounding/pour_tea/teapot/candidates.json",
   "parts_filter": [
     "handle",
     "spout"
   ],
   "ids": [
+    0,
     1,
+    2,
     3,
-    12,
-    13,
-    14,
-    15,
-    27,
-    28
+    4,
+    5,
+    10,
+    11
   ],
   "menu": {
-    "1": "constructed handle_center (handle)",
-    "3": "constructed spout_tip (spout)",
-    "12": "part:handle",
-    "13": "part:handle",
-    "14": "part:handle",
-    "15": "part:handle",
-    "27": "part:spout",
-    "28": "part:spout"
+    "0": "constructed handle_center (handle)",
+    "1": "constructed spout_center (spout)",
+    "2": "part:handle",
+    "3": "part:handle",
+    "4": "part:handle",
+    "5": "part:handle",
+    "10": "part:spout",
+    "11": "part:spout"
   },
   "views": {
     "+x": {
       "path": "outputs/candidates/vlm/teapot/px.png",
       "visible_ids": [
-        1,
-        12,
-        13,
-        14,
-        15
+        0,
+        3,
+        4,
+        5
       ]
     },
     "-x": {
       "path": "outputs/candidates/vlm/teapot/nx.png",
       "visible_ids": [
-        3,
-        13,
-        28
+        11
       ]
     },
     "+y": {
       "path": "outputs/candidates/vlm/teapot/py.png",
       "visible_ids": [
-        3,
-        13,
-        27
+        5,
+        10
       ]
     },
     "-y": {
       "path": "outputs/candidates/vlm/teapot/ny.png",
       "visible_ids": [
-        1,
-        13,
-        14,
-        15,
-        28
+        0,
+        3
       ]
     },
     "top": {
       "path": "outputs/candidates/vlm/teapot/top.png",
       "visible_ids": [
         3,
-        13,
-        27,
-        28
+        10
       ]
     },
     "bottom": {
       "path": "outputs/candidates/vlm/teapot/bottom.png",
       "visible_ids": [
-        3,
-        12,
-        28
+        5,
+        11
       ]
     },
     "iso": {
       "path": "outputs/candidates/vlm/teapot/iso.png",
       "visible_ids": [
-        1,
+        0,
         3,
-        12,
-        13,
-        15,
-        27
+        4,
+        5,
+        10
       ]
     },
     "iso-opp": {
       "path": "outputs/candidates/vlm/teapot/isonopp.png",
       "visible_ids": [
-        1,
-        13,
-        28
+        0,
+        3
       ]
     }
   }

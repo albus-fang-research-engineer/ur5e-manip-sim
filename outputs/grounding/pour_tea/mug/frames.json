@@ -1,0 +1,81 @@
+{
+  "object": "mug",
+  "units": "meters",
+  "coordinates": "body frame of mjcf body 'object' (what PoseReader returns)",
+  "schema": "grounding symbol table: independent interaction POINTS and semantic AXES; frames are composed downstream as frame(origin=<point>, axis=<axis>). Axis -> frame +z.",
+  "provenance": {
+    "producer": "manip_sim.part_grounding",
+    "mask_provider": "oracle",
+    "parts": {
+      "rim": {
+        "primitive": "ungrounded",
+        "n_points": 0,
+        "rms_m": null,
+        "sigma_deg": null,
+        "note": "0 points < 30"
+      },
+      "opening": {
+        "primitive": "ring",
+        "n_points": 429,
+        "rms_m": 0.00122,
+        "sigma_deg": 0.02,
+        "note": "arc 100%"
+      },
+      "interior": {
+        "primitive": "ungrounded",
+        "n_points": 0,
+        "rms_m": null,
+        "sigma_deg": null,
+        "note": "0 points < 30"
+      }
+    },
+    "views": {
+      "+x": "outputs/grounding/pour_tea/mug/views/px.png",
+      "-x": "outputs/grounding/pour_tea/mug/views/nx.png",
+      "+y": "outputs/grounding/pour_tea/mug/views/py.png",
+      "-y": "outputs/grounding/pour_tea/mug/views/ny.png",
+      "top": "outputs/grounding/pour_tea/mug/views/top.png",
+      "bottom": "outputs/grounding/pour_tea/mug/views/bottom.png",
+      "iso": "outputs/grounding/pour_tea/mug/views/iso.png",
+      "iso-opp": "outputs/grounding/pour_tea/mug/views/isonopp.png"
+    }
+  },
+  "points": {
+    "opening_center": {
+      "xyz": [
+        -0.0118,
+        -0.0,
+        0.0402
+      ],
+      "status": "grounded",
+      "comment": "ring fit, rms 1.2 mm"
+    }
+  },
+  "axes": {
+    "up_axis": {
+      "xyz": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "status": "grounded",
+      "comment": "object rest up, supplied by the pose source"
+    },
+    "opening_axis": {
+      "xyz": [
+        0.001,
+        -0.0005,
+        1.0
+      ],
+      "status": "grounded",
+      "comment": "ring fit, rms 1.2 mm, sigma 0.0 deg"
+    }
+  },
+  "quantities": {
+    "opening_radius": {
+      "value": 0.0439,
+      "status": "grounded",
+      "comment": "ring fit, rms 1.2 mm"
+    }
+  }
+}

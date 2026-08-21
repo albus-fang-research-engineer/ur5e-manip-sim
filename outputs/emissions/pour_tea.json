@@ -1,0 +1,425 @@
+{
+  "task": "pour tea",
+  "stage_plan": "outputs/stage_plan/pour_tea.marks.json",
+  "selections": "outputs/selections/pour_tea.json",
+  "roles": [
+    "grasp",
+    "transport_active",
+    "pour"
+  ],
+  "arm": "two-pass",
+  "emissions": [
+    {
+      "stage": 0,
+      "name": "grasp_teapot",
+      "active": "teapot",
+      "passive": null,
+      "w_origin": "teapot.handle_center",
+      "w_axis": "teapot.handle_axis",
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.up_axis",
+            "relation": "parallel",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "roll"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "yaw"
+          }
+        ],
+        "trans": [
+          {
+            "term": "above",
+            "anchor": "teapot.handle_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "contact",
+            "slack": "moderate",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "along",
+            "anchor": null,
+            "axis": "teapot.handle_axis",
+            "sign": "-",
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "free",
+            "anchor": null,
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.up_axis",
+            "relation": "parallel",
+            "reference": "world.z",
+            "tol": "tight",
+            "row": null
+          },
+          {
+            "axis": "teapot.handle_axis",
+            "relation": "perpendicular",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "roll"
+          }
+        ],
+        "trans": [
+          {
+            "term": "centered",
+            "anchor": "teapot.handle_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": "snug",
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "along",
+            "anchor": null,
+            "axis": "teapot.handle_axis",
+            "sign": "-",
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "above",
+            "anchor": "teapot.handle_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "contact",
+            "slack": "snug",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "verify": "end-effector origin is centered on teapot.handle_center offset in the negative handle_axis direction, teapot.up_axis aligned with world.z within tight tolerance, confirming a stable handle grasp"
+    },
+    {
+      "stage": 1,
+      "name": "move_teapot_over_mug",
+      "active": "teapot",
+      "passive": "mug",
+      "w_origin": "teapot.spout_center",
+      "w_axis": "teapot.spout_axis",
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.up_axis",
+            "relation": "parallel",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          },
+          {
+            "axis": "teapot.spout_axis",
+            "relation": "perpendicular",
+            "reference": "world.z",
+            "tol": "loose",
+            "row": null
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "yaw"
+          }
+        ],
+        "trans": [
+          {
+            "term": "above",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "medium",
+            "slack": "loose",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "free",
+            "anchor": null,
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "free",
+            "anchor": null,
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.up_axis",
+            "relation": "parallel",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          },
+          {
+            "axis": "teapot.spout_axis",
+            "relation": "perpendicular",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "yaw"
+          }
+        ],
+        "trans": [
+          {
+            "term": "above",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "medium",
+            "slack": "snug",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "inside",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": "moderate",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "along",
+            "anchor": null,
+            "axis": "teapot.spout_axis",
+            "sign": "-",
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "verify": "teapot.spout_center is positioned above mug.opening_center with the spout_axis directed downward toward the mug opening, teapot.up_axis remains upright, and the spout tip clears the mug rim by a medium margin"
+    },
+    {
+      "stage": 1,
+      "name": "move_teapot_over_mug",
+      "active": "teapot",
+      "passive": "mug",
+      "w_origin": "teapot.spout_center",
+      "w_axis": "teapot.spout_axis",
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.up_axis",
+            "relation": "parallel",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          },
+          {
+            "axis": "teapot.spout_axis",
+            "relation": "perpendicular",
+            "reference": "world.z",
+            "tol": "loose",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "above",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "medium",
+            "slack": "loose",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.up_axis",
+            "relation": "parallel",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          },
+          {
+            "axis": "teapot.spout_axis",
+            "relation": "perpendicular",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "above",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "small",
+            "slack": "moderate",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "expr",
+            "anchor": null,
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": "x",
+            "expr_lo": "-mug.opening_radius",
+            "expr_hi": "mug.opening_radius",
+            "flags": []
+          },
+          {
+            "term": "expr",
+            "anchor": null,
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": "y",
+            "expr_lo": "-mug.opening_radius",
+            "expr_hi": "mug.opening_radius",
+            "flags": []
+          }
+        ]
+      },
+      "verify": "teapot.spout_center is positioned above mug.opening_center with teapot.spout_axis directed downward (sign -) toward the mug opening, teapot upright, spout tip within the mug opening radius in the horizontal plane"
+    }
+  ],
+  "compiled": [
+    {
+      "stage": "grasp_teapot",
+      "grounded": false,
+      "Bw": null,
+      "error": {
+        "slot": "grasp_teapot.path.rot[0]",
+        "reason": "relation row with Tw_e = I but w attitude differs from the active body's beyond ALIGN_TOL \u2014 the nominal displacement is not zero and the row would mis-center; supply e_feature or re-anchor w_axis"
+      }
+    },
+    {
+      "stage": "move_teapot_over_mug",
+      "grounded": false,
+      "Bw": null,
+      "error": {
+        "slot": "move_teapot_over_mug.path.rot[1]",
+        "reason": "mixed alignment (axis 'z', reference 'plane') is outside the v1 rule table"
+      }
+    },
+    {
+      "stage": "move_teapot_over_mug",
+      "grounded": false,
+      "Bw": null,
+      "error": {
+        "slot": "move_teapot_over_mug.path.rot[1]",
+        "reason": "mixed alignment (axis 'z', reference 'plane') is outside the v1 rule table"
+      }
+    }
+  ]
+}

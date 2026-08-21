@@ -1,26 +1,29 @@
-[
-  {
-    "touchpoint": "select_point_axis",
-    "attempts": 1,
-    "rejections": [],
-    "flags": []
-  },
-  {
-    "touchpoint": "select_point_axis",
-    "attempts": 1,
-    "rejections": [],
-    "flags": []
-  },
-  {
-    "touchpoint": "select_point_axis",
-    "attempts": 1,
-    "rejections": [],
-    "flags": []
-  },
-  {
-    "touchpoint": "select_point_axis",
-    "attempts": 1,
-    "rejections": [],
-    "flags": []
-  }
-]
+{
+  "stage_plan": "outputs/stage_plan/pour_tea.marks.json",
+  "client_logs": [
+    {
+      "touchpoint": "select_point_axis",
+      "attempts": 1,
+      "rejections": [],
+      "flags": []
+    },
+    {
+      "touchpoint": "select_point_axis",
+      "attempts": 1,
+      "rejections": [],
+      "flags": []
+    },
+    {
+      "touchpoint": "select_point_axis",
+      "attempts": 1,
+      "rejections": [],
+      "flags": []
+    },
+    {
+      "touchpoint": "select_point_axis",
+      "attempts": 1,
+      "rejections": [],
+      "flags": []
+    }
+  ]
+}

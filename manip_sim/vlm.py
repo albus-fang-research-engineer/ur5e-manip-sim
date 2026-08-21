@@ -931,19 +931,17 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
         "its reference are BOTH aligned with w_axis (parallel or "
         "antiparallel to it) or BOTH perpendicular to w_axis; a mix is "
         "rejected. Choose w_axis so every rot row you write satisfies "
-        "this — e.g. to keep an object upright anchor w_axis on its "
-        "up-axis and relate that axis to world.z. "
+        "this. "
         + _JSON_ONLY)
     parts: list[dict] = [_text(
         f"Emit the TSR pair for stage {stage.index} ({stage.name}): "
         f"active={stage.active}, passive={stage.passive}."
         + ("" if stage.passive else
            " This stage has no passive object: the constrained frame is "
-           "the GRIPPER (the grasp defines the body-to-gripper transform), "
-           "so there is no static reference and relation rot rows cannot "
-           "be grounded. Write every rot row as {\"relation\": \"free\", "
-           "\"row\": ...} (unaddressed rows stay tight); use e.g. a free "
-           "yaw row for wrap about w_axis.")
+           "the GRIPPER acting on the active object, so there is no "
+           "static reference and relation rot rows cannot be grounded. "
+           "Write every rot row as {\"relation\": \"free\", "
+           "\"row\": ...}; unaddressed rows stay tight.")
         + (f" Selected interaction point candidate "
            f"{selection.candidate_id}, axis {selection.axis}, sign "
            f"{selection.sign}." if selection else ""))]

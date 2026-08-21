@@ -4,7 +4,7 @@
   "roles": {
     "grasp":             {"active": "teapot", "passive": null,  "tags": {"teapot": ["handle"]}},
     "transport_active":  {"active": "teapot", "passive": "mug", "tags": {"teapot": ["spout"]}},
-    "pour":              {"active": "teapot", "passive": "mug", "tags": {"teapot": ["spout"]}},
+    "pour":              {"active": "teapot", "passive": "mug", "tags": {"teapot": ["spout"]}, "after": "transport_active"},
     "transport_passive": {"active": "*",      "passive": "*",   "tags": {"mug": ["rim|opening|lip"]}}
   },
   "ordering": [{"before": "grasp", "after": ["transport_active", "pour"]}]

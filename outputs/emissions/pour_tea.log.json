@@ -1,0 +1,22 @@
+[
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": []
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": []
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 2,
+    "rejections": [
+      "unknown quantity symbol 'opening_radius'; licensed quantities: ['mug.opening_radius']"
+    ],
+    "flags": []
+  }
+]

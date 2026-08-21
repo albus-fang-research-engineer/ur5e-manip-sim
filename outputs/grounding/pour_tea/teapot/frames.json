@@ -1,0 +1,93 @@
+{
+  "object": "teapot",
+  "units": "meters",
+  "coordinates": "body frame of mjcf body 'object' (what PoseReader returns)",
+  "schema": "grounding symbol table: independent interaction POINTS and semantic AXES; frames are composed downstream as frame(origin=<point>, axis=<axis>). Axis -> frame +z.",
+  "provenance": {
+    "producer": "manip_sim.part_grounding",
+    "mask_provider": "oracle",
+    "parts": {
+      "handle": {
+        "primitive": "blob",
+        "n_points": 531,
+        "rms_m": 0.03747,
+        "sigma_deg": null,
+        "note": "outward axis only"
+      },
+      "body": {
+        "primitive": "ungrounded",
+        "n_points": 0,
+        "rms_m": null,
+        "sigma_deg": null,
+        "note": "0 points < 30"
+      },
+      "spout": {
+        "primitive": "blob",
+        "n_points": 456,
+        "rms_m": 0.03602,
+        "sigma_deg": null,
+        "note": "outward axis only"
+      }
+    },
+    "views": {
+      "+x": "outputs/grounding/pour_tea/teapot/views/px.png",
+      "-x": "outputs/grounding/pour_tea/teapot/views/nx.png",
+      "+y": "outputs/grounding/pour_tea/teapot/views/py.png",
+      "-y": "outputs/grounding/pour_tea/teapot/views/ny.png",
+      "top": "outputs/grounding/pour_tea/teapot/views/top.png",
+      "bottom": "outputs/grounding/pour_tea/teapot/views/bottom.png",
+      "iso": "outputs/grounding/pour_tea/teapot/views/iso.png",
+      "iso-opp": "outputs/grounding/pour_tea/teapot/views/isonopp.png"
+    }
+  },
+  "points": {
+    "handle_center": {
+      "xyz": [
+        0.0633,
+        -0.0626,
+        -0.0078
+      ],
+      "status": "grounded",
+      "comment": "blob fit, rms 37.5 mm"
+    },
+    "spout_center": {
+      "xyz": [
+        -0.0624,
+        0.0629,
+        -0.006
+      ],
+      "status": "grounded",
+      "comment": "blob fit, rms 36.0 mm"
+    }
+  },
+  "axes": {
+    "up_axis": {
+      "xyz": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "status": "grounded",
+      "comment": "object rest up, supplied by the pose source"
+    },
+    "handle_axis": {
+      "xyz": [
+        0.6909,
+        -0.718,
+        -0.0845
+      ],
+      "status": "grounded",
+      "comment": "blob fit, rms 37.5 mm"
+    },
+    "spout_axis": {
+      "xyz": [
+        -0.7198,
+        0.6916,
+        -0.0605
+      ],
+      "status": "grounded",
+      "comment": "blob fit, rms 36.0 mm"
+    }
+  },
+  "quantities": {}
+}

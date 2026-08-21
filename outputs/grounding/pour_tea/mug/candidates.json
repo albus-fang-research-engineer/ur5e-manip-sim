@@ -1,0 +1,354 @@
+{
+  "object": "mug",
+  "units": "meters",
+  "coordinates": "body frame of mjcf body 'object' (same convention as frames.json / PoseReader)",
+  "schema": "interaction point candidate POOL for the 3D-propose / 2D-select grounding stage; union of fps + curvature + part + constructed classes, priority-NMS deduplicated. Marked-render generation and per-view legibility live downstream.",
+  "params": {
+    "dense_samples": 20000,
+    "fps_quota": 16,
+    "curvature_quota": 12,
+    "part_quota_each": 8,
+    "curvature_quantile": 0.9,
+    "pool_budget": 48,
+    "nms_radius_m": 0.01,
+    "seed": 0
+  },
+  "class_counts": {
+    "raw": {
+      "constructed": 1,
+      "part": 8,
+      "curvature": 12,
+      "fps": 16
+    },
+    "kept": {
+      "constructed": 1,
+      "part": 8,
+      "curvature": 11,
+      "fps": 10
+    }
+  },
+  "coverage_readmitted_parts": [],
+  "candidates": [
+    {
+      "xyz": [
+        -0.0118,
+        -0.0,
+        0.0402
+      ],
+      "source": "constructed",
+      "symbol": "opening_center",
+      "part": "rim",
+      "on_surface": false,
+      "id": 0
+    },
+    {
+      "xyz": [
+        -0.0386,
+        0.0315,
+        0.0352
+      ],
+      "source": "part",
+      "part": "opening",
+      "on_surface": true,
+      "id": 1
+    },
+    {
+      "xyz": [
+        0.0185,
+        -0.0351,
+        0.039
+      ],
+      "source": "part",
+      "part": "opening",
+      "on_surface": true,
+      "id": 2
+    },
+    {
+      "xyz": [
+        -0.0458,
+        -0.0317,
+        0.0387
+      ],
+      "source": "part",
+      "part": "opening",
+      "on_surface": true,
+      "id": 3
+    },
+    {
+      "xyz": [
+        0.0243,
+        0.0281,
+        0.0398
+      ],
+      "source": "part",
+      "part": "opening",
+      "on_surface": true,
+      "id": 4
+    },
+    {
+      "xyz": [
+        -0.058,
+        0.0016,
+        0.038
+      ],
+      "source": "part",
+      "part": "opening",
+      "on_surface": true,
+      "id": 5
+    },
+    {
+      "xyz": [
+        -0.0065,
+        0.0458,
+        0.0395
+      ],
+      "source": "part",
+      "part": "opening",
+      "on_surface": true,
+      "id": 6
+    },
+    {
+      "xyz": [
+        -0.0148,
+        -0.0461,
+        0.0396
+      ],
+      "source": "part",
+      "part": "opening",
+      "on_surface": true,
+      "id": 7
+    },
+    {
+      "xyz": [
+        0.0338,
+        -0.0046,
+        0.0398
+      ],
+      "source": "part",
+      "part": "opening",
+      "on_surface": true,
+      "id": 8
+    },
+    {
+      "xyz": [
+        -0.0383,
+        -0.0263,
+        -0.0374
+      ],
+      "source": "curvature",
+      "saliency": 2578590.3086,
+      "on_surface": true,
+      "id": 9
+    },
+    {
+      "xyz": [
+        0.0148,
+        0.0268,
+        -0.0373
+      ],
+      "source": "curvature",
+      "saliency": 2043358.4844,
+      "on_surface": true,
+      "id": 10
+    },
+    {
+      "xyz": [
+        0.0253,
+        -0.0149,
+        0.0286
+      ],
+      "source": "curvature",
+      "saliency": 1701737.2818,
+      "on_surface": true,
+      "id": 11
+    },
+    {
+      "xyz": [
+        -0.0206,
+        -0.0398,
+        0.0098
+      ],
+      "source": "curvature",
+      "saliency": 1557323.8421,
+      "on_surface": true,
+      "id": 12
+    },
+    {
+      "xyz": [
+        -0.0425,
+        0.0278,
+        0.0056
+      ],
+      "source": "curvature",
+      "saliency": 1265385.864,
+      "on_surface": true,
+      "id": 13
+    },
+    {
+      "xyz": [
+        0.0507,
+        -0.007,
+        -0.018
+      ],
+      "source": "curvature",
+      "saliency": 1204178.9822,
+      "on_surface": true,
+      "id": 14
+    },
+    {
+      "xyz": [
+        -0.0563,
+        -0.0125,
+        0.0386
+      ],
+      "source": "curvature",
+      "saliency": 1192112.8973,
+      "on_surface": true,
+      "id": 15
+    },
+    {
+      "xyz": [
+        0.0199,
+        0.0238,
+        0.0074
+      ],
+      "source": "curvature",
+      "saliency": 1087426.6957,
+      "on_surface": true,
+      "id": 16
+    },
+    {
+      "xyz": [
+        0.0081,
+        -0.0059,
+        -0.0146
+      ],
+      "source": "curvature",
+      "saliency": 1079911.0279,
+      "on_surface": true,
+      "id": 17
+    },
+    {
+      "xyz": [
+        -0.0471,
+        0.0156,
+        -0.0382
+      ],
+      "source": "curvature",
+      "saliency": 832607.1561,
+      "on_surface": true,
+      "id": 18
+    },
+    {
+      "xyz": [
+        0.0038,
+        -0.0359,
+        -0.038
+      ],
+      "source": "curvature",
+      "saliency": 765371.9276,
+      "on_surface": true,
+      "id": 19
+    },
+    {
+      "xyz": [
+        -0.0485,
+        -0.016,
+        0.0047
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 20
+    },
+    {
+      "xyz": [
+        0.0581,
+        0.0003,
+        -0.0008
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 21
+    },
+    {
+      "xyz": [
+        -0.0037,
+        0.0326,
+        -0.0404
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 22
+    },
+    {
+      "xyz": [
+        -0.0507,
+        0.0253,
+        0.0391
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 23
+    },
+    {
+      "xyz": [
+        0.0303,
+        0.0065,
+        0.0401
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 24
+    },
+    {
+      "xyz": [
+        -0.0309,
+        0.0363,
+        -0.0022
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 25
+    },
+    {
+      "xyz": [
+        0.0117,
+        0.0036,
+        -0.0073
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 26
+    },
+    {
+      "xyz": [
+        -0.0337,
+        -0.0403,
+        0.0399
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 27
+    },
+    {
+      "xyz": [
+        -0.0108,
+        -0.004,
+        -0.0387
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 28
+    },
+    {
+      "xyz": [
+        0.0258,
+        -0.006,
+        -0.0389
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 29
+    }
+  ]
+}

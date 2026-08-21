@@ -1,0 +1,16 @@
+{
+  "client_logs": [
+    {
+      "touchpoint": "plan_stages",
+      "attempts": 2,
+      "rejections": [
+        "stage[0].active must be a mark id (int)"
+      ],
+      "flags": []
+    }
+  ],
+  "raw_responses": [
+    "{\"objects\": {\"1\": \"teapot\", \"2\": \"cup\"}, \"stages\": [{\"name\": \"grasp teapot\", \"active\": \"1\", \"passive\": null, \"parts\": {\"1\": [\"handle\", \"body\"]}}, {\"name\": \"move teapot over cup\", \"active\": \"1\", \"passive\": \"2\", \"parts\": {\"1\": [\"spout\", \"body\"], \"2\": [\"rim\", \"opening\"]}}, {\"name\": \"tilt teapot to pour\", \"active\": \"1\", \"passive\": \"2\", \"parts\": {\"1\": [\"spout\", \"body\"], \"2\": [\"rim\", \"interior\"]}}]}",
+    "{\"objects\": {\"1\": \"teapot\", \"2\": \"cup\"}, \"stages\": [{\"name\": \"grasp teapot\", \"active\": 1, \"passive\": null, \"parts\": {\"1\": [\"handle\", \"body\"]}}, {\"name\": \"move teapot over cup\", \"active\": 1, \"passive\": 2, \"parts\": {\"1\": [\"spout\", \"body\"], \"2\": [\"rim\", \"opening\"]}}, {\"name\": \"tilt teapot to pour\", \"active\": 1, \"passive\": 2, \"parts\": {\"1\": [\"spout\", \"body\"], \"2\": [\"rim\", \"interior\"]}}]}"
+  ]
+}

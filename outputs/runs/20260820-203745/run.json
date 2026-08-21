@@ -1,0 +1,22 @@
+{
+  "dir": "outputs/runs/20260820-203745",
+  "scene": "scenes/pour_tea.json",
+  "task": "pour tea",
+  "mode": "marks",
+  "artifacts": {
+    "marks": "outputs/marks/pour_tea",
+    "stage_plan": "outputs/stage_plan/pour_tea.marks.json",
+    "grounding": "outputs/grounding/pour_tea",
+    "selections": "outputs/selections/pour_tea.json",
+    "emissions": "outputs/emissions/pour_tea.json",
+    "preview": "outputs/selections/pour_tea.preview.png",
+    "plan": "outputs/plans/vlm/pour_tea_full_vlm.npz",
+    "video_plan": "outputs/videos/vlm/pour_tea_full_vlm.mp4",
+    "video_exec": "outputs/videos/vlm/pour_tea_exec_vlm.mp4",
+    "metrics": "outputs/metrics/vlm/pour_tea_exec_vlm.json"
+  },
+  "status": "failed at scripts/emit_constraints.py (exit 1)",
+  "commands": [
+    "scripts/emit_constraints.py --scene scenes/pour_tea.json --grounding outputs/grounding/pour_tea --stage-plan outputs/stage_plan/pour_tea.marks.json --selections outputs/selections/pour_tea.json --out outputs/emissions/pour_tea.json"
+  ]
+}
