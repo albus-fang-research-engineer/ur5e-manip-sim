@@ -88,6 +88,11 @@ SIGNS = ("+", "-")
 ROT_ROWS = ("roll", "pitch", "yaw")
 TRANS_ROWS = ("x", "y", "z")
 WORLD_AXES = ("world.x", "world.y", "world.z")
+# The canonical object frame every object carries (frames.py): caller-
+# supplied up/front, lateral = up x front. The compiler roots each stage's
+# w on the passive object's; describe_symbols lists them apart from the
+# fitted part axes so the model can tell frame from fit.
+FRAME_AXES = ("up_axis", "front_axis", "lateral_axis")
 TRANS_TERMS = ("free", "above", "below", "centered", "along", "inside",
                "expr")
 
@@ -205,12 +210,15 @@ class Vocabulary:
     def describe_symbols(self) -> str:
         lines = []
         for o, t in sorted(self.objects.items()):
+            frame = [a for a in FRAME_AXES if a in t["axes"]]
+            parts = [a for a in t["axes"] if a not in FRAME_AXES]
             lines.append(f"object `{o}`:")
+            lines.append(f"  frame:      {', '.join(frame) or '(none)'}")
             lines.append(f"  points:     {', '.join(t['points']) or '(none)'}")
-            lines.append(f"  axes:       {', '.join(t['axes']) or '(none)'}")
+            lines.append(f"  axes:       {', '.join(parts) or '(none)'}")
             lines.append(
                 f"  quantities: {', '.join(t['quantities']) or '(none)'}")
-        lines.append(f"world axes: {', '.join(WORLD_AXES)}")
+        lines.append("world: world.z (up)")
         return "\n".join(lines)
 
     def describe_marks(self) -> str:
@@ -331,13 +339,13 @@ class TSRSpec:
 @dataclass(frozen=True)
 class StageEmission:
     """#3 output: the symbolic schema for one stage — compile_tsr's
-    input contract. `w_*` compose Symbols.frame(origin, axis)."""
+    input contract. The constraint frame w is not a slot: it is the
+    passive object's canonical frame (FRAME_AXES) at its selected
+    interaction point, fixed by the compiler's rule."""
     stage: int
     name: str
     active: str
     passive: str | None
-    w_origin: str          # qualified point on the PASSIVE object
-    w_axis: str            # qualified axis anchoring w's +z
     path_tsr: TSRSpec
     subgoal_tsr: TSRSpec
     verify: str            # free-text predicate for the render check
@@ -351,8 +359,7 @@ def emission_from_json(d: dict) -> StageEmission:
                        trans=tuple(TransTerm(**{**x, "flags": tuple(x.get("flags", ()))})
                                    for x in t["trans"]))
     return StageEmission(stage=int(d["stage"]), name=d["name"], active=d["active"],
-                         passive=d.get("passive"), w_origin=d["w_origin"],
-                         w_axis=d["w_axis"], path_tsr=spec(d["path_tsr"]),
+                         passive=d.get("passive"), path_tsr=spec(d["path_tsr"]),
                          subgoal_tsr=spec(d["subgoal_tsr"]), verify=d.get("verify", ""))
 
 
@@ -744,10 +751,6 @@ def parse_emission(raw: str, vocab: Vocabulary) -> StageEmission:
     passive = doc.get("passive")
     if passive is not None:
         passive = _enum(passive, objs, f"{ctx}.passive")
-    w_origin = _enum(_need(doc, "w_origin", str, ctx), vocab.point_names(),
-                     f"{ctx}.w_origin")
-    w_axis = _enum(_need(doc, "w_axis", str, ctx), vocab.axis_names(),
-                   f"{ctx}.w_axis")
     p = _need(doc, "path_tsr", dict, ctx)
     g = _need(doc, "subgoal_tsr", dict, ctx)
     path = TSRSpec(rot=_parse_rot_rows(p.get("rot", "free"), vocab, "path"),
@@ -761,8 +764,8 @@ def parse_emission(raw: str, vocab: Vocabulary) -> StageEmission:
     if not isinstance(verify, str):
         raise ParseRejection("emission.verify must be a string")
     return StageEmission(stage=stage, name=name, active=active,
-                         passive=passive, w_origin=w_origin, w_axis=w_axis,
-                         path_tsr=path, subgoal_tsr=goal, verify=verify)
+                         passive=passive, path_tsr=path, subgoal_tsr=goal,
+                         verify=verify)
 
 
 def parse_critic(raw: str, vocab: Vocabulary) -> CriticVerdict:
@@ -904,6 +907,19 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
         "numerics. You must NEVER write a numeric rotation. Translational "
         "'expr' bounds may use arithmetic over the grounded quantity "
         "symbols only.\n\n"
+        "The constraint frame w is fixed by rule, not emitted: z = the "
+        "passive object's up_axis, x = its front_axis, origin = the "
+        "interaction point selected on it; it is frozen at stage entry. "
+        "Rotation rows relate an axis of the MOVING (active) object to a "
+        "static reference — a passive-object axis or world.z. A row fixes "
+        "only what its pair determines: parallel/antiparallel pin the "
+        "axis direction and leave rotation about the reference free; "
+        "perpendicular pins one tilt. Degrees of freedom no row mentions "
+        "are FREE. The subgoal is centered on the attitude that satisfies "
+        "its rows, reached by the smallest rotation from the entry "
+        "attitude; a path row bounds the sweep from entry to that "
+        "attitude. Translation terms are relative to anchor points on the "
+        "passive object, in w with z up.\n\n"
         f"Grounded symbols:\n{vocab.describe_symbols()}\n\n"
         "Vocabulary: rot relations " + str(list(ROT_RELATIONS)) +
         " with tol in " + str(list(ROT_TOLS)) +
@@ -913,12 +929,11 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
         ") | along(axis, sign) | inside(anchor, slack) | expr(row in "
         + str(list(TRANS_ROWS)) + ", lo, hi as quantity arithmetic).\n\n"
         "Output schema: {\"stage\": int, \"name\": str, \"active\": obj, "
-        "\"passive\": obj|null, \"w_origin\": \"obj.point\", \"w_axis\": "
-        "\"obj.axis\", \"path_tsr\": {\"rot\": \"free\"|[rot row, ...], "
+        "\"passive\": obj|null, \"path_tsr\": {\"rot\": \"free\"|[rot row, ...], "
         "\"trans\": \"free\"|[trans term, ...]}, \"subgoal_tsr\": "
         "{...same...}, \"verify\": str}.\n"
-        "rot row: {\"axis\": \"obj.axis\", \"relation\": str, \"reference\": "
-        "\"obj.axis\"|\"world.z\", \"tol\": str} or {\"relation\": \"free\", "
+        "rot row: {\"axis\": \"active.axis\", \"relation\": str, \"reference\": "
+        "\"passive.axis\"|\"world.z\", \"tol\": str} or {\"relation\": \"free\", "
         "\"row\": \"roll\"|\"pitch\"|\"yaw\"}.\n"
         "trans term: {\"term\": \"free\"} | {\"term\": \"above\"|\"below\", "
         "\"anchor\": \"obj.point\", \"clearance\": str, \"slack\": str} | "
@@ -926,33 +941,26 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
         "{\"term\": \"along\", \"axis\": \"obj.axis\", \"sign\": \"+\"|\"-\"} | "
         "{\"term\": \"inside\", \"anchor\": \"obj.point\", \"slack\": str} | "
         "{\"term\": \"expr\", \"row\": \"x\"|\"y\"|\"z\", \"lo\": str, "
-        "\"hi\": str}. Use exactly these key names.\n"
-        "Compilability rule: a rot row is grounded only if its axis and "
-        "its reference are BOTH aligned with w_axis (parallel or "
-        "antiparallel to it) or BOTH perpendicular to w_axis; a mix is "
-        "rejected. Choose w_axis so every rot row you write satisfies "
-        "this. "
+        "\"hi\": str}. Use exactly these key names. "
         + _JSON_ONLY)
-    parts: list[dict] = [_text(
-        f"Emit the TSR pair for stage {stage.index} ({stage.name}): "
-        f"active={stage.active}, passive={stage.passive}."
-        + ((f" The constraint frame w is owned by the passive object: "
-            f"w_origin and w_axis must both be {stage.passive}.* symbols, "
-            f"every trans anchor must be a {stage.passive}.* point, and a "
-            f"rot row's axis must be a {stage.active}.* axis related to "
-            f"world.z or a {stage.passive}.* axis. A z/z row already "
-            "bounds roll and pitch and a plane/plane row already bounds "
-            "yaw; do not add a second row relating the active object to "
-            "the same reference.")
-           if stage.passive else
-           " This stage has no passive object: the constrained frame is "
-           "the GRIPPER acting on the active object, so there is no "
-           "static reference and relation rot rows cannot be grounded. "
-           "Write every rot row as {\"relation\": \"free\", "
-           "\"row\": ...}; unaddressed rows stay tight.")
-        + (f" Selected interaction point candidate "
-           f"{selection.candidate_id}, axis {selection.axis}, sign "
-           f"{selection.sign}." if selection else ""))]
+    text = (f"Emit the TSR pair for stage {stage.index} ({stage.name}): "
+            f"active={stage.active}, passive={stage.passive}.")
+    if stage.passive:
+        text += (f" Rot rows: the constrained axis must be a {stage.active}. "
+                 f"axis; the reference a {stage.passive}. axis or world.z. "
+                 f"Trans anchors must be {stage.passive}. points.")
+    else:
+        text += (" This stage has no passive object: the moving frame is the "
+                 f"GRIPPER holding {stage.active}, which owns w; the gripper "
+                 "has no grounded axes, so relation rot rows cannot be "
+                 "grounded. Write rot as \"free\" (or per row "
+                 "{\"relation\": \"free\", \"row\": ...}) and anchor trans "
+                 f"terms on {stage.active} points.")
+    if selection:
+        text += (f" Selected interaction point candidate "
+                 f"{selection.candidate_id}, axis {selection.axis}, sign "
+                 f"{selection.sign}.")
+    parts: list[dict] = [_text(text)]
     for p in (view_paths or []):     # two-pass ablation arm: selected-axis render
         parts.append(image_block(p))
     return system, [{"role": "user", "content": parts}]

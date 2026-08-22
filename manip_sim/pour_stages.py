@@ -247,7 +247,12 @@ class TaskFrames:
     artifact) switches the stage-pair source from pour_stages.* to
     compile_stage — the SAME switch plan_pour_tea.py --emissions makes,
     so a re-anchored stage is re-planned under the constraints it was
-    planned under. `symbols` is required with emissions."""
+    planned under. `symbols` is required with emissions. Under
+    compile_stage only the frames' POINTS are consumed: w is the mug's
+    canonical frame at `opening`'s point for both stages, and the
+    teapot feature Tw_e pins is `spout_tip`'s point (transport) /
+    `tilt_frame`'s point (pour) — the call-#2 selections for the
+    transport_active / pour roles."""
     spout_tip: Frame
     tilt_frame: Frame
     opening: Frame
@@ -267,14 +272,17 @@ class TaskFrames:
         from .compile_tsr import compile_stage
         return compile_stage(self.emissions["transport_active"], self.symbols,
                              {"teapot": T_teapot_now, "mug": T0_mug},
-                             e_feature=self.spout_tip)
+                             w_point=self.opening.point,
+                             e_point=self.spout_tip.point)
 
     def pour(self, T_entry: np.ndarray, T0_mug: np.ndarray,
              tilt_target: float):
-        """Stage-3 pair frozen at the entry body pose."""
+        """Stage-3 pair frozen at the entry body pose. `tilt_target` is
+        the hand arm's; the emitted arm's tilt is the relation token."""
         if self.emissions is None:
             return pour_pair(T_entry, self.tilt_frame, tilt_target=tilt_target)
         from .compile_tsr import compile_stage
         return compile_stage(self.emissions["pour"], self.symbols,
                              {"teapot": T_entry, "mug": T0_mug},
-                             e_feature=self.spout_tip)
+                             w_point=self.opening.point,
+                             e_point=self.tilt_frame.point)

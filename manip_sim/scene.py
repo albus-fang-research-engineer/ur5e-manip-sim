@@ -91,14 +91,25 @@ class Scene:
     def spawn_z(self) -> float:
         return self.table_top_z + self.drop_height
 
+    def front(self, name: str) -> np.ndarray | None:
+        """The object's declared FRONT (body coords): the authored axis a
+        `face` placement points at the other object — the sim stand-in
+        for Orient Anything's front, and the canonical front_axis
+        ground_parts.py writes. None when the placement declares no
+        facing (the object has no confident front)."""
+        y = self.objects[name].placement.yaw
+        if not isinstance(y, dict):
+            return None
+        spec = json.loads((self.objects[name].asset / "frames.json").read_text())
+        return np.asarray(spec["axes"][y["along"]]["xyz"], dtype=float)
+
     def yaw(self, name: str) -> float:
         """Resolved spawn yaw (rad). `face` yaws are resolved through
         frames.json so the manifest carries no hand-typed axis offsets."""
         y = self.objects[name].placement.yaw
         if not isinstance(y, dict):
             return float(y)
-        spec = json.loads((self.objects[name].asset / "frames.json").read_text())
-        axis = np.asarray(spec["axes"][y["along"]]["xyz"], dtype=float)
+        axis = self.front(name)
         body_yaw = float(np.arctan2(axis[1], axis[0]))
         bearing = self.xy(y["face"]) - self.xy(name)
         return float(np.arctan2(bearing[1], bearing[0])) - body_yaw

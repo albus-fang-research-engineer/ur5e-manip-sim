@@ -38,8 +38,8 @@ mask, the semantic front becomes the Orient Anything output):
   mug      semantic only — no metric front feature exists, and the
            honest outcome for a receiving vessel is a loose/FREE yaw.
 
-The coarse inputs are simulated as truth + tilt (same convention as
-diagnose_axis_fit): up from frames.json up_axis tilted by --tilt-deg,
+The coarse inputs are simulated as truth + tilt: up from frames.json
+up_axis tilted by --tilt-deg,
 front from pour_axis (teapot; ground truth for error reporting, NOT a
 route) or an arbitrary horizontal (mug, which has no front truth)
 tilted by --front-tilt-deg.

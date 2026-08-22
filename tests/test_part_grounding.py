@@ -68,14 +68,39 @@ def test_symbols_are_part_named_and_loadable(tmp_path):
     doc = pg.symbols_from_parts("pot", parts, UP, "test")
     assert set(doc["points"]) == {"rim_center", "handle_center", "handle_tip",
                                   "spout_center", "spout_tip"}
-    assert "spout_lateral_axis" in doc["axes"]          # horizontal spout
-    assert "handle_lateral_axis" not in doc["axes"]     # vertical bar: none
     assert "rim_radius" in doc["quantities"] and "spout_length" in doc["quantities"]
+    # canonical frame: up always; no front supplied -> no front/lateral
+    assert "up_axis" in doc["axes"]
+    assert "front_axis" not in doc["axes"] and "lateral_axis" not in doc["axes"]
+    assert not any(k.endswith("_lateral_axis") for k in doc["axes"])
+    # per-symbol sigma is structured: fit sigma for line parts
+    assert doc["axes"]["spout_axis"]["sigma_deg"] > 0
     (tmp_path / "frames.json").write_text(json.dumps(doc))
     sym = load_symbols(tmp_path)
-    f = sym.frame("spout_tip", "spout_lateral_axis", secondary="spout_axis")
-    assert abs(f.axis @ sym.axes["spout_axis"]) < 1e-3
-    assert abs(f.axis @ UP) < 1e-3
+    assert sym.sigmas["axes.spout_axis"] == doc["axes"]["spout_axis"]["sigma_deg"]
+    f = sym.frame("spout_tip", "spout_axis")
+    assert abs(f.axis @ sym.axes["spout_axis"]) > 0.999
+
+
+def test_canonical_front_is_caller_supplied_and_orthogonalized(tmp_path):
+    import json
+    from manip_sim.frames import load_symbols
+    parts = {"spout": pg.fit_part("spout", bar(np.array([0.05, 0, 0.02]),
+                                               np.array([0.14, 0, 0.04])), UP, np.zeros(3))}
+    # a front tipped 20 deg off horizontal is projected into the up-plane
+    doc = pg.symbols_from_parts("pot", parts, UP, "test",
+                                front=np.array([np.cos(0.35), 0.0, np.sin(0.35)]),
+                                up_sigma_deg=2.0, front_sigma_deg=3.0)
+    assert np.allclose(doc["axes"]["front_axis"]["xyz"], [1, 0, 0], atol=1e-3)
+    assert np.allclose(doc["axes"]["lateral_axis"]["xyz"], [0, 1, 0], atol=1e-3)
+    assert doc["axes"]["front_axis"]["sigma_deg"] == 3.0
+    assert doc["axes"]["lateral_axis"]["sigma_deg"] == pytest.approx(np.hypot(2, 3), abs=0.01)
+    (tmp_path / "frames.json").write_text(json.dumps(doc))
+    sym = load_symbols(tmp_path)
+    assert sym.sigmas["axes.up_axis"] == 2.0
+    # a front (anti)parallel to up is unusable: canonical frame is up only
+    doc = pg.symbols_from_parts("pot", parts, UP, "test", front=UP)
+    assert "front_axis" not in doc["axes"] and "lateral_axis" not in doc["axes"]
 
 
 # ------------------------------------------------------------------ lift

@@ -42,18 +42,21 @@ Fit. One primitive per part, chosen by geometry, never by name:
 Symbol names are `<part>_<kind>` (handle_center, handle_axis, rim_axis,
 spout_tip, ...), so they are whatever call #1 said the part was; the
 task-specific names the hand-authored sidecars use (pour_axis,
-opening_center) do not reappear. Two universal symbols are always
-emitted: `up_axis` (the object's rest up, supplied by the caller — body
-+z in sim, the measured pose's world-up on hardware) and, for every
-line part, `<part>_lateral_axis` = up x axis, the horizontal direction
-perpendicular to the part (the tilt axis of a spout, the swing axis of
-a handle), because the rotation a task applies about an elongated part
-is almost always about that line and it is not otherwise nameable.
+opening_center) do not reappear. Alongside the part fits every object
+carries its CANONICAL FRAME (vlm.FRAME_AXES), caller-supplied, never
+fitted: `up_axis` (rest up — body +z in sim, the measured pose's
+world-up on hardware), and when the caller has a confident front
+(scene facing in sim, Orient Anything on hardware) `front_axis` and
+`lateral_axis` = up x front. The grounding compiler roots every stage's
+w frame on the passive object's canonical frame, so these are the axes
+a task's rotations are expressed about; the part axes remain for call
+#2's frame selection and as relation-row subjects.
 
-Every symbol carries its fit residual and sigma in `comment` and the
-primitive in `status`-adjacent metadata so the uncertainty-coupled
-bound widening (refine.py's couple_rot_bound) has a per-symbol sigma to
-work from instead of a scene-wide guess.
+Every axis symbol carries its estimator sigma as a structured
+`sigma_deg` field (fit sigma for line/ring parts, the caller's declared
+sigma for the canonical frame, absent for blobs) so the compiler's
+uncertainty coupling has a per-symbol sigma to work from instead of a
+scene-wide guess.
 """
 
 from __future__ import annotations
@@ -71,7 +74,7 @@ RING_REL_RMS = 0.08         # circle rms / radius gate for "ring"
 RING_PLANE_REL = 0.08       # plane rms / radius gate for "ring"
 RING_MIN_ARC = 0.6          # fraction of circle angles covered (>= 60%)
 ELONGATION = 2.5            # S0 / S1 spread ratio for "line"
-UP_PARALLEL_COS = 0.985     # |up . axis| above this -> no lateral axis
+UP_PARALLEL_COS = 0.985     # |up . front| above this -> no usable front
 
 
 # ------------------------------------------------------------ results
@@ -255,15 +258,22 @@ def fit_part(name: str, P: np.ndarray, up: np.ndarray,
 # ------------------------------------------------------------ symbols
 
 def symbols_from_parts(obj: str, parts: dict[str, GroundedPart],
-                       up: np.ndarray, provider: str) -> dict:
-    """frames.json document (the same schema load_symbols reads)."""
+                       up: np.ndarray, provider: str,
+                       front: np.ndarray | None = None,
+                       up_sigma_deg: float = 0.0,
+                       front_sigma_deg: float = 0.0) -> dict:
+    """frames.json document (the same schema load_symbols reads). `up` /
+    `front` are the caller's canonical frame (body coords; front is
+    orthogonalized against up and dropped if near-parallel) with the
+    caller's declared sigmas."""
     up = _unit(up)
     doc = {
         "object": obj, "units": "meters",
         "coordinates": "body frame of mjcf body 'object' (what PoseReader returns)",
         "schema": "grounding symbol table: independent interaction POINTS and "
                   "semantic AXES; frames are composed downstream as "
-                  "frame(origin=<point>, axis=<axis>). Axis -> frame +z.",
+                  "frame(origin=<point>, axis=<axis>). Axis -> frame +z. "
+                  "up_axis/front_axis/lateral_axis are the canonical frame.",
         "provenance": {"producer": "manip_sim.part_grounding",
                        "mask_provider": provider,
                        "parts": {n: {"primitive": g.primitive, "n_points": g.n_points,
@@ -278,18 +288,30 @@ def symbols_from_parts(obj: str, parts: dict[str, GroundedPart],
         doc["points"][name] = {"xyz": [round(float(x), 4) for x in xyz],
                                "status": "grounded", "comment": note}
 
-    def ax(name, xyz, note):
+    def ax(name, xyz, note, sigma=None):
         doc["axes"][name] = {"xyz": [round(float(x), 4) for x in _unit(xyz)],
-                             "status": "grounded", "comment": note}
+                             "status": "grounded", "comment": note,
+                             "sigma_deg": None if sigma is None or np.isnan(sigma)
+                             else round(float(sigma), 2)}
 
-    ax("up_axis", up, "object rest up, supplied by the pose source")
+    ax("up_axis", up, "canonical frame: rest up, supplied by the pose source",
+       up_sigma_deg)
+    if front is not None:
+        f = _unit(front)
+        if abs(f @ up) < UP_PARALLEL_COS:
+            f = _unit(f - (f @ up) * up)
+            ax("front_axis", f, "canonical frame: front, supplied by the caller "
+               "(scene facing / Orient Anything)", front_sigma_deg)
+            ax("lateral_axis", np.cross(up, f), "canonical frame: up x front",
+               float(np.hypot(up_sigma_deg, front_sigma_deg)))
     for n, g in parts.items():
         if g.primitive == "ungrounded":
             continue
         note = f"{g.primitive} fit, rms {g.rms * 1000:.1f} mm"
         pt(f"{n}_center", g.center, note)
         ax(f"{n}_axis", g.axis, note + (f", sigma {g.sigma_deg:.1f} deg"
-                                        if not np.isnan(g.sigma_deg) else ""))
+                                        if not np.isnan(g.sigma_deg) else ""),
+           g.sigma_deg)
         if g.primitive == "ring":
             doc["quantities"][f"{n}_radius"] = {"value": round(g.radius, 4),
                                                 "status": "grounded",
@@ -299,7 +321,4 @@ def symbols_from_parts(obj: str, parts: dict[str, GroundedPart],
             doc["quantities"][f"{n}_length"] = {"value": round(g.length, 4),
                                                 "status": "grounded",
                                                 "comment": note}
-            if abs(g.axis @ up) < UP_PARALLEL_COS:
-                ax(f"{n}_lateral_axis", np.cross(up, g.axis),
-                   f"up x {n}_axis: horizontal, perpendicular to the {n}")
     return doc

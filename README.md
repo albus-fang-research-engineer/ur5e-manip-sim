@@ -109,11 +109,6 @@ s.send(msgpack.packb({"cmd": "ping"})); print(msgpack.unpackb(s.recv()))
   bundles if you later widen the pointso image to full SoFar).
 
 
-  To render fit results
-  ```
-  PYTHONPATH=. python scripts/diagnose_axis_fit.py teapot --render teapot_fit.png
-  ```
-
   To run frame refinement demo
   ```
   python scripts/demo_refine_frame.py teapot --render outputs/refine_frame/teapot_frame.png

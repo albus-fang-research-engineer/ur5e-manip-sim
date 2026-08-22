@@ -10,6 +10,14 @@ pose source):
     axes        named semantic axes       (pour_axis, up_axis, tilt_axis, ...)
     quantities  compiler-owned scalars    (rim_radius, cavity_depth, ...)
 
+Three axis names are reserved for the object's CANONICAL frame (vlm.
+FRAME_AXES): up_axis, front_axis, lateral_axis = up x front. They are
+caller-supplied (asset rest frame / scene facing in sim, Orient Anything
+on hardware), not fitted, and the grounding compiler roots every stage's
+w frame on them; part fits keep their own <part>_axis names. An axis
+entry may carry "sigma_deg", the estimator's 1-sigma direction
+uncertainty, which the compiler couples into the B^w rotation rows.
+
 Points and axes are INDEPENDENT tables, mirroring the grounding pipeline
 (point candidates -> VLM multiple choice; axes -> PointSO) and the emission
 DSL, whose frame declarations compose them by reference:
@@ -76,6 +84,7 @@ class Symbols:
     axes: dict[str, np.ndarray]
     quantities: dict[str, float] = field(default_factory=dict)
     statuses: dict[str, str] = field(default_factory=dict)
+    sigmas: dict[str, float] = field(default_factory=dict)   # "axes.<name>" -> deg
 
     def frame(self, origin: str, axis: str,
               secondary=None) -> Frame:
@@ -104,13 +113,15 @@ class Symbols:
 def load_symbols(asset_dir):
     path = Path(asset_dir) / "frames.json"
     spec = json.loads(path.read_text())
-    statuses = {}
+    statuses, sigmas = {}, {}
 
     def _table(section):
         out = {}
         for name, entry in spec.get(section, {}).items():
             out[name] = np.asarray(entry["xyz"], dtype=float).reshape(3)
             statuses[f"{section}.{name}"] = entry.get("status", "calibrated")
+            if entry.get("sigma_deg") is not None:
+                sigmas[f"{section}.{name}"] = float(entry["sigma_deg"])
         return out
 
     sym = Symbols(
@@ -120,6 +131,7 @@ def load_symbols(asset_dir):
         quantities={k: float(v["value"])
                     for k, v in spec.get("quantities", {}).items()},
         statuses=statuses,
+        sigmas=sigmas,
     )
     ph = [k for k, v in statuses.items() if v == "placeholder"]
     if ph:

@@ -59,6 +59,24 @@
       ],
       "status": "calibrated",
       "comment": "up_axis x pour_axis, positive tips spout down; auto-calibrated from mesh (calibrate_frames_from_mesh.py)"
+    },
+    "front_axis": {
+      "xyz": [
+        -0.7243,
+        0.6895,
+        0.0
+      ],
+      "status": "calibrated",
+      "comment": "canonical frame: front = pour_axis (spout direction)"
+    },
+    "lateral_axis": {
+      "xyz": [
+        -0.6895,
+        -0.7243,
+        0.0
+      ],
+      "status": "calibrated",
+      "comment": "canonical frame: lateral = up_axis x front_axis (= tilt_axis)"
     }
   }
 }

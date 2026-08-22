@@ -11,64 +11,87 @@ never by a runtime knob that would let per-scenario tuning leak in).
 
 Compilation model
 -----------------
-w frame: composed exactly as the hand-authored path does —
-Symbols.frame(w_origin, w_axis) rooted on the pose of the object that
-owns w_origin (body_poses[owner] @ frame.T()). The caller decides WHICH
-pose roots it; freezing (the pour's "w at stage entry") is therefore the
-caller's move, same as pour_pair's contract. w_axis maps to w's +z.
+w frame: ONE canonical frame per object, used as w in every stage that
+constrains against it — never chosen per stage, never emitted. It is the
+object's canonical frame (OmniManip's canonical object space: up/front
+from the pose source / Orient Anything, carried in frames.json as the
+up_axis / front_axis / lateral_axis symbols) anchored at the interaction
+point call #2 selected on it:
 
-Tw_e (e_feature given -> e is the ACTIVE BODY frame):
-inv(make_pose(e_feature.point, R_body0^T @ R0_w)). Two independent
-components, each carrying one lesson:
+    z = passive up_axis,  x = passive front_axis,  origin = w_point
 
-  * translation = the feature POINT, never the feature frame — the
-    pour_stages.transport_pair trap: a full feature frame makes
-    rotation bounds bind the feature attitude (spout at the ceiling)
-    and empties the intersection. Since trans(A @ B) ignores B's
-    rotation, translation rows still read exactly "feature point in w".
-  * rotation = R_body0^T @ R0_w zeroes the NOMINAL rotational
-    displacement (the generalization of pour_pair's Tw_e =
-    inv(T_w_body_at_entry)); without it, a w frame whose attitude
-    differs from the body's (the tilt frame) puts the nominal at a
-    large RPY value and every row rule below — all derived as
-    displacements about the nominal — mis-centers. The v1 cost,
-    bounded by ALIGN_TOL via the Case-A nominal gate: relation rows
-    are centered on the entry attitude, not the gravity-true one, so
-    an entry tilted within the gate shifts the compiled center by
-    that tilt.
+rooted on the passive body pose and frozen at stage entry (the caller
+passes the entry poses, same as before). A passive with no confident
+front_axis gets its x from the MOVER's lateral (up x front) projected
+into w's horizontal plane at entry, then from world x/y: a tip of the
+mover's front toward the vertical — the pour family — then rotates
+about w.x, i.e. the ROLL row, which is pour_stages.pour_pair's
+permutation arising from the fallback rather than a special case. A
+stage with no passive object (the grasp) is the same rule with the
+gripper as the mover: the grasped object owns w, Tw_e = I, and relation
+rows cannot be grounded (the gripper has no grounded axes).
 
-e_feature=None gives Tw_e = I: e is whatever frame the caller tests
-(the grasp classifier over gripper poses), whose nominal is not the
-active body's and must not be corrected against it.
+Tw_e (mover given): inv(make_pose(e_point, R_goal^T @ R0_w)). The
+translation pins the mover's feature POINT at w (the transport_pair
+lesson: a full feature frame makes rotation bounds bind the feature
+attitude and empties the intersection); the rotation makes the GOAL
+attitude the zero displacement, where the goal attitude is the one
+that satisfies the relation rows, reached by the smallest rotation from
+the entry attitude (below). Every row rule is a displacement about that
+zero, so relation rows are centered where they are satisfied, not at
+the entry — the v1 "Case-A nominal gate" is gone with its cost.
 
-B^w rows — the rule table (v1, restrictions are CompileErrors so they
+B^w rows — the rule table (v2; restrictions are CompileErrors so they
 route to touchpoint #5 rather than silently mis-compiling):
 
-  rot rows start UNSET; addressed rows are set (intersecting on double
-  address); unaddressed rows default to +-ROT_TOL_RAD["tight"]. trans
-  rows start UNSET and default to FREE. The asymmetry is forced by the
-  vocabulary and is fail-safe per domain: per-row rotational freedom is
-  expressible ({"relation": "free", "row": ...}) so undeclared rotation
-  of a held object stays tight; per-row translational freedom is not
-  expressible, so undeclared translation stays free and explicit terms
-  narrow it (the planner explores translation inside the other terms;
-  an undeclared free spin of a full teapot is the hazardous default).
+  Every row starts UNSET; trans rows default FREE, and — new in v2 —
+  rot rows default FREE too: a relation row fixes only the DOFs its axis
+  pair determines, and a DOF no row mentions is free (the pour's
+  "front_axis antiparallel world.z" fixes the tilt and leaves the
+  heading about world.z free). The explicit {"relation": "free", "row":
+  ...} form stays licit as a no-op.
 
-  RotRow(axis A, relation, reference R, tol t): the constraint is
-  "angle(displaced A, static R) in [center(relation) +- t]" with center
-  parallel=0, perpendicular=pi/2, antiparallel=pi. A must belong to the
-  ACTIVE object (it displaces); R must be a world axis or an axis of the
-  w-owning/passive object (static in w). Box conversion requires the
-  directions to diagonalize in w at zero displacement (ALIGN_TOL gate):
+  RotRow(axis A, relation, reference R, tol t): A belongs to the mover
+  (it displaces); R is world.z or an axis of the w-owning object (static
+  in w). With a_e = A's world direction at entry:
 
-    A ~ +-z, R ~ +-z, nominal angle matches center  -> roll,pitch +- t
-    A, R both in w's xy-plane                       -> yaw in
-        signed_center +- t, where signed_center is the branch of
-        (beta - alpha -+ center) chosen POSITIVE — resolvable only
-        because frames.json axes are sign-calibrated ("tilt_axis:
-        positive tips spout down"); an ambiguous branch (both positive
-        or both negative after dedupe) is a CompileError, as is any
-        alignment case outside these two rows of the table.
+    parallel / antiparallel   goal: the minimal rotation taking a_e onto
+                              +-R (about a_e x R; a near half-turn is a
+                              CompileError — the tip direction is
+                              ambiguous). Fixed DOFs: the two tilts of A
+                              off the reference, i.e. the two RPY rows
+                              NOT about the w basis vector R aligns with
+                              (R ~ +-w.z -> roll, pitch; ~ +-w.x ->
+                              pitch, yaw; ~ +-w.y -> roll, yaw); rotation
+                              about R stays free.
+    perpendicular             goal: the minimal rotation taking a_e into
+                              the plane perpendicular to R (a_e parallel
+                              to R is ambiguous -> CompileError). Fixed
+                              DOF: the one tilt of A toward R, the row
+                              about the w basis vector R x A_goal aligns
+                              with.
+    two parallel/antiparallel rows with independent axes fully determine
+    the goal (least-squares fit, pairs must be mutually consistent);
+    other combinations and >2 relation rows are outside the table.
+
+  Each fixed row is +-t widened by the referenced symbols' sigmas:
+  half = max(t, SIGMA_K * sqrt(sigma_A^2 + sigma_R^2 [+ sigma_up_w^2 on
+  roll/pitch, the w frame's own tilt])) — refine.couple_rot_bound's
+  floor rule, row-wise, from the per-symbol sigmas frames.json carries
+  (none -> no floor, the authored sidecars' regime). The box requires the
+  fixed rotation axes to land on w basis vectors within ALIGN_TOL; with
+  canonical references that is automatic (R is w's z or x or y), a part
+  axis or a tilted passive can fail it, typed.
+
+  PATH rows additionally carry the entry-to-goal sweep: when the
+  rotation from entry to the path rows' goal is about an axis within
+  ALIGN_TOL of w.x (roll) or w.z (yaw), that row becomes the corridor
+  [entry - t, goal + t]; otherwise — including w.y, because pitch is the
+  middle Euler angle and a wide pitch corridor crosses its gimbal lock —
+  the path's rotation rows are all FREE and translation carries the
+  path. Known limitation, deliberately kept: wide path corridors are
+  expressible only about the passive frame's basis directions; other
+  reorientations need a stage split.
 
   TransTerm -> rows (offsets: anchors must live on the w-owning object,
   so their w coordinates are constants; `off` below):
@@ -91,23 +114,30 @@ route to touchpoint #5 rather than silently mis-compiling):
 Known expressivity gaps, deliberately not papered over (they are
 ablation content, not bugs): the grasp slide band (+-2 cm along the
 handle with +-5 mm lateral) has no anisotropic containment term, so the
-symbolic grasp classifier is a tighter cube; the pour path's bounded
-tilt corridor (-3..110 deg) is only expressible as a fully free tilt
-row. Where the hand-authored and compiled arms differ, the experiment —
-not this module — adjudicates.
+symbolic grasp classifier is a tighter cube; the pour path's hand-
+authored tilt corridor (-3..110 deg, with overshoot past the goal)
+compiles as the symmetric sweep [entry - t, goal + t] (-5..95 deg at
+"tight") — overshoot is not a token; and the pour pivot is the PASSIVE
+anchor (above + centered on the opening, "snug") rather than the hand
+arm's +-5 mm pin of the spout tip at its entry position, so the
+compiled pour may translate the tip within those tolerances while it
+tilts. Where the hand-authored and compiled arms differ, the experiment
+— not this module — adjudicates.
 
 numpy-only (imports manip_sim.tsr / .frames); no simulator, no network.
 """
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 from .frames import Frame, Symbols
 from .tsr import FREE_ROT, FREE_TRANS, TSR, make_pose
-from .vlm import RotRow, StageEmission, TSRSpec, TransTerm
+from .vlm import FRAME_AXES, StageEmission, TSRSpec
 
 # ------------------------------------------------- the frozen enum tables
 # Anchored, where a hand-authored constant exists, to pour_stages.py —
@@ -141,15 +171,15 @@ INSIDE_TOL_M = {                      # containment-cube half-width
     "loose": 0.04,
 }
 
-ALIGN_TOL_RAD = np.deg2rad(10.0)      # diagonalization gate
+ALIGN_TOL_RAD = np.deg2rad(10.0)      # "lands on a w basis vector" gate
+SIGMA_K = 3.0                         # k-sigma floor, refine.couple_rot_bound's k
 
-_ROT_CENTER = {"parallel": 0.0, "perpendicular": np.pi / 2,
-               "antiparallel": np.pi}
+_UP, _FRONT, _LATERAL = FRAME_AXES
 _ROW_IDX = {"x": 0, "y": 1, "z": 2, "roll": 3, "pitch": 4, "yaw": 5}
 
 
 class CompileError(ValueError):
-    """A licit emission the v1 rule table cannot ground. `slot` names
+    """A licit emission the rule table cannot ground. `slot` names
     the offending schema slot (the authored_in pointer the critic /
     repair loop edits); `reason` is instructive on purpose — it is the
     text a touchpoint-#5 repair prompt will eventually carry."""
@@ -188,25 +218,45 @@ def _unit(v: np.ndarray) -> np.ndarray:
     return v / np.linalg.norm(v)
 
 
-def _classify_axis(v_w: np.ndarray, slot: str):
-    """('z', sign) if within ALIGN_TOL of +-e_z; ('plane', alpha) if
-    within ALIGN_TOL of w's xy-plane (alpha = signed in-plane angle);
-    CompileError otherwise."""
+def _basis_row(v_w: np.ndarray, slot: str, what: str) -> tuple[int, float]:
+    """(row k, sign) of the w basis vector unit v_w lies along, within
+    ALIGN_TOL; CompileError otherwise."""
     v = _unit(v_w)
-    cz = float(np.clip(v[2], -1.0, 1.0))
-    if np.arccos(abs(cz)) <= ALIGN_TOL_RAD:
-        return ("z", 1.0 if cz > 0 else -1.0)
-    if abs(np.arcsin(cz)) <= ALIGN_TOL_RAD:
-        return ("plane", float(np.arctan2(v[1], v[0])))
-    raise CompileError(slot, (
-        "axis neither aligned with w's z nor in its xy-plane "
-        f"(components in w: {np.round(v, 3).tolist()}); re-anchor "
-        "w_axis so the constrained direction diagonalizes, or free "
-        "the row"))
+    k = int(np.argmax(np.abs(v)))
+    if np.arccos(min(abs(float(v[k])), 1.0)) > ALIGN_TOL_RAD:
+        raise CompileError(slot, (
+            f"{what} does not lie along a w basis vector (components in "
+            f"w: {np.round(v, 3).tolist()}); the bound would not "
+            "diagonalize — relate a canonical axis (up/front/lateral) or "
+            "free the row"))
+    return k, (1.0 if v[k] > 0 else -1.0)
 
 
-def _wrap(a: float) -> float:
-    return float(np.arctan2(np.sin(a), np.cos(a)))
+def _rot_onto(a: np.ndarray, t: np.ndarray, slot: str) -> np.ndarray:
+    """Minimal rotation (3x3) taking unit a onto unit t."""
+    c = float(np.clip(a @ t, -1.0, 1.0))
+    th = float(np.arccos(c))
+    if th < 1e-12:
+        return np.eye(3)
+    if th > np.pi - ALIGN_TOL_RAD:
+        raise CompileError(slot, (
+            f"axis is within {np.degrees(np.pi - th):.0f} deg of a half-"
+            "turn from the reference at entry: the rotation axis is "
+            "ambiguous (which way to flip). Relate an axis that is not "
+            "already (anti)parallel to the reference, or split the stage"))
+    n = _unit(np.cross(a, t))
+    return R.from_rotvec(n * th).as_matrix()
+
+
+def _kabsch(pairs: list[tuple[np.ndarray, np.ndarray]]) -> np.ndarray:
+    """Least-squares rotation taking each a_i onto t_i (two independent
+    pairs; the cross-product pair fixes handedness)."""
+    (a1, t1), (a2, t2) = pairs
+    M = (np.outer(t1, a1) + np.outer(t2, a2)
+         + np.outer(np.cross(t1, t2), np.cross(a1, a2)))
+    U, _, Vt = np.linalg.svd(M)
+    D = np.diag([1.0, 1.0, float(np.sign(np.linalg.det(U @ Vt)) or 1.0)])
+    return U @ D @ Vt
 
 
 def _eval_expr(s: str, quantities: dict[str, float], slot: str) -> float:
@@ -320,166 +370,262 @@ def _axis_dir_world(qualified: str, symbols: dict[str, Symbols],
 
 # ------------------------------------------------------------- compiler
 
+def _canonical_w(w_obj: str, mover: str | None, symbols: dict[str, Symbols],
+                 body_poses: dict[str, np.ndarray], w_point: np.ndarray,
+                 slot: str) -> tuple[Frame, str]:
+    """The w-owning object's canonical frame anchored at w_point (body
+    coords): z = up_axis, x = front_axis, else the fallback ladder in
+    the module docstring. Returns (Frame, route note)."""
+    sym = symbols[w_obj]
+    if _UP not in sym.axes:
+        raise CompileError(slot, f"{w_obj!r} has no {_UP}: no canonical "
+                                 "frame to root w on")
+    up_b = _unit(sym.axes[_UP])
+    R_o = body_poses[w_obj][:3, :3]
+    z_w = R_o @ up_b
+    if _FRONT in sym.axes:
+        return (Frame(name=f"{w_obj}.canonical",
+                      point=np.asarray(w_point, float).reshape(3).copy(),
+                      axis=up_b.copy(), secondary=_unit(sym.axes[_FRONT])),
+                f"{w_obj}.{_FRONT}")
+    # no confident front: borrow the azimuth from the mover's lateral so a
+    # tip of its front toward the vertical rotates about w.x (roll), then
+    # from world x/y
+    x_world, route = None, ""
+    if mover is not None and _FRONT in symbols[mover].axes:
+        f = body_poses[mover][:3, :3] @ _unit(symbols[mover].axes[_FRONT])
+        f_h = f - float(f @ z_w) * z_w
+        if np.linalg.norm(f_h) > np.sin(ALIGN_TOL_RAD):
+            x_world = _unit(np.cross(z_w, _unit(f_h)))
+            route = f"{mover} lateral (up x front) at entry"
+    if x_world is None:
+        for e, nm in ((np.array([1.0, 0, 0]), "world.x"),
+                      (np.array([0, 1.0, 0]), "world.y")):
+            e_h = e - float(e @ z_w) * z_w
+            if np.linalg.norm(e_h) > np.sin(ALIGN_TOL_RAD):
+                x_world, route = _unit(e_h), nm
+                break
+    return (Frame(name=f"{w_obj}.canonical(fallback)",
+                  point=np.asarray(w_point, float).reshape(3).copy(),
+                  axis=up_b.copy(), secondary=R_o.T @ x_world), route)
+
+
+def _solve_rows(rel: list, R0_w: np.ndarray) -> tuple[np.ndarray, list]:
+    """rel: [(slot, RotRow, a_entry_world, r_world)] relation rows. Returns
+    (R_delta world rotation entry -> goal, fixed rows [(row, slot, tol)])
+    per the v2 rule table."""
+    if not rel:
+        return np.eye(3), []
+    kinds = [r.relation for _, r, _, _ in rel]
+    if len(rel) == 1:
+        slot, r, a, d = rel[0]
+        if r.relation == "perpendicular":
+            n = np.cross(a, d)
+            if np.linalg.norm(n) < np.sin(ALIGN_TOL_RAD):
+                raise CompileError(slot, (
+                    "axis is (anti)parallel to the reference at entry; the "
+                    "direction to tip it into the perpendicular plane is "
+                    "ambiguous — relate an axis that is already off the "
+                    "reference, or split the stage"))
+            Rd = R.from_rotvec(_unit(n) * (np.arccos(np.clip(a @ d, -1, 1))
+                                           - np.pi / 2)).as_matrix()
+            n_fix = R0_w.T @ np.cross(d, Rd @ a)
+            k, _ = _basis_row(n_fix, slot, "the constrained tilt axis")
+            return Rd, [(k, slot, r.tol)]
+        t = d if r.relation == "parallel" else -d
+        Rd = _rot_onto(a, t, slot)
+        k, _ = _basis_row(R0_w.T @ t, slot, f"reference {r.reference!r}")
+        return Rd, [(i, slot, r.tol) for i in range(3) if i != k]
+    if len(rel) == 2 and all(k != "perpendicular" for k in kinds):
+        (s1, r1, a1, d1), (s2, r2, a2, d2) = rel
+        t1 = d1 if r1.relation == "parallel" else -d1
+        t2 = d2 if r2.relation == "parallel" else -d2
+        if np.linalg.norm(np.cross(a1, a2)) < np.sin(ALIGN_TOL_RAD):
+            raise CompileError(s2, "second relation row constrains an axis "
+                                   "parallel to the first's; the pair is not "
+                                   "independent — drop one row")
+        ang_a = np.arccos(np.clip(a1 @ a2, -1, 1))
+        ang_t = np.arccos(np.clip(t1 @ t2, -1, 1))
+        if abs(ang_a - ang_t) > ALIGN_TOL_RAD:
+            raise CompileError(s2, (
+                f"rows are mutually inconsistent: the axes are "
+                f"{np.degrees(ang_a):.0f} deg apart but the references "
+                f"{np.degrees(ang_t):.0f} deg apart; no attitude satisfies "
+                "both — drop or restate one"))
+        Rd = _kabsch([(a1, t1), (a2, t2)])
+        fixed = []
+        for s, r, t in ((s1, r1, t1), (s2, r2, t2)):
+            k, _ = _basis_row(R0_w.T @ t, s, f"reference {r.reference!r}")
+            fixed += [(i, s, r.tol) for i in range(3) if i != k]
+        return Rd, fixed
+    raise CompileError(rel[-1][0], (
+        f"{len(rel)} relation rows ({kinds}) are outside the rule table: "
+        "one row of any relation, or two parallel/antiparallel rows with "
+        "independent axes (which fully determine the attitude). Drop the "
+        "extra row or split the stage"))
+
+
 def compile_stage(emission: StageEmission,
                   symbols: dict[str, Symbols],
                   body_poses: dict[str, np.ndarray],
-                  e_feature: Frame | None = None) -> CompiledStage:
+                  w_point: np.ndarray,
+                  e_point: np.ndarray | None = None) -> CompiledStage:
     """Ground one StageEmission. `body_poses` are the world body poses
-    to root frames on (pass the frozen entry pose to get pour-at-entry
-    semantics). `e_feature` is the active-object feature whose POINT
-    Tw_e pins at w (translation-only, per the transport_pair lesson);
-    None -> Tw_e = I (the TSR constrains the body/gripper frame
-    directly)."""
+    to root frames on — pass the ENTRY poses; the w frame (including a
+    fallback azimuth) and the goal attitude are frozen on them.
+    `w_point`: the interaction point call #2 selected on the w-owning
+    object (the passive, or the grasped object when there is no
+    passive), in its body coords — w's origin. `e_point`: the mover's
+    selected feature point (its body coords) that Tw_e pins at w; None
+    -> the mover's body origin. Must be None when the mover is the
+    gripper (no passive): Tw_e = I then."""
     notes: list[str] = []
+    w_obj = emission.passive or emission.active
+    mover = emission.active if emission.passive else None   # None: gripper
+    w_slot = "passive" if emission.passive else "active"
+    if w_obj not in symbols:
+        raise CompileError(w_slot, f"unknown object {w_obj!r}")
+    if w_obj not in body_poses:
+        raise CompileError(w_slot, f"no body pose supplied for {w_obj!r}")
+    if mover is not None and mover not in symbols:
+        raise CompileError("active", f"unknown object {mover!r}")
+    if mover is not None and mover not in body_poses:
+        raise CompileError("active", (
+            f"no body pose for the active object {mover!r} — the entry "
+            "attitude roots the goal attitude and Tw_e"))
+    if mover is None and e_point is not None:
+        raise ValueError("e_point given but the moving frame is the gripper")
 
     # -- w frame ---------------------------------------------------------
-    w_obj, w_point = _split(emission.w_origin, "w_origin")
-    a_obj, w_axis = _split(emission.w_axis, "w_axis")
-    if w_obj not in symbols:
-        raise CompileError("w_origin", f"unknown object {w_obj!r}")
-    if a_obj != w_obj:
-        raise CompileError("w_axis", (
-            f"w_axis {emission.w_axis!r} must belong to the object that "
-            f"owns w_origin ({w_obj!r}); cross-object w frames are not "
-            "compilable in v1"))
-    if w_point not in symbols[w_obj].points:
-        raise CompileError("w_origin", f"unknown point {emission.w_origin!r}")
-    if w_axis not in symbols[w_obj].axes:
-        raise CompileError("w_axis", f"unknown axis {emission.w_axis!r}")
-    if w_obj not in body_poses:
-        raise CompileError("w_origin", f"no body pose supplied for {w_obj!r}")
-    w_frame = symbols[w_obj].frame(w_point, w_axis)
+    w_frame, route = _canonical_w(w_obj, mover, symbols, body_poses,
+                                  np.asarray(w_point, float), w_slot)
     T0_w = body_poses[w_obj] @ w_frame.T()
     R0_w = T0_w[:3, :3]
     Tf_inv = np.linalg.inv(w_frame.T())
-    notes.append(f"w = {w_obj}.frame({w_point},{w_axis}) rooted on "
-                 f"body_poses[{w_obj!r}]")
-
-    # -- Tw_e ------------------------------------------------------------
-    if e_feature is not None:
-        if emission.active not in body_poses:
-            raise CompileError("active", (
-                f"e_feature given but no body pose for the active object "
-                f"{emission.active!r} — the nominal-displacement "
-                "correction needs it"))
-        R_corr = body_poses[emission.active][:3, :3].T @ R0_w
-        Tw_e = np.linalg.inv(make_pose(e_feature.point, R_corr))
-        notes.append(f"Tw_e = inv(pose({e_feature.name} point, "
-                     "R_body0^T R_w)) — feature point pinned, nominal "
-                     "rotational displacement zeroed")
-    else:
-        Tw_e = np.eye(4)
-        notes.append("Tw_e = I")
+    notes.append(f"w = {w_obj} canonical frame at "
+                 f"{np.round(w_frame.point, 4).tolist()}: z = {_UP}, "
+                 f"x = {route}; rooted on body_poses[{w_obj!r}]")
+    R_entry = body_poses[mover][:3, :3] if mover is not None else None
+    e_xyz = (np.zeros(3) if e_point is None
+             else np.asarray(e_point, float).reshape(3))
 
     def _anchor_off(qualified: str, slot: str) -> np.ndarray:
         obj, name = _split(qualified, slot)
         if obj != w_obj:
             raise CompileError(slot, (
                 f"anchor {qualified!r} is not on the w-owning object "
-                f"{w_obj!r}; it would not be static in w — set w_origin "
-                "to the anchor instead"))
+                f"{w_obj!r}; it would not be static in w — anchor on a "
+                f"{w_obj} point instead"))
         if name not in symbols[obj].points:
             raise CompileError(slot, f"unknown point {qualified!r}")
         p = symbols[obj].points[name]
         return (Tf_inv @ np.append(p, 1.0))[:3]
 
+    def _sigma(qualified: str) -> float:
+        obj, name = qualified.split(".", 1)
+        if obj == "world":
+            return 0.0
+        return float(symbols[obj].sigmas.get(f"axes.{name}", 0.0))
+
+    sigma_up_w = _sigma(f"{w_obj}.{_UP}")      # w's own tilt uncertainty
     quantities = {f"{o}.{q}": v for o, s in symbols.items()
                   for q, v in s.quantities.items()}
 
-    # every row rule below is a displacement about a zero nominal;
-    # e_feature's Tw_e guarantees that exactly. Without it, relation
-    # rows are only valid when the w attitude already matches the
-    # active body's — gate it (best-effort; e may be a gripper frame
-    # the compiler cannot see, in which case the body check is the
-    # closest available proxy).
-    if e_feature is None and emission.active in body_poses:
-        R_mis = R0_w.T @ body_poses[emission.active][:3, :3]
-        _nominal_ok = np.arccos(np.clip((np.trace(R_mis) - 1) / 2,
-                                        -1.0, 1.0)) <= ALIGN_TOL_RAD
-    else:
-        _nominal_ok = True
-
-    def _compile_spec(spec: TSRSpec, ctx: str) -> np.ndarray:
+    def _compile_spec(spec: TSRSpec, ctx: str) -> tuple[np.ndarray, np.ndarray]:
         box = _Box()
 
-        # ---- rotation rows
+        # ---- rotation rows: collect relation rows, solve the goal attitude
+        rel: list = []
         for i, r in enumerate(spec.rot):
             slot = f"{emission.name}.{ctx}.rot[{i}]"
             if r.relation == "free":
-                box.narrow(_ROW_IDX[r.row], *FREE_ROT, slot=slot)
-                continue
-            if not _nominal_ok:
+                continue                      # rows default free in v2
+            if mover is None:
                 raise CompileError(slot, (
-                    "relation row with Tw_e = I but w attitude differs "
-                    "from the active body's beyond ALIGN_TOL — the "
-                    "nominal displacement is not zero and the row would "
-                    "mis-center; supply e_feature, re-anchor w_axis, or "
-                    "(single-object stage, e = gripper) emit the row as "
+                    "the moving frame is the gripper (no passive object), "
+                    "which has no grounded axes, so relation rows cannot "
+                    "be grounded; write rot as \"free\" or per-row "
                     "{\"relation\": \"free\", \"row\": ...}"))
-            a_own, _ = _split(r.axis, slot)
-            if a_own != emission.active:
+            a_own, a_name = _split(r.axis, slot)
+            if a_own != mover:
                 raise CompileError(slot, (
                     f"constrained axis {r.axis!r} must belong to the "
-                    f"active object {emission.active!r} (only the active "
-                    "object displaces)"))
+                    f"active object {mover!r} (only the active object "
+                    "displaces)"))
+            if a_name not in symbols[mover].axes:
+                raise CompileError(slot, f"unknown axis {r.axis!r}")
             ref_own, _ = _split(r.reference, slot)
-            if ref_own == emission.active:
+            if ref_own == mover:
                 raise CompileError(slot, (
                     f"reference {r.reference!r} is on the active object; "
                     "it displaces with the constrained axis and the "
                     "relation is degenerate"))
-            a_w = R0_w.T @ _axis_dir_world(r.axis, symbols, body_poses, slot)
-            ref_w = R0_w.T @ _axis_dir_world(r.reference, symbols,
-                                             body_poses, slot)
-            ka, va = _classify_axis(a_w, slot)
-            kr, vr = _classify_axis(ref_w, slot)
-            center = _ROT_CENTER[r.relation]
-            tol = ROT_TOL_RAD[r.tol]
-            if ka == "z" and kr == "z":
-                nominal = 0.0 if va * vr > 0 else np.pi
-                if abs(nominal - center) > ALIGN_TOL_RAD:
-                    raise CompileError(slot, (
-                        f"relation {r.relation!r} with both axes on w's z "
-                        f"has nominal angle {np.degrees(nominal):.0f} deg; "
-                        "a z/z cone can only bound roll,pitch about its "
-                        "nominal — the tip direction is otherwise "
-                        "ambiguous. Anchor w_axis on the rotation axis "
-                        "and use an in-plane reference instead"))
-                box.narrow(3, -tol, tol, slot)
-                box.narrow(4, -tol, tol, slot)
-                notes.append(f"{slot}: z/z cone -> roll,pitch +-"
-                             f"{np.degrees(tol):.0f} deg")
-            elif ka == "plane" and kr == "plane":
-                branches = sorted({_wrap(vr - va - center),
-                                   _wrap(vr - va + center)})
-                if len(branches) == 2 and np.isclose(*branches):
-                    branches = branches[:1]
-                pos = [b for b in branches if b > 1e-9]
-                if len(branches) == 1:
-                    c = branches[0]
-                elif len(pos) == 1:
-                    c = pos[0]
-                else:
-                    raise CompileError(slot, (
-                        f"yaw branch ambiguous ({[round(np.degrees(b), 1) for b in branches]} deg): the axis sign "
-                        "convention does not disambiguate the rotation "
-                        "direction; re-sign the axis in frames.json or "
-                        "pick a signed reference"))
-                box.narrow(5, c - tol, c + tol, slot)
-                notes.append(f"{slot}: in-plane -> yaw "
-                             f"{np.degrees(c):.0f} +- "
-                             f"{np.degrees(tol):.0f} deg")
-            else:
+            if ref_own not in ("world", w_obj):
                 raise CompileError(slot, (
-                    f"mixed alignment (axis {ka!r}, reference {kr!r}) is "
-                    "outside the v1 rule table: a relation row grounds "
-                    "only when axis and reference are both along w_axis "
-                    "(z/z) or both perpendicular to it (plane/plane). "
-                    "Drop this row if another row already relates an "
-                    "along-w_axis axis to the same reference (that z/z "
-                    "row bounds roll and pitch, which is all a plane/z "
-                    "relation can ask for); otherwise restate it with an "
-                    "axis classified like the reference"))
+                    f"reference {r.reference!r} is neither world.z nor a "
+                    f"{w_obj} axis; it is not static in w"))
+            a = R_entry @ _unit(symbols[mover].axes[a_name])
+            d = _unit(_axis_dir_world(r.reference, symbols, body_poses, slot))
+            rel.append((slot, r, a, d))
+        Rd, fixed = _solve_rows(rel, R0_w)
+        R_goal = Rd @ R_entry if mover is not None else None
+
+        half: dict[int, tuple[float, str]] = {}
+        for k, slot, tol in fixed:
+            r = next(rr for s, rr, _, _ in rel if s == slot)
+            sig = np.sqrt(_sigma(r.axis) ** 2 + _sigma(r.reference) ** 2
+                          + (sigma_up_w ** 2 if k < 2 else 0.0))
+            h = max(ROT_TOL_RAD[tol], SIGMA_K * np.deg2rad(sig))
+            if k not in half or h < half[k][0]:
+                half[k] = (h, slot)
+        rows: dict[int, tuple[float, float, str]] = {
+            k: (-h, h, s) for k, (h, s) in half.items()}
+        if rel:
+            notes.append(f"{emission.name}.{ctx}: goal attitude from "
+                         f"{len(rel)} relation row(s); fixed "
+                         f"{[('roll', 'pitch', 'yaw')[k] for k in sorted(half)]}"
+                         f", rest free")
+
+        # ---- path corridor: the entry -> goal sweep. The entry's
+        # displacement about the goal zero, in w, is Rd^T; its RPY rows
+        # must fit the box the path will be checked against.
+        if ctx == "path" and rel:
+            Rd_w = R0_w.T @ Rd.T @ R0_w
+            rv = R.from_matrix(Rd_w).as_rotvec()
+            th = float(np.linalg.norm(rv))
+            with warnings.catch_warnings():       # gimbal lock at pitch 90:
+                warnings.simplefilter("ignore")   # never a corridor anyway
+                rpy = (R.from_matrix(Rd_w).as_euler("xyz") if th > 1e-6
+                       else np.zeros(3))
+            fits = {k: abs(float(rpy[k])) <= h for k, (h, _) in half.items()}
+            if th > 1e-6 and not all(fits.values()):
+                n_w = rv / th
+                k = int(np.argmax(np.abs(n_w)))
+                aligned = np.arccos(min(abs(float(n_w[k])), 1.0)) <= ALIGN_TOL_RAD
+                if (aligned and k in (0, 2)
+                        and all(ok for j, ok in fits.items() if j != k)):
+                    h = half[k][0] if k in half else max(
+                        ROT_TOL_RAD[r.tol] for _, r, _, _ in rel)
+                    ent = float(rpy[k])                # entry displacement
+                    rows[k] = (min(0.0, ent) - h, max(0.0, ent) + h,
+                               rel[0][0])
+                    notes.append(f"{emission.name}.path: corridor on "
+                                 f"{('roll', 'pitch', 'yaw')[k]} from entry "
+                                 f"({np.degrees(ent):.0f} deg) to goal")
+                else:
+                    rows = {}
+                    notes.append(f"{emission.name}.path: entry->goal "
+                                 f"rotation (axis in w {np.round(n_w, 2).tolist()}) "
+                                 "is not a single corridor about w.x or w.z "
+                                 "— rotation rows free, translation carries "
+                                 "the path")
+        for k, (lo, hi, slot) in rows.items():
+            box.narrow(3 + k, lo, hi, slot)
+
+        if mover is None:
+            Tw_e = np.eye(4)
+        else:
+            Tw_e = np.linalg.inv(make_pose(e_xyz, R_goal.T @ R0_w))
 
         # ---- translation terms
         for i, t in enumerate(spec.trans):
@@ -523,30 +669,25 @@ def compile_stage(emission: StageEmission,
                 hi = _eval_expr(t.expr_hi, quantities, slot)
                 box.narrow(_ROW_IDX[t.row], lo, hi, slot)
 
-        tight = ROT_TOL_RAD["tight"]
-        return box.finish(trans_default=FREE_TRANS,
-                          rot_default=(-tight, tight))
+        return box.finish(trans_default=FREE_TRANS, rot_default=FREE_ROT), Tw_e
 
     # compile both TSRs before raising so one rejection carries every
     # failed slot: a retry budget spent one slot per attempt on the same
     # mistake in path and subgoal is a budget wasted
     errs: list[CompileError] = []
-    boxes: dict[str, np.ndarray] = {}
+    tsrs: dict[str, TSR] = {}
     for ctx, spec in (("path", emission.path_tsr),
                       ("subgoal", emission.subgoal_tsr)):
         try:
-            boxes[ctx] = _compile_spec(spec, ctx)
+            Bw, Tw_e = _compile_spec(spec, ctx)
         except CompileError as e:
             errs.append(e)
+            continue
+        tsrs[ctx] = TSR(T0_w=T0_w, Tw_e=Tw_e, Bw=Bw,
+                        name=f"{emission.name}/{ctx}(emitted)")
     if errs:
         raise CompileError(errs[0].slot, errs[0].reason, tuple(errs[1:]))
-    path_Bw, goal_Bw = boxes["path"], boxes["subgoal"]
-
-    def _tsr(Bw, kind):
-        return TSR(T0_w=T0_w, Tw_e=Tw_e, Bw=Bw,
-                   name=f"{emission.name}/{kind}(emitted)")
 
     return CompiledStage(stage=emission.stage, name=emission.name,
-                         path=_tsr(path_Bw, "path"),
-                         subgoal=_tsr(goal_Bw, "subgoal"),
+                         path=tsrs["path"], subgoal=tsrs["subgoal"],
                          w_frame=w_frame, notes=tuple(notes))

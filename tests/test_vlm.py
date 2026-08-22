@@ -173,7 +173,6 @@ def test_selection_rejects_unlicensed_axis(vocab):
 def good_emission():
     return {
         "stage": 2, "name": "pour", "active": "teapot", "passive": "mug",
-        "w_origin": "mug.opening_center", "w_axis": "mug.up_axis",
         "path_tsr": {
             "rot": [{"axis": "teapot.up_axis", "relation": "parallel",
                      "reference": "world.z", "tol": "moderate"}],
@@ -321,15 +320,14 @@ def test_emission_retry_appends_rejections_as_user_turns(vocab):
         seen.append(payload)
         return json.dumps({
             "stage": 1, "name": "transport", "active": "teapot",
-            "passive": "mug", "w_origin": "mug.opening_center",
-            "w_axis": "mug.up_axis",
+            "passive": "mug",
             "path_tsr": {"rot": "free", "trans": "free"},
             "subgoal_tsr": {"rot": "free", "trans": "free"},
             "verify": "x"})
     c = Client(transport=transport)
     c.emit_constraints(STAGE, vocab)
     prior = c.logs[-1].raw
-    assert prior and json.loads(prior)["w_origin"] == "mug.opening_center"
+    assert prior and json.loads(prior)["passive"] == "mug"
     c.emit_constraints(STAGE, vocab, rejections=[(prior, "s.rot[0]: bad")])
     turns = seen[1]["messages"]
     # prior emission replayed as the assistant turn, rejection as the user turn
@@ -338,16 +336,23 @@ def test_emission_retry_appends_rejections_as_user_turns(vocab):
     assert "s.rot[0]: bad" in turns[-1]["content"][0]["text"]
 
 
-def test_emission_prompt_two_object_stage_states_w_ownership(vocab):
-    """The compiler requires w_origin/w_axis/trans anchors on the passive
-    object and rot axes on the active one; the prompt must say so up
-    front rather than spend the retry budget discovering it."""
+def test_emission_prompt_states_ownership_and_fixed_w(vocab):
+    """The compiler roots w by rule (never emitted), requires trans
+    anchors on the passive object and rot axes on the active one; the
+    prompt must say so up front rather than spend the retry budget
+    discovering it."""
     from manip_sim.vlm import build_emission_prompt
-    _, msgs = build_emission_prompt(STAGE, vocab)
+    system, msgs = build_emission_prompt(STAGE, vocab)
     text = msgs[0]["content"][0]["text"]
-    assert f"w_origin and w_axis must both be {STAGE.passive}." in text
+    assert "fixed by rule, not emitted" in system
+    assert "w_origin" not in system and "w_axis" not in system
+    assert "no row mentions are FREE" in system
     assert f"axis must be a {STAGE.active}." in text
+    assert f"anchors must be {STAGE.passive}." in text
+    assert "GRIPPER" not in text
     grasp = StageSpec(index=0, name="grasp", active="teapot", passive=None,
                       parts={"teapot": ("handle",)})
     _, msgs = build_emission_prompt(grasp, vocab)
-    assert "owned by the passive object" not in msgs[0]["content"][0]["text"]
+    text = msgs[0]["content"][0]["text"]
+    assert "GRIPPER" in text and "cannot be grounded" in text
+    assert f"anchor trans terms on {grasp.active} points" in text

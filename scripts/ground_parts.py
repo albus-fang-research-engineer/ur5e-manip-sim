@@ -33,7 +33,12 @@ Per object (only those in the stage plan's object_parts):
                                    camera — then pass --views-json).
   3. lift     manip_sim.part_grounding.lift_masks: depth-tested
               projection of dense surface samples, majority vote
-  4. fit      one primitive per part -> <part>_center/_axis/_tip/...
+  4. fit      one primitive per part -> <part>_center/_axis/_tip/...,
+              plus the object's canonical frame: up_axis (body +z, the
+              converted assets rest upright) and, when the scene
+              manifest declares a facing for the object, front_axis /
+              lateral_axis from that axis (the Orient Anything stand-in;
+              on hardware the caller passes the estimated front)
   5. pool     proposal.propose with the lifted part point sets, so
               candidates.json's `part` labels are the grounded ones and
               call #2's menus / plan_stages' grounds[] check read them
@@ -151,7 +156,8 @@ def _oracle_band(part: str, bands: dict, spec: dict) -> str | None:
 
 def ground_object(name: str, obj_dir: Path, parts: tuple[str, ...],
                   out_dir: Path, provider: str, masks_root: Path | None,
-                  write: bool) -> dict:
+                  write: bool, front: np.ndarray | None = None,
+                  front_sigma_deg: float = 0.0) -> dict:
     mesh = obj_dir / "meshes" / f"{name}_visual.obj"
     if not mesh.exists():
         raise SystemExit(f"[ground] {mesh} missing — run scripts/convert_asset.py first")
@@ -191,7 +197,8 @@ def ground_object(name: str, obj_dir: Path, parts: tuple[str, ...],
     for g in grounded.values():
         print(f"    {g.summary()}")
 
-    frames = symbols_from_parts(name, grounded, UP_BODY, provider)
+    frames = symbols_from_parts(name, grounded, UP_BODY, provider,
+                                front=front, front_sigma_deg=front_sigma_deg)
     frames["provenance"]["views"] = {v: str(p) for v, p in view_paths.items()}
     part_points = {p: P[lifted[p]] for p in parts
                    if p in lifted and grounded[p].primitive != "ungrounded"}
@@ -247,7 +254,7 @@ def main() -> None:
         results[name] = ground_object(name, scene.asset_dirs[name], tuple(ps),
                                       out, args.provider,
                                       Path(args.masks_root) if args.masks_root else None,
-                                      args.write)
+                                      args.write, front=scene.front(name))
     ung = {o: [p for p, k in r.items() if k == "ungrounded"] for o, r in results.items()}
     ung = {o: ps for o, ps in ung.items() if ps}
     if ung:

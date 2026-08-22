@@ -386,8 +386,7 @@ def test_refine_on_converted_meshes(name, obj_dir):
     within 3 deg of truth; geometry the whole-cloud fit cannot certify
     (the real teapot: near-degenerate body, attachments not band-
     separable) must come back as a typed rejection carrying the coarse
-    — never a confident wrong axis. Run scripts/diagnose_axis_fit.py
-    on an object to see which tier it lands in and why."""
+    — never a confident wrong axis."""
     trimesh = pytest.importorskip("trimesh")
     mesh_path = obj_dir / "meshes" / f"{name}_visual.obj"
     if not mesh_path.exists():
