@@ -456,7 +456,8 @@ def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
             mode: str = "text", views: list[Path] | None = None,
             defer_grounding: bool = False,
             dropped: dict[str, tuple[str, ...]] | None = None) -> list[Check]:
-    gplan = prune_parts(to_ground_truth(plan, gt), dropped or {})
+    tplan = to_ground_truth(plan, gt)
+    gplan = prune_parts(tplan, dropped or {})
     checks = verify(gplan, pools, spec)
     parts = object_parts(gplan, pools)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -468,6 +469,12 @@ def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
         "views": [str(v) for v in (views or [])],
         "task_spec": spec.name,
         "object_parts": {o: list(v) for o, v in parts.items()},
+        # the UNPRUNED request, so a re-run of ground_parts.py re-attempts
+        # every part the plan named and re-derives `ungrounded` itself;
+        # grounding only `object_parts` (already pruned) reports nothing
+        # ungrounded and the next --replay silently un-prunes the plan
+        "object_parts_requested": {o: list(v) for o, v in
+                                   object_parts(tplan, pools).items()},
         "roles": bind_roles(gplan, pools, spec),
         "checks": [{"check": c, "pass": ok, "detail": d} for c, ok, d in checks],
         "gate": {"defer_grounding": defer_grounding,

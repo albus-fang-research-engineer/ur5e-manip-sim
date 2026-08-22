@@ -365,3 +365,19 @@ def test_stale_bindings_violating_after_are_refused(vocab, pools, tmp_path):
     out.write_text(json.dumps(doc))
     with pytest.raises(SystemExit, match="must be after 'transport_active'"):
         ps.load_bindings(out)
+
+
+def test_artifact_keeps_unpruned_request_for_regrounding(vocab, pools, tmp_path):
+    """ground -> replay must be idempotent: the artifact records the
+    parts the plan asked for BEFORE pruning, so ground_parts.py
+    re-attempts (and re-reports as ungrounded) parts dropped last time."""
+    raw = json.dumps({"stages": list(NATURAL)})
+    client = Client(transport=lambda payload: raw)
+    out = tmp_path / "pour_tea.json"
+    plan = client.plan_stages(ps.TASK, vocab)
+    full = ps.object_parts(ps.to_ground_truth(plan, None), pools)
+    drop_obj, drop_part = next((o, v[0]) for o, v in full.items() if v)
+    ps.run_one(plan, pools, out, dropped={drop_obj: (drop_part,)})
+    doc = json.loads(out.read_text())
+    assert drop_part not in doc["object_parts"][drop_obj]
+    assert doc["object_parts_requested"] == {o: list(v) for o, v in full.items()}

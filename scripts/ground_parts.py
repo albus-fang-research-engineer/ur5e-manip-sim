@@ -232,7 +232,10 @@ def main() -> None:
         ap.error("--provider masks needs --masks-root")
     scene = load_scene(args.scene)                 # authored dirs, on purpose
     out = Path(args.out or f"outputs/grounding/{scene.name}")
-    parts = json.loads(Path(args.stage_plan).read_text())["object_parts"]
+    doc = json.loads(Path(args.stage_plan).read_text())
+    # every part the plan named (pre-prune), so ungrounded parts are
+    # re-derived on each run rather than inherited from the last prune
+    parts = doc.get("object_parts_requested", doc["object_parts"])
 
     results = {}
     for name, ps in parts.items():
