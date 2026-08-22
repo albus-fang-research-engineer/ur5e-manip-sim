@@ -936,7 +936,15 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
     parts: list[dict] = [_text(
         f"Emit the TSR pair for stage {stage.index} ({stage.name}): "
         f"active={stage.active}, passive={stage.passive}."
-        + ("" if stage.passive else
+        + ((f" The constraint frame w is owned by the passive object: "
+            f"w_origin and w_axis must both be {stage.passive}.* symbols, "
+            f"every trans anchor must be a {stage.passive}.* point, and a "
+            f"rot row's axis must be a {stage.active}.* axis related to "
+            f"world.z or a {stage.passive}.* axis. A z/z row already "
+            "bounds roll and pitch and a plane/plane row already bounds "
+            "yaw; do not add a second row relating the active object to "
+            "the same reference.")
+           if stage.passive else
            " This stage has no passive object: the constrained frame is "
            "the GRIPPER acting on the active object, so there is no "
            "static reference and relation rot rows cannot be grounded. "

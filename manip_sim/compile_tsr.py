@@ -154,10 +154,22 @@ class CompileError(ValueError):
     repair loop edits); `reason` is instructive on purpose — it is the
     text a touchpoint-#5 repair prompt will eventually carry."""
 
-    def __init__(self, slot: str, reason: str):
-        super().__init__(f"{slot}: {reason}")
+    def __init__(self, slot: str, reason: str,
+                 others: tuple["CompileError", ...] = ()):
         self.slot = slot
         self.reason = reason
+        self.others = tuple(others)   # further slots rejected in the same
+                                      # emission (one per TSR), so a repair
+                                      # turn sees every failure at once
+        super().__init__("; ".join(f"{e.slot}: {e.reason}"
+                                   for e in self.all()))
+
+    def all(self) -> tuple["CompileError", ...]:
+        return (self,) + self.others
+
+    def text(self) -> str:
+        """Every rejected slot, for the repair turn / gate log."""
+        return str(self)
 
 
 @dataclass
@@ -515,8 +527,20 @@ def compile_stage(emission: StageEmission,
         return box.finish(trans_default=FREE_TRANS,
                           rot_default=(-tight, tight))
 
-    path_Bw = _compile_spec(emission.path_tsr, "path")
-    goal_Bw = _compile_spec(emission.subgoal_tsr, "subgoal")
+    # compile both TSRs before raising so one rejection carries every
+    # failed slot: a retry budget spent one slot per attempt on the same
+    # mistake in path and subgoal is a budget wasted
+    errs: list[CompileError] = []
+    boxes: dict[str, np.ndarray] = {}
+    for ctx, spec in (("path", emission.path_tsr),
+                      ("subgoal", emission.subgoal_tsr)):
+        try:
+            boxes[ctx] = _compile_spec(spec, ctx)
+        except CompileError as e:
+            errs.append(e)
+    if errs:
+        raise CompileError(errs[0].slot, errs[0].reason, tuple(errs[1:]))
+    path_Bw, goal_Bw = boxes["path"], boxes["subgoal"]
 
     def _tsr(Bw, kind):
         return TSR(T0_w=T0_w, Tw_e=Tw_e, Bw=Bw,

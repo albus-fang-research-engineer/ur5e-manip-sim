@@ -390,10 +390,13 @@ class Bindings:
     path: Path
 
 
-def load_bindings(path: str | Path) -> Bindings:
+def load_bindings(path: str | Path, spec: TaskSpec = TASK_SPEC) -> Bindings:
     """Read a plan_stages.py artifact as the #1 -> #2/#3 handoff. Refuses
-    artifacts whose checks failed or whose roles did not bind — the
-    consumer must never plan on a plan the contract rejected."""
+    artifacts whose checks failed, whose roles did not bind, or whose
+    bindings violate the spec's `after` ordering (an artifact written
+    before the ordering existed) — the consumer must never plan on a
+    plan the contract rejected. Bindings are trusted as stored; a stale
+    artifact is regenerated with --replay, not re-bound here."""
     path = Path(path)
     doc = json.loads(path.read_text())
     if "roles" not in doc or "plan_grounded" not in doc:
@@ -411,6 +414,15 @@ def load_bindings(path: str | Path) -> Bindings:
     for role, b in doc["roles"].items():
         if b["stage"] is None:
             raise SystemExit(f"[plan-stages] {path}: role {role!r} unbound")
+        dep = spec.role_after.get(role)
+        if dep and dep in doc["roles"] and not (
+                doc["roles"][dep]["stage"] is not None
+                and b["stage"] > doc["roles"][dep]["stage"]):
+            raise SystemExit(
+                f"[plan-stages] {path}: role {role!r} bound to stage "
+                f"{b['stage']} but must be after {dep!r} (stage "
+                f"{doc['roles'][dep]['stage']}); stale bindings — "
+                f"re-run plan_stages.py --replay {path}")
         obj, s = b["object"], by_idx[b["stage"]]
         roles[role] = (obj, StageSpec(
             index=s.index, name=s.name, active=s.active, passive=s.passive,

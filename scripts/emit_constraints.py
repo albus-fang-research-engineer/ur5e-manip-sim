@@ -181,10 +181,11 @@ def main() -> None:
             try:
                 cs = compile_stage(em, symbols, poses, e_feature=feat)
             except CompileError as e:
-                rejections.append((client.logs[-1].raw,
-                                   f"{e.slot}: {e.reason}"))
-                print(f"         compile rejected: {e.slot}: {e.reason}")
-                err = {"slot": e.slot, "reason": e.reason}
+                rejections.append((client.logs[-1].raw, e.text()))
+                print(f"         compile rejected: {e.text()}")
+                err = {"slot": e.slot, "reason": e.reason,
+                       "others": [{"slot": o.slot, "reason": o.reason}
+                                  for o in e.others]}
                 continue
             for n in cs.notes:
                 print(f"         {n}")

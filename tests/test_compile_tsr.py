@@ -243,3 +243,18 @@ def test_emission_json_round_trip_and_taskframes_switch(tmp_path):
                                "compiled": [{"stage": "pour", "grounded": False}]}))
     with pytest.raises(SystemExit, match="compile gate failed"):
         load_emissions(art)
+
+
+def test_path_and_subgoal_errors_reported_together():
+    # the same mistake in both TSRs must cost one retry, not two
+    doc = dict(TRANSPORT)
+    bad = {"rot": "free", "trans": [
+        {"term": "centered", "anchor": "teapot.spout_tip", "tol": "moderate"}]}
+    doc["path_tsr"] = bad
+    doc["subgoal_tsr"] = bad
+    err = _expect(doc)
+    assert [e.slot.rsplit(".", 2)[1] for e in err.all()] == ["path", "subgoal"]
+    assert err.text().count("static in w") == 2
+    # single-TSR failure keeps the plain shape
+    doc["path_tsr"] = {"rot": "free", "trans": "free"}
+    assert _expect(doc).others == ()

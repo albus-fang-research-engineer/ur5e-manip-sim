@@ -350,3 +350,18 @@ def test_pour_unbound_when_no_later_stage(vocab, pools):
              st("grasp", "teapot", None, ["handle"]),
              st("move and pour", "teapot", "mug", ["spout", "rim"]))
     assert ps.bind_roles(p, pools)["pour"]["stage"] is None
+
+
+def test_stale_bindings_violating_after_are_refused(vocab, pools, tmp_path):
+    """An artifact written before `after` existed binds pour to the
+    transport stage; load_bindings must refuse it (emit would otherwise
+    emit the transport stage twice and never the tilt stage)."""
+    raw = json.dumps({"stages": list(NATURAL)})
+    client = Client(transport=lambda payload: raw)
+    out = tmp_path / "stale.json"
+    ps.run_one(client.plan_stages(ps.TASK, vocab), pools, out)
+    doc = json.loads(out.read_text())
+    doc["roles"]["pour"]["stage"] = doc["roles"]["transport_active"]["stage"]
+    out.write_text(json.dumps(doc))
+    with pytest.raises(SystemExit, match="must be after 'transport_active'"):
+        ps.load_bindings(out)

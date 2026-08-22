@@ -336,3 +336,18 @@ def test_emission_retry_appends_rejections_as_user_turns(vocab):
     assert [t["role"] for t in turns[-2:]] == ["assistant", "user"]
     assert turns[-2]["content"][0]["text"] == prior
     assert "s.rot[0]: bad" in turns[-1]["content"][0]["text"]
+
+
+def test_emission_prompt_two_object_stage_states_w_ownership(vocab):
+    """The compiler requires w_origin/w_axis/trans anchors on the passive
+    object and rot axes on the active one; the prompt must say so up
+    front rather than spend the retry budget discovering it."""
+    from manip_sim.vlm import build_emission_prompt
+    _, msgs = build_emission_prompt(STAGE, vocab)
+    text = msgs[0]["content"][0]["text"]
+    assert f"w_origin and w_axis must both be {STAGE.passive}." in text
+    assert f"axis must be a {STAGE.active}." in text
+    grasp = StageSpec(index=0, name="grasp", active="teapot", passive=None,
+                      parts={"teapot": ("handle",)})
+    _, msgs = build_emission_prompt(grasp, vocab)
+    assert "owned by the passive object" not in msgs[0]["content"][0]["text"]
