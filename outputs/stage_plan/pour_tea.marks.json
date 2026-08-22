@@ -137,6 +137,18 @@
       "opening"
     ]
   },
+  "object_parts_requested": {
+    "teapot": [
+      "handle",
+      "body",
+      "spout"
+    ],
+    "mug": [
+      "rim",
+      "opening",
+      "interior"
+    ]
+  },
   "roles": {
     "grasp": {
       "object": "teapot",
@@ -148,7 +160,7 @@
     },
     "pour": {
       "object": "teapot",
-      "stage": 1
+      "stage": 2
     },
     "transport_passive": {
       "object": "mug",

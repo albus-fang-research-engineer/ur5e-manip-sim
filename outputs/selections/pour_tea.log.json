@@ -5,25 +5,29 @@
       "touchpoint": "select_point_axis",
       "attempts": 1,
       "rejections": [],
-      "flags": []
+      "flags": [],
+      "raw": "{\"candidate_id\": 0, \"axis\": \"teapot.handle_axis\", \"sign\": \"-\", \"secondary\": \"teapot.up_axis\", \"rationale\": \"For grasping the teapot, the interaction point should be the handle_center (candidate 0), which is the constructed center of the handle loop \u2014 the canonical grasp point for a teapot. The handle_axis points from the body toward the handle; approaching from the handle side means the grasp direction is along the negative handle_axis (into the handle from outside). The up_axis serves as secondary to orient the hand correctly relative to gravity.\"}"
     },
     {
       "touchpoint": "select_point_axis",
       "attempts": 1,
       "rejections": [],
-      "flags": []
+      "flags": [],
+      "raw": "{\"candidate_id\": 1, \"axis\": \"teapot.spout_axis\", \"sign\": \"-\", \"secondary\": \"teapot.up_axis\", \"rationale\": \"The task is to move the teapot spout over the mug opening to pour. Candidate 1 is the constructed spout_center, which is the ideal interaction point for aligning the spout tip over the mug's opening_center. The spout_axis pointing in the negative direction (downward/outward from spout tip toward the cup) is the correct axis to align with the mug's opening_axis for pouring. This is the canonical pour interaction point on the teapot.\"}"
     },
     {
       "touchpoint": "select_point_axis",
       "attempts": 1,
       "rejections": [],
-      "flags": []
+      "flags": [],
+      "raw": "{\"candidate_id\": 1, \"axis\": \"teapot.spout_axis\", \"sign\": \"+\", \"secondary\": null, \"rationale\": \"For pouring, the spout tip is the functional interaction point where liquid exits. Candidate 1 (constructed spout_center) is the canonical spout center point. The spout_axis points from the teapot body outward through the spout, and tilting the teapot so the spout points downward (rotating about the handle axis) directs flow into the mug. The spout_axis with + sign aligns the spout toward the mug opening.\"}"
     },
     {
       "touchpoint": "select_point_axis",
       "attempts": 1,
       "rejections": [],
-      "flags": []
+      "flags": [],
+      "raw": "{\"candidate_id\": 0, \"axis\": \"mug.opening_axis\", \"sign\": \"+\", \"secondary\": null, \"rationale\": \"To move the teapot over the cup, the teapot's spout must be positioned above the mug's opening. The canonical interaction point is the opening_center (candidate 0), which is the constructed center of the mug's rim/opening. The relevant axis is mug.opening_axis in the + direction (pointing upward out of the opening), which defines where the teapot should be placed above the mug.\"}"
     }
   ]
 }

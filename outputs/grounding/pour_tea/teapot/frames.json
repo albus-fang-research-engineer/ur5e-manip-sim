@@ -14,6 +14,13 @@
         "sigma_deg": null,
         "note": "outward axis only"
       },
+      "body": {
+        "primitive": "ungrounded",
+        "n_points": 0,
+        "rms_m": null,
+        "sigma_deg": null,
+        "note": "0 points < 30"
+      },
       "spout": {
         "primitive": "blob",
         "n_points": 456,

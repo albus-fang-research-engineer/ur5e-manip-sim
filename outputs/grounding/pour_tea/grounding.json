@@ -1,7 +1,15 @@
 {
   "provider": "oracle",
   "stage_plan": "outputs/stage_plan/pour_tea.marks.json",
-  "ungrounded": {},
+  "ungrounded": {
+    "teapot": [
+      "body"
+    ],
+    "mug": [
+      "rim",
+      "interior"
+    ]
+  },
   "grounded": {
     "teapot": {
       "handle": "blob",

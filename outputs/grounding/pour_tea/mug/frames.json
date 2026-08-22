@@ -7,12 +7,26 @@
     "producer": "manip_sim.part_grounding",
     "mask_provider": "oracle",
     "parts": {
+      "rim": {
+        "primitive": "ungrounded",
+        "n_points": 0,
+        "rms_m": null,
+        "sigma_deg": null,
+        "note": "0 points < 30"
+      },
       "opening": {
         "primitive": "ring",
         "n_points": 429,
         "rms_m": 0.00122,
         "sigma_deg": 0.02,
         "note": "arc 100%"
+      },
+      "interior": {
+        "primitive": "ungrounded",
+        "n_points": 0,
+        "rms_m": null,
+        "sigma_deg": null,
+        "note": "0 points < 30"
       }
     },
     "views": {
