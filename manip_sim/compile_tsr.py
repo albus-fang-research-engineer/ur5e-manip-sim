@@ -460,7 +460,14 @@ def compile_stage(emission: StageEmission,
             else:
                 raise CompileError(slot, (
                     f"mixed alignment (axis {ka!r}, reference {kr!r}) is "
-                    "outside the v1 rule table"))
+                    "outside the v1 rule table: a relation row grounds "
+                    "only when axis and reference are both along w_axis "
+                    "(z/z) or both perpendicular to it (plane/plane). "
+                    "Drop this row if another row already relates an "
+                    "along-w_axis axis to the same reference (that z/z "
+                    "row bounds roll and pitch, which is all a plane/z "
+                    "relation can ask for); otherwise restate it with an "
+                    "axis classified like the reference"))
 
         # ---- translation terms
         for i, t in enumerate(spec.trans):

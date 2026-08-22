@@ -326,8 +326,13 @@ def test_emission_retry_appends_rejections_as_user_turns(vocab):
             "path_tsr": {"rot": "free", "trans": "free"},
             "subgoal_tsr": {"rot": "free", "trans": "free"},
             "verify": "x"})
-    Client(transport=transport).emit_constraints(
-        STAGE, vocab, rejections=["s.rot[0]: bad"])
-    turns = seen[0]["messages"]
-    assert turns[-1]["role"] == "user"
+    c = Client(transport=transport)
+    c.emit_constraints(STAGE, vocab)
+    prior = c.logs[-1].raw
+    assert prior and json.loads(prior)["w_origin"] == "mug.opening_center"
+    c.emit_constraints(STAGE, vocab, rejections=[(prior, "s.rot[0]: bad")])
+    turns = seen[1]["messages"]
+    # prior emission replayed as the assistant turn, rejection as the user turn
+    assert [t["role"] for t in turns[-2:]] == ["assistant", "user"]
+    assert turns[-2]["content"][0]["text"] == prior
     assert "s.rot[0]: bad" in turns[-1]["content"][0]["text"]

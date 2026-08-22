@@ -180,7 +180,10 @@ def test_mixed_alignment_rejected():
         {"axis": "teapot.tilt_axis", "relation": "parallel",
          "reference": "world.z", "tol": "tight"}],   # plane vs z in w
         "trans": "free"}
-    assert "mixed alignment" in _expect(doc, e_feature=SPOUT).reason
+    reason = _expect(doc, e_feature=SPOUT).reason
+    assert "mixed alignment" in reason
+    # the retry loop feeds this text back to the model: it must name a remedy
+    assert "Drop this row" in reason
 
 
 def test_relation_row_without_feature_on_misaligned_w_rejected():

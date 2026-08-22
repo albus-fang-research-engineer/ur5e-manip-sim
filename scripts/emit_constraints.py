@@ -170,7 +170,7 @@ def main() -> None:
         # the grasp TSR constrains the gripper frame directly (Tw_e=I).
         # keyed by ROLE, not stage.name: call-#1 stage names are free text
         feat = feature if role in ("transport_active", "pour") else None
-        rejections: list[str] = []
+        rejections: list[tuple[str, str]] = []   # (raw emission, reason)
         err: dict | None = None
         for attempt in range(1 + COMPILE_RETRIES):
             em = client.emit_constraints(stage, vocab, selection=sel,
@@ -181,7 +181,8 @@ def main() -> None:
             try:
                 cs = compile_stage(em, symbols, poses, e_feature=feat)
             except CompileError as e:
-                rejections.append(f"{e.slot}: {e.reason}")
+                rejections.append((client.logs[-1].raw,
+                                   f"{e.slot}: {e.reason}"))
                 print(f"         compile rejected: {e.slot}: {e.reason}")
                 err = {"slot": e.slot, "reason": e.reason}
                 continue
@@ -193,7 +194,7 @@ def main() -> None:
             break
         else:
             gate.append((em.name, False, None,
-                         {**err, "rejections": rejections}))
+                         {**err, "rejections": [r for _, r in rejections]}))
         emissions.append(em)
 
     out = Path(args.out)

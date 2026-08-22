@@ -1034,6 +1034,7 @@ class CallLog:
     attempts: int = 0
     rejections: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
+    raw: str = ""          # accepted (parsed) response text, for replay
 
 
 class Client:
@@ -1075,6 +1076,7 @@ class Client:
                 continue
             for f in getattr(result, "flags_all", lambda: [])():
                 log.flags.append(f)
+            log.raw = raw
             return result
         raise VLMError(
             f"{touchpoint}: parse retry budget exhausted after "
@@ -1100,18 +1102,24 @@ class Client:
     def emit_constraints(self, stage: StageSpec, vocab: Vocabulary,
                          selection: PointAxisSelection | None = None,
                          view_paths: list[Path] | None = None,
-                         rejections: list[str] | None = None
+                         rejections: list[tuple[str, str]] | None = None
                          ) -> StageEmission:
-        """`rejections`: slot-named CompileError texts from earlier
-        attempts at this stage, appended as follow-up user turns. The
-        minimal form of touchpoint #5 (repair) until it exists: the
-        compiler's typed failure is what the model sees, nothing else."""
+        """`rejections`: (raw_emission, slot-named CompileError text) pairs
+        from earlier attempts at this stage, replayed as assistant/user
+        turn pairs so the model repairs ITS OWN emission rather than
+        re-rolling from the prompt (same shape as the parse-rejection
+        retry in _ask). The minimal form of touchpoint #5 (repair) until
+        it exists: the compiler's typed failure is what the model sees,
+        nothing else."""
         system, messages = build_emission_prompt(stage, vocab, selection,
                                                  view_paths)
-        for r in rejections or []:
-            messages = messages + [{"role": "user", "content": [_text(
-                f"Your previous emission for this stage was rejected by the "
-                f"compiler: {r}. Re-emit the corrected JSON object only.")]}]
+        for raw, r in rejections or []:
+            messages = messages + [
+                {"role": "assistant", "content": [_text(raw)]},
+                {"role": "user", "content": [_text(
+                    f"The compiler rejected that emission: {r}. Re-emit "
+                    "the corrected JSON object only, changing as little "
+                    "as needed.")]}]
         emission = self._ask("emit_constraints", system, messages,
                              lambda raw: parse_emission(raw, vocab))
         # surface literal flags into the call log
