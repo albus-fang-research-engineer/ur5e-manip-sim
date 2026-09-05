@@ -73,7 +73,8 @@ from manip_sim.compile_tsr import _canonical_w
 from manip_sim.frames import load_symbols
 from manip_sim.proposal import load_obj
 from manip_sim.selection import (extremal_band, load_pool, load_selections,
-                                 refine_body_basis, resolve_selection)
+                                 part_long_axis, refine_body_basis,
+                                 resolve_selection)
 from manip_sim.scene import add_scene_arg, load_scene
 from manip_sim.tsr import pose_from_pos_quat_wxyz
 
@@ -140,9 +141,20 @@ def main() -> None:
     scene = load_scene(args.scene, getattr(args, "grounding", None))
 
     sels = load_selections(args.selections)
+    raw = json.loads(Path(args.selections).read_text())
     by_obj: dict[str, dict] = {}
     for role, s in sorted(sels.items()):
-        by_obj.setdefault(s.axis.partition(".")[0], {})[role] = s
+        # the artifact records the object explicitly (point-only
+        # selections have no axis to derive it from); axis prefix is the
+        # fallback for pre-"object"-field artifacts
+        obj = (raw[role].get("object")
+               or (s.axis or "").partition(".")[0])
+        if not obj:
+            raise SystemExit(
+                f"[preview] role {role}: artifact records no object and "
+                "carries no axis to derive it from — regenerate with the "
+                "current select_frames.py")
+        by_obj.setdefault(obj, {})[role] = s
 
     panels = []
     symbols_all: dict = {}
@@ -176,8 +188,8 @@ def main() -> None:
     pools = {name: pool for name, _, pool, _ in panels}
     # the mover (fallback-x donor for a frontless w-owner) and the spawn
     # poses the emit gate freezes the canonical frame on
-    mover_name = next((s.axis.partition(".")[0] for r, s in sorted(sels.items())
-                       if r in MOVER_ROLES), None)
+    mover_name = next((o for o, roles in sorted(by_obj.items())
+                       for r in roles if r in MOVER_ROLES), None)
     body_poses = {n: pose_from_pos_quat_wxyz(*pq)
                   for n, pq in scene.fixed_poses().items()}
     roles = [(role, name, rf) for name, _, _, resolved in panels
@@ -203,7 +215,9 @@ def main() -> None:
         o = sel_T[:3, 3]
         ax.scatter(*np.atleast_2d(o).T, s=60, c="black", marker="o",
                    label=f"anchor: mark {sel_id}")
-        axis_desc = (f"z = {rf.selection.sign}"
+        axis_desc = ("point-only selection (frame z = canonical up "
+                     "default)" if rf.selection.axis is None else
+                     f"z = {rf.selection.sign}"
                      f"{rf.selection.axis.partition('.')[2]} "
                      f"({rf.axis_source})")
         # EVERY role: the anchor object's canonical frame at the mark —
@@ -232,10 +246,13 @@ def main() -> None:
             # canonical axes displace in relation rows; the call-#2
             # selection frame binds nothing under the emitted arm —
             # kept dashed for the hand arm's tilt_frame
-            overlay = "selection" if canon else None
+            # dashed selection axes only when an axis was actually
+            # selected (named/direction arms); under point-only there is
+            # nothing of the VLM's to draw beyond the anchor
+            overlay = ("selection" if canon and
+                       rf.selection.axis is not None else None)
             title = ((f"{role} — {canon}\n"
-                      f"anchor = Tw_e pin; selection axes hand-arm "
-                      f"only: {axis_desc}")
+                      f"anchor = Tw_e pin; {axis_desc}")
                      if canon else
                      f"{role} — {name} selection frame, {axis_desc}")
         else:                                    # grasp
@@ -256,9 +273,17 @@ def main() -> None:
                         label="selection axes (unconsumed)"
                         if col == 0 else None)
         elif overlay == "slide":
-            seg = np.array([o, o + 1.15 * L * sel_T[:3, 2]])
-            ax.plot(*seg.T, color="darkmagenta", lw=2.0,
-                    label="classifier slide/wrap axis")
+            # canonical-directions scheme: the slide axis is geometric
+            # (part-cloud PCA), no longer a VLM-named axis; fall back to
+            # the resolved selection z where the pool can't support PCA
+            handle_dir = part_long_axis(pool, "handle")
+            slide_lbl = "classifier slide/wrap axis (handle PCA)"
+            if handle_dir is None:
+                handle_dir, slide_lbl = (sel_T[:3, 2],
+                                         "classifier slide/wrap axis "
+                                         "(selection z: PCA unavailable)")
+            seg = np.array([o, o + 1.15 * L * handle_dir])
+            ax.plot(*seg.T, color="darkmagenta", lw=2.0, label=slide_lbl)
         c0 = V.mean(axis=0)
         lim = np.array([c0 - 1.7 * L, c0 + 1.7 * L])
         ax.set_xlim(lim[:, 0]); ax.set_ylim(lim[:, 1])

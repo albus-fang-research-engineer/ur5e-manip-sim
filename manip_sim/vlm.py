@@ -2,7 +2,8 @@
 discrete VLM touchpoints:
 
     #1  plan_stages         stage plan / part naming
-    #2  select_point_axis   interaction point + axis (MOKA-style marks)
+    #2  select_point_axis   interaction point (MOKA-style marks;
+                            direction/named-axis ablation arms)
     #3  emit_constraints    per-stage TSR schema filling
     #4  critique_preview    render-and-check critic verdict
     #5  repair              typed failure -> symbolic repair action
@@ -88,6 +89,16 @@ SIGNS = ("+", "-")
 ROT_ROWS = ("roll", "pitch", "yaw")
 TRANS_ROWS = ("x", "y", "z")
 WORLD_AXES = ("world.x", "world.y", "world.z")
+
+# Direction alphabet for the #2 canonical-directions ABLATION ARM (the
+# default #2 scheme is point-only): six signed canonical directions with
+# the sign fused into the token. Per object, only tokens whose canonical
+# column exists are licensed; see Vocabulary.canonical_directions. Its
+# renders would carry the drawn triad; the drawn triad's customers in
+# the default pipeline are the #3/#4 image-conditioned arms, never the
+# point-only #2 views.
+CANONICAL_DIRS = ("+front", "-front", "+left", "-left", "+up", "-up")
+_DIR_AXIS = {"front": "front_axis", "left": "lateral_axis", "up": "up_axis"}
 # The canonical object frame every object carries (frames.py): caller-
 # supplied up/front, lateral = up x front. The compiler roots each stage's
 # w on the passive object's; describe_symbols lists them apart from the
@@ -202,6 +213,17 @@ class Vocabulary:
     def axis_names(self) -> set[str]:
         return self._qualified("axes") | set(WORLD_AXES)
 
+    def canonical_directions(self, obj: str) -> tuple[str, ...]:
+        """Licensed #2 direction tokens for one object: those of the six
+        CANONICAL_DIRS whose mapped canonical column exists in the
+        object's axes table. Single source for the #2 prompt AND parser
+        accept set (a symmetric object without front_axis licenses only
+        +-up)."""
+        if obj not in self.objects:
+            raise KeyError(f"unknown object {obj!r}")
+        axes = set(self.objects[obj]["axes"])
+        return tuple(d for d in CANONICAL_DIRS if _DIR_AXIS[d[1:]] in axes)
+
     def quantity_names(self) -> set[str]:
         return self._qualified("quantities")
 
@@ -289,11 +311,15 @@ class StagePlan:
 
 @dataclass(frozen=True)
 class PointAxisSelection:
-    """#2 output: mark ID from the offered menu, axis by grounded name,
-    sign as the +-1 disambiguation, optional secondary axis reference
-    for the Gram-Schmidt x."""
+    """#2 output. Point-only scheme (default): mark ID + rationale;
+    axis is None and the resolver defaults the frame axis to canonical
+    up with explicit provenance — #2 is interaction-point proposal,
+    constraint semantics live at #3. Canonical-directions scheme
+    (ablation arm): a signed canonical direction token, normalized here
+    into (axis, sign). Named-axis scheme (ablation arm): axis by
+    grounded name, separate sign, optional Gram-Schmidt secondary."""
     candidate_id: int
-    axis: str              # qualified: "teapot.pour_axis"
+    axis: str | None       # qualified ("teapot.pour_axis") or None
     sign: str              # "+" | "-"
     secondary: str | None  # qualified axis name or None (body -z default)
     rationale: str         # free text, logged only — never parsed
@@ -637,7 +663,35 @@ def parse_stage_plan(raw: str, vocab: Vocabulary, task: str) -> StagePlan:
                      objects={h: r for h, r in refs.items() if h in used})
 
 
-def parse_point_axis(raw: str, vocab: Vocabulary) -> PointAxisSelection:
+def parse_point_axis_directions(raw: str, vocab: Vocabulary,
+                                obj: str) -> PointAxisSelection:
+    """Canonical-directions scheme (ablation arm): mark ID + one of the
+    object's licensed direction tokens (CANONICAL_DIRS subset),
+    normalized into the (axis, sign) form the resolver consumes."""
+    doc = _load_json(raw)
+    cid = _need(doc, "candidate_id", int, "selection")
+    if cid not in vocab.menu:
+        raise ParseRejection(
+            f"candidate_id {cid} is not on the offered menu; offered IDs: "
+            f"{sorted(vocab.menu)}")
+    licensed = vocab.canonical_directions(obj)
+    direction = _enum(_need(doc, "direction", str, "selection"), licensed,
+                      "selection.direction (the signed canonical "
+                      "directions drawn in the views)")
+    rationale = doc.get("rationale", "")
+    if not isinstance(rationale, str):
+        raise ParseRejection("selection.rationale must be a string")
+    sign, base = direction[0], direction[1:]
+    return PointAxisSelection(candidate_id=cid,
+                              axis=f"{obj}.{_DIR_AXIS[base]}",
+                              sign=sign, secondary=None,
+                              rationale=rationale)
+
+
+def parse_point_axis_named(raw: str, vocab: Vocabulary) -> PointAxisSelection:
+    """Named-axis scheme (ablation arm): grounded axis name + separate
+    sign token. Kept intact as the baseline the canonical-directions
+    scheme is ablated against."""
     doc = _load_json(raw)
     cid = _need(doc, "candidate_id", int, "selection")
     if cid not in vocab.menu:
@@ -874,6 +928,85 @@ def build_stage_plan_prompt(task: str, vocab: Vocabulary,
 
 def build_point_axis_prompt(stage: StageSpec, vocab: Vocabulary,
                             view_paths: list[Path]) -> tuple[str, list]:
+    """Point-only scheme (default): #2 is a pure interaction-point call.
+    Direction/constraint semantics are NOT selected here — relation rows
+    at #3 reference canonical axes symbolically and the compiler anchors
+    them in the canonical frames by rule, so the marked views carry no
+    drawn axes and the schema carries no axis slot."""
+    system = (
+        "You are the interaction-point selection module. The images are "
+        "rendered canonical views of the object with numbered candidate "
+        "marks (filled = visible in that view, hollow = occluded; reason "
+        "across views — constructed points such as cavity centers are "
+        "off-surface by design). Choose the single best candidate mark "
+        "for the stage: the point on or in the object where the "
+        "stage's interaction is anchored. You may ONLY use the offered "
+        "IDs.\n\n"
+        f"Candidate menu:\n{vocab.describe_menu()}\n\n"
+        "Output schema: {\"candidate_id\": int, \"rationale\": str}. "
+        + _JSON_ONLY)
+    content: list[dict] = [_text(
+        f"Stage {stage.index} ({stage.name}): active={stage.active}, "
+        f"passive={stage.passive}, parts={ {h: list(p) for h, p in stage.parts.items()} }. Select the "
+        "interaction point.")]
+    content += [image_block(p) for p in view_paths]
+    return system, [{"role": "user", "content": content}]
+
+
+def parse_point_axis(raw: str, vocab: Vocabulary) -> PointAxisSelection:
+    """Point-only scheme (default): mark ID + rationale. axis is None —
+    the resolver anchors its frame on the canonical up by explicit
+    default (provenance says so; no axis is attributed to the VLM)."""
+    doc = _load_json(raw)
+    cid = _need(doc, "candidate_id", int, "selection")
+    if cid not in vocab.menu:
+        raise ParseRejection(
+            f"candidate_id {cid} is not on the offered menu; offered IDs: "
+            f"{sorted(vocab.menu)}")
+    rationale = doc.get("rationale", "")
+    if not isinstance(rationale, str):
+        raise ParseRejection("selection.rationale must be a string")
+    return PointAxisSelection(candidate_id=cid, axis=None, sign="+",
+                              secondary=None, rationale=rationale)
+
+
+def build_point_axis_prompt_directions(stage: StageSpec, vocab: Vocabulary,
+                                       view_paths: list[Path]
+                                       ) -> tuple[str, list]:
+    """Canonical-directions scheme (ablation arm): the views carry the object's drawn
+    canonical triad; the axis slot is one of the object's licensed
+    signed directions read off it."""
+    licensed = vocab.canonical_directions(stage.active)
+    system = (
+        "You are the interaction-point selection module. The images are "
+        "rendered canonical views of the object with numbered candidate "
+        "marks (filled = visible in that view, hollow = occluded; reason "
+        "across views — constructed points such as cavity centers are "
+        "off-surface by design). The object's canonical frame is drawn "
+        "in every view as three labeled arrows: front (red), left "
+        "(gold), up (blue). A '-' direction is the exact opposite of "
+        "the drawn arrow. Choose the single best candidate mark for the "
+        "stage and the signed canonical direction anchoring the task "
+        "frame. You may ONLY use the offered IDs and direction "
+        "tokens.\n\n"
+        f"Candidate menu:\n{vocab.describe_menu()}\n\n"
+        f"Licensed directions for this object: {list(licensed)}\n\n"
+        "Output schema: {\"candidate_id\": int, \"direction\": "
+        "\"+front\"|\"-front\"|\"+left\"|\"-left\"|\"+up\"|\"-up\", "
+        "\"rationale\": str}. " + _JSON_ONLY)
+    content: list[dict] = [_text(
+        f"Stage {stage.index} ({stage.name}): active={stage.active}, "
+        f"passive={stage.passive}, parts={ {h: list(p) for h, p in stage.parts.items()} }. Select the "
+        "interaction point and direction.")]
+    content += [image_block(p) for p in view_paths]
+    return system, [{"role": "user", "content": content}]
+
+
+def build_point_axis_prompt_named(stage: StageSpec, vocab: Vocabulary,
+                                  view_paths: list[Path]) -> tuple[str, list]:
+    """Named-axis scheme (ablation arm): grounded axis names offered as
+    a text menu — the baseline the canonical-directions scheme is
+    ablated against."""
     system = (
         "You are the interaction-point selection module. The images are "
         "rendered canonical views of the object with numbered candidate "
@@ -1108,12 +1241,45 @@ class Client:
 
     def select_point_axis(self, stage: StageSpec, vocab: Vocabulary,
                           view_paths: list[Path]) -> PointAxisSelection:
+        """Point-only scheme (default): a pure interaction-point call."""
         if not vocab.menu:
             raise ValueError("select_point_axis requires a candidate menu "
                              "in the vocabulary")
         system, messages = build_point_axis_prompt(stage, vocab, view_paths)
         return self._ask("select_point_axis", system, messages,
                          lambda raw: parse_point_axis(raw, vocab))
+
+    def select_point_axis_directions(self, stage: StageSpec,
+                                     vocab: Vocabulary,
+                                     view_paths: list[Path]
+                                     ) -> PointAxisSelection:
+        """Canonical-directions scheme (ablation arm)."""
+        if not vocab.menu:
+            raise ValueError("select_point_axis requires a candidate menu "
+                             "in the vocabulary")
+        if stage.active not in vocab.objects:
+            raise ValueError(f"stage.active {stage.active!r} is not an "
+                             "object in the vocabulary")
+        if not vocab.canonical_directions(stage.active):
+            raise ValueError(f"{stage.active!r} licenses no canonical "
+                             "directions (no up/front/lateral axes)")
+        system, messages = build_point_axis_prompt_directions(
+            stage, vocab, view_paths)
+        return self._ask("select_point_axis", system, messages,
+                         lambda raw: parse_point_axis_directions(
+                             raw, vocab, stage.active))
+
+    def select_point_axis_named(self, stage: StageSpec, vocab: Vocabulary,
+                                view_paths: list[Path]
+                                ) -> PointAxisSelection:
+        """Named-axis scheme (ablation arm)."""
+        if not vocab.menu:
+            raise ValueError("select_point_axis requires a candidate menu "
+                             "in the vocabulary")
+        system, messages = build_point_axis_prompt_named(stage, vocab,
+                                                         view_paths)
+        return self._ask("select_point_axis", system, messages,
+                         lambda raw: parse_point_axis_named(raw, vocab))
 
     def emit_constraints(self, stage: StageSpec, vocab: Vocabulary,
                          selection: PointAxisSelection | None = None,

@@ -215,6 +215,54 @@ def draw_marks(img: Image.Image, uv: np.ndarray, visible: np.ndarray,
                 stroke_width=2, stroke_fill=(255, 255, 255))
 
 
+TRIAD_AXES = (("front_axis", "front", (215, 25, 28)),
+              ("lateral_axis", "left", (218, 165, 32)),
+              ("up_axis", "up", (43, 87, 219)))
+
+
+def draw_triad(img: Image.Image, cam: dict, axes: dict[str, np.ndarray],
+               origin: np.ndarray, length: float, px: int = VIEW_PX,
+               font_px: int = 15) -> list[str]:
+    """The object's canonical frame drawn as labeled POSITIVE arrows
+    (+front red, +left gold, +up blue) rooted at `origin`. Customers:
+    the human inspection montage, and the #3/#4 image-conditioned arms
+    where a model referencing canonical axes symbolically should see
+    which way they point. NEVER the #2 --vlm renders — interaction-point
+    proposal is deliberately axis-free. (Negatives are not drawn:
+    an arrowhead carries polarity; six arrows double clutter.)
+    Always drawn, no occlusion culling: directions are frame metadata,
+    not surface points. Near end-on arrows (short projections) are drawn
+    anyway; the other seven views carry the legibility. Returns the axis
+    names drawn (manifest record)."""
+    dr = ImageDraw.Draw(img)
+    font = _font(font_px)
+    drawn: list[str] = []
+    for axis_name, label, col in TRIAD_AXES:
+        if axis_name not in axes:
+            continue
+        d = np.asarray(axes[axis_name], float).reshape(3)
+        d = d / np.linalg.norm(d)
+        ends = np.vstack([origin, origin + length * d])
+        uv, _ = project(ends, cam, px=px)
+        (u0, v0), (u1, v1) = uv
+        dr.line([u0, v0, u1, v1], fill=(255, 255, 255), width=6)
+        dr.line([u0, v0, u1, v1], fill=col, width=3)
+        # arrowhead: two short barbs at the tip
+        t = np.array([u1 - u0, v1 - v0], float)
+        n = np.linalg.norm(t)
+        if n > 1e-6:
+            t = t / n
+            p = np.array([-t[1], t[0]])
+            for side in (1.0, -1.0):
+                b = np.array([u1, v1]) - 12.0 * t + side * 7.0 * p
+                dr.line([b[0], b[1], u1, v1], fill=(255, 255, 255), width=6)
+                dr.line([b[0], b[1], u1, v1], fill=col, width=3)
+        dr.text((u1 + 6, v1 - 8), label, fill=col, font=font,
+                stroke_width=2, stroke_fill=(255, 255, 255))
+        drawn.append(axis_name)
+    return drawn
+
+
 def montage(views: dict[str, Image.Image], name: str) -> Image.Image:
     font = _font(16)
     legend_h = 34
@@ -254,11 +302,14 @@ def load_visual_mesh(name: str, obj_dir: Path) -> tuple[np.ndarray, np.ndarray]:
 
 def render_views(name: str, obj_dir: Path, V: np.ndarray,
                  candidates: list[dict], size: int, font_px: int,
-                 mark_r: int
-                 ) -> tuple[dict[str, Image.Image], dict[str, np.ndarray]]:
+                 mark_r: int, axes: dict[str, np.ndarray] | None = None
+                 ) -> tuple[dict[str, Image.Image], dict[str, np.ndarray],
+                            list[str]]:
     """Eight canonical views with marks drawn — the loop shared by the
-    inspection montage and the VLM variant. Returns the images and the
-    per-view visibility booleans (candidate order preserved)."""
+    inspection montage and the VLM variant. `axes` (frames.json body
+    vectors) draws the labeled canonical triad at the cloud center.
+    Returns the images, the per-view visibility booleans (candidate
+    order preserved), and the triad axis names drawn."""
     X = np.array([c["xyz"] for c in candidates])
 
     center = 0.5 * (V.min(0) + V.max(0))
@@ -275,6 +326,7 @@ def render_views(name: str, obj_dir: Path, V: np.ndarray,
     renderer = mujoco.Renderer(model, size, size)
     views: dict[str, Image.Image] = {}
     vis: dict[str, np.ndarray] = {}
+    triad_drawn: list[str] = []
     for vname, cam in cams.items():
         renderer.disable_depth_rendering()
         renderer.update_scene(data, camera=vname, scene_option=vopt)
@@ -292,9 +344,13 @@ def render_views(name: str, obj_dir: Path, V: np.ndarray,
         img = Image.fromarray(rgb)
         draw_marks(img, uv, visible, candidates, px=size,
                    font_px=font_px, r=mark_r)
+        if axes:
+            triad_drawn = draw_triad(img, cam, axes, center,
+                                     0.55 * radius, px=size,
+                                     font_px=max(font_px, 15))
         views[vname] = img
     renderer.close()
-    return views, vis
+    return views, vis, triad_drawn
 
 
 def _warn_hidden(candidates: list[dict],
@@ -313,8 +369,9 @@ def run(name: str, obj_dir: Path) -> None:
     spec = json.loads((obj_dir / "frames.json").read_text())
     V, F = load_visual_mesh(name, obj_dir)
     pool = propose(name, V, F, spec)
-    views, vis = render_views(name, obj_dir, V, pool.candidates,
-                              VIEW_PX, 13, 6)
+    axes = {k: e["xyz"] for k, e in spec.get("axes", {}).items()}
+    views, vis, _ = render_views(name, obj_dir, V, pool.candidates,
+                                 VIEW_PX, 13, 6, axes=axes)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out = OUT_DIR / f"{name}.png"
@@ -339,8 +396,12 @@ def run_vlm(name: str, obj_dir: Path, parts: list[str]) -> None:
     menu = menu_from_pool(subset)
     candidates = [subset[i] for i in sorted(subset)]
     V, _ = load_visual_mesh(name, obj_dir)
-    views, vis = render_views(name, obj_dir, V, candidates,
-                              VLM_VIEW_PX, VLM_FONT_PX, VLM_MARK_R)
+    # NO drawn axes here: #2 is interaction-point proposal, deliberately
+    # axis-free — the marked views carry marks only. The drawn triad's
+    # customers are the human inspection montage and the #3/#4
+    # image-conditioned arms.
+    views, vis, _ = render_views(name, obj_dir, V, candidates,
+                                 VLM_VIEW_PX, VLM_FONT_PX, VLM_MARK_R)
 
     out_dir = VLM_DIR / name
     out_dir.mkdir(parents=True, exist_ok=True)

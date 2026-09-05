@@ -491,3 +491,41 @@ def test_vlm_subset_degenerate_geometry_no_duplicates():
               if c["source"] == "part" and c["part"] == "handle"]
     assert 1 <= len(handle) <= 4
     assert len({c["id"] for c in sub.values()}) == len(sub)
+
+
+# ------------------------------------------------- part_long_axis (PCA)
+
+def test_part_long_axis_recovers_elongation():
+    from manip_sim.selection import part_long_axis
+    rng = np.random.default_rng(3)
+    d = np.array([1.0, 2.0, 2.0]) / 3.0            # true long axis
+    t = rng.uniform(-0.05, 0.05, size=12)
+    P = t[:, None] * d + rng.normal(scale=0.002, size=(12, 3))
+    pool = {i: {"xyz": p, "part": "handle"} for i, p in enumerate(P)}
+    pool[99] = {"xyz": np.array([1.0, 1.0, 1.0]), "part": "spout"}  # ignored
+    v = part_long_axis(pool, "handle")
+    assert v is not None
+    assert abs(float(v @ d)) > 0.99                # direction, either sign
+    assert np.isclose(np.linalg.norm(v), 1.0)
+
+
+def test_part_long_axis_refuses_isotropic_and_sparse():
+    from manip_sim.selection import part_long_axis
+    rng = np.random.default_rng(4)
+    blob = {i: {"xyz": p, "part": "rim"}
+            for i, p in enumerate(rng.normal(scale=0.01, size=(20, 3)))}
+    assert part_long_axis(blob, "rim") is None     # no dominant axis
+    few = {i: {"xyz": p, "part": "rim"}
+           for i, p in enumerate(rng.normal(size=(3, 3)))}
+    assert part_long_axis(few, "rim") is None      # below min_points
+    assert part_long_axis(blob, "absent") is None  # no such part
+
+
+def test_resolve_point_only_defaults_axis_with_provenance():
+    from manip_sim.selection import (selection_to_json, selection_from_json)
+    sel = _sel(axis=None)
+    rf = resolve_selection(sel, _pool(), _symbols())
+    assert "up_axis" in rf.frame.name
+    assert "point-only default" in rf.axis_source
+    rt = selection_from_json(selection_to_json(sel))
+    assert rt.axis is None and rt.candidate_id == sel.candidate_id

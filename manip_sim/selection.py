@@ -416,7 +416,16 @@ def resolve_selection(selection: PointAxisSelection, pool: dict[int, dict],
             f"candidate_id {selection.candidate_id} is not in the pool "
             f"(ids {sorted(pool)}) — menu and pool built from different "
             "artifacts?")
-    axis_dir, axis_src = _resolve_axis(selection.axis, symbols, basis)
+    axis_name = selection.axis
+    if axis_name is None:
+        # point-only #2 scheme: no axis was selected by the VLM; anchor
+        # the frame on the canonical up by EXPLICIT default, and say so
+        # in provenance — the axis is ours, not the model's
+        axis_name = f"{symbols.object}.up_axis"
+        axis_dir, axis_src = _resolve_axis(axis_name, symbols, basis)
+        axis_src = f"{axis_src}; point-only default, not VLM-selected"
+    else:
+        axis_dir, axis_src = _resolve_axis(axis_name, symbols, basis)
     if selection.sign == "-":
         axis_dir = -axis_dir
 
@@ -430,12 +439,12 @@ def resolve_selection(selection: PointAxisSelection, pool: dict[int, dict],
     status = "placeholder" if axis_src == "coarse-kept" else "calibrated"
     frame = Frame(
         name=f"{symbols.object}.selected({selection.candidate_id},"
-             f"{selection.sign}{selection.axis.partition('.')[2]})",
+             f"{selection.sign}{axis_name.partition('.')[2]})",
         point=cand["xyz"].copy(), axis=axis_dir, secondary=sec_dir,
         status=status,
         comment=f"selection: mark {selection.candidate_id} "
                 f"[{menu_tag(cand)}], axis {selection.sign}"
-                f"{selection.axis} ({axis_src}), secondary {sec_src}")
+                f"{axis_name} ({axis_src}), secondary {sec_src}")
     return ResolvedFrame(frame=frame, selection=selection, candidate=cand,
                          axis_source=axis_src, secondary_source=sec_src,
                          basis=basis)
@@ -498,6 +507,36 @@ def couple_resolved(rf: ResolvedFrame, Bw: np.ndarray,
 
 # ----------------------------------------------------------- serialization
 
+def part_long_axis(pool: dict[int, dict], part: str,
+                   min_points: int = 4) -> np.ndarray | None:
+    """Long axis of a part, by PCA over the candidate pool's points
+    tagged with that part (all sources: part-quota samples, constructed
+    symbols, curvature hits carrying the tag) — the geometric
+    replacement for the named part axes (handle_axis) that the
+    canonical-directions #2 scheme no longer offers the VLM. Metric
+    directions come from geometry; the VLM contributes only semantic
+    choices from the closed canonical alphabet.
+
+    Returns a unit vector in body coords, sign normalized so the
+    largest-magnitude component is positive (the sign is cosmetic — the
+    one consumer is the grasp classifier's slide/wrap corridor, which is
+    symmetric). None when the tagged points are too few (< min_points)
+    or too isotropic to trust a principal direction (top singular value
+    < 1.5x the next — arc-shaped parts such as C-handles land near
+    1.9x, chord + curvature; isotropic blobs near 1.0x)."""
+    P = np.array([c["xyz"] for c in pool.values()
+                  if c.get("part") == part], dtype=float)
+    if len(P) < min_points:
+        return None
+    P = P - P.mean(axis=0)
+    _, s, Vt = np.linalg.svd(P, full_matrices=False)
+    if s[0] < 1.5 * s[1]:
+        return None
+    v = Vt[0]
+    v = v * np.sign(v[np.argmax(np.abs(v))])
+    return v / np.linalg.norm(v)
+
+
 def selection_to_json(sel: PointAxisSelection) -> dict:
     return {"candidate_id": sel.candidate_id, "axis": sel.axis,
             "sign": sel.sign, "secondary": sel.secondary,
@@ -505,8 +544,10 @@ def selection_to_json(sel: PointAxisSelection) -> dict:
 
 
 def selection_from_json(d: dict) -> PointAxisSelection:
+    axis = d.get("axis")
     return PointAxisSelection(
-        candidate_id=int(d["candidate_id"]), axis=str(d["axis"]),
+        candidate_id=int(d["candidate_id"]),
+        axis=None if axis is None else str(axis),
         sign=str(d["sign"]), secondary=d.get("secondary"),
         rationale=str(d.get("rationale", "")))
 

@@ -10,10 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from manip_sim.vlm import (CLEARANCES, MAX_PARSE_RETRIES, ROT_TOLS,
-                           Client, ParseRejection, PointAxisSelection,
-                           StageSpec, VLMError, Vocabulary, parse_critic,
-                           parse_emission, parse_point_axis,
+from manip_sim.vlm import (CANONICAL_DIRS, CLEARANCES, MAX_PARSE_RETRIES,
+                           ROT_TOLS, Client, ParseRejection,
+                           PointAxisSelection, StageSpec, VLMError,
+                           Vocabulary, parse_critic, parse_emission,
+                           parse_point_axis,
+                           parse_point_axis_directions,
+                           parse_point_axis_named,
                            parse_repair, parse_stage_plan, validate_expr)
 
 ASSETS = {n: Path(f"assets/objects/{n}") for n in ("teapot", "mug")}
@@ -28,7 +31,7 @@ def vocab():
     return Vocabulary(objects={
         "teapot": {"points": ("spout_tip", "handle_center"),
                    "axes": ("pour_axis", "up_axis", "handle_axis",
-                            "tilt_axis"),
+                            "tilt_axis", "front_axis", "lateral_axis"),
                    "quantities": ()},
         "mug": {"points": ("opening_center",), "axes": ("up_axis",),
                 "quantities": ("rim_radius",)},
@@ -144,28 +147,56 @@ def test_stage_plan_rejects_unknown_object(vocab):
 
 # ----------------------------------------------------------- touchpoint #2
 
-def test_selection_parses_and_strips_fences(vocab):
+def test_selection_point_only_parses_and_strips_fences(vocab):
     raw = ("```json\n" + json.dumps(
-        {"candidate_id": 3, "axis": "teapot.pour_axis", "sign": "+",
-         "secondary": "teapot.up_axis", "rationale": "spout side"})
-        + "\n```")
+        {"candidate_id": 3, "rationale": "spout side"}) + "\n```")
     sel = parse_point_axis(raw, vocab)
-    assert sel.candidate_id == 3 and sel.axis == "teapot.pour_axis"
+    assert sel.candidate_id == 3
+    assert sel.axis is None and sel.secondary is None
 
 
-def test_selection_rejects_off_menu_id(vocab):
-    raw = json.dumps({"candidate_id": 99, "axis": "teapot.pour_axis",
-                      "sign": "+"})
+def test_selection_point_only_rejects_off_menu_id(vocab):
+    raw = json.dumps({"candidate_id": 99, "rationale": "x"})
     with pytest.raises(ParseRejection) as e:
         parse_point_axis(raw, vocab)
     assert "menu" in str(e.value)
 
 
-def test_selection_rejects_unlicensed_axis(vocab):
-    raw = json.dumps({"candidate_id": 3, "axis": "teapot.magic_axis",
-                      "sign": "+"})
+def test_selection_directions_arm_normalizes_all_tokens(vocab):
+    expect = {"front": "front_axis", "left": "lateral_axis",
+              "up": "up_axis"}
+    for d in CANONICAL_DIRS:
+        sel = parse_point_axis_directions(
+            json.dumps({"candidate_id": 3, "direction": d}), vocab,
+            "teapot")
+        assert sel.axis == f"teapot.{expect[d[1:]]}" and sel.sign == d[0]
+
+
+def test_selection_directions_arm_world_axis_unrepresentable(vocab):
+    raw = json.dumps({"candidate_id": 3, "direction": "world.z"})
+    with pytest.raises(ParseRejection) as e:
+        parse_point_axis_directions(raw, vocab, "mug")
+    assert "direction" in str(e.value)
+
+
+def test_selection_directions_arm_licensing_follows_object_axes(vocab):
+    assert set(vocab.canonical_directions("mug")) == {"+up", "-up"}
+    assert set(vocab.canonical_directions("teapot")) == set(CANONICAL_DIRS)
+    with pytest.raises(ParseRejection) as e:
+        parse_point_axis_directions(json.dumps(
+            {"candidate_id": 3, "direction": "+front"}), vocab, "mug")
+    assert "+up" in str(e.value)
+
+
+def test_selection_named_arm_still_parses(vocab):
+    raw = json.dumps({"candidate_id": 3, "axis": "teapot.pour_axis",
+                      "sign": "+", "secondary": "teapot.up_axis"})
+    sel = parse_point_axis_named(raw, vocab)
+    assert sel.axis == "teapot.pour_axis" and sel.secondary == "teapot.up_axis"
     with pytest.raises(ParseRejection):
-        parse_point_axis(raw, vocab)
+        parse_point_axis_named(json.dumps(
+            {"candidate_id": 3, "axis": "teapot.magic_axis", "sign": "+"}),
+            vocab)
 
 
 # ----------------------------------------------------------- touchpoint #3
@@ -267,10 +298,8 @@ def test_retry_feeds_rejection_back_then_succeeds(vocab):
     def transport(payload):
         seen.append(payload)
         if len(seen) == 1:
-            return json.dumps({"candidate_id": 99,
-                               "axis": "teapot.pour_axis", "sign": "+"})
-        return json.dumps({"candidate_id": 7,
-                           "axis": "teapot.pour_axis", "sign": "-"})
+            return json.dumps({"candidate_id": 99, "rationale": "r"})
+        return json.dumps({"candidate_id": 7, "rationale": "r"})
 
     c = Client(transport=transport)
     sel = c.select_point_axis(STAGE, vocab, view_paths=[])

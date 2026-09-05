@@ -1,103 +1,105 @@
 {
   "object": "mug",
-  "source": "outputs/grounding/pour_tea/mug/candidates.json",
+  "source": "assets/objects/mug/candidates.json",
   "parts_filter": [
-    "opening"
+    "rim"
   ],
   "ids": [
     0,
     1,
     2,
-    9,
-    10,
-    11,
-    12,
-    13
+    3,
+    20,
+    21,
+    28,
+    29
   ],
   "menu": {
-    "0": "constructed opening_center (rim)",
-    "1": "part:opening",
-    "2": "part:opening",
-    "9": "curvature",
-    "10": "curvature",
-    "11": "curvature",
-    "12": "curvature",
-    "13": "curvature"
+    "0": "constructed base_center (base)",
+    "1": "constructed handle_center (handle)",
+    "2": "constructed opening_center (rim)",
+    "3": "constructed mid_cavity",
+    "20": "part:rim",
+    "21": "part:rim",
+    "28": "curvature",
+    "29": "curvature"
   },
   "views": {
     "+x": {
       "path": "outputs/candidates/vlm/mug/px.png",
       "visible_ids": [
-        0,
-        1,
         2,
-        10,
-        11
+        20,
+        21,
+        28
       ]
     },
     "-x": {
       "path": "outputs/candidates/vlm/mug/nx.png",
       "visible_ids": [
-        0,
-        1,
-        11,
-        12,
-        13
+        2,
+        20,
+        21,
+        28,
+        29
       ]
     },
     "+y": {
       "path": "outputs/candidates/vlm/mug/py.png",
       "visible_ids": [
-        0,
         1,
-        10,
-        13
+        2,
+        20,
+        21
       ]
     },
     "-y": {
       "path": "outputs/candidates/vlm/mug/ny.png",
       "visible_ids": [
-        0,
         1,
         2,
-        11,
-        12
+        20,
+        21,
+        28,
+        29
       ]
     },
     "top": {
       "path": "outputs/candidates/vlm/mug/top.png",
       "visible_ids": [
         0,
-        1,
         2,
-        11
+        3,
+        20,
+        21,
+        28
       ]
     },
     "bottom": {
       "path": "outputs/candidates/vlm/mug/bottom.png",
       "visible_ids": [
-        9,
-        10
+        0
       ]
     },
     "iso": {
       "path": "outputs/candidates/vlm/mug/iso.png",
       "visible_ids": [
-        0,
+        1,
         2,
-        10,
-        11,
-        12
+        20,
+        21,
+        28,
+        29
       ]
     },
     "iso-opp": {
       "path": "outputs/candidates/vlm/mug/isonopp.png",
       "visible_ids": [
-        0,
         2,
-        9,
-        11,
-        12
+        20,
+        21,
+        28,
+        29
       ]
     }
   }

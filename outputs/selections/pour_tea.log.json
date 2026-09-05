@@ -1,33 +1,33 @@
 {
-  "stage_plan": "outputs/stage_plan/pour_tea.marks.json",
+  "stage_plan": null,
   "client_logs": [
     {
       "touchpoint": "select_point_axis",
       "attempts": 1,
       "rejections": [],
       "flags": [],
-      "raw": "{\"candidate_id\": 0, \"axis\": \"teapot.handle_axis\", \"sign\": \"-\", \"secondary\": \"teapot.up_axis\", \"rationale\": \"For grasping the teapot, the interaction point should be the handle_center (candidate 0), which is the constructed center of the handle loop \u2014 the canonical grasp point for a teapot. The handle_axis points from the body toward the handle; approaching from the handle side means the grasp direction is along the negative handle_axis (into the handle from outside). The up_axis serves as secondary to orient the hand correctly relative to gravity.\"}"
+      "raw": "{\"candidate_id\": 1, \"rationale\": \"Candidate 1 is the constructed handle_center point, which represents the center of the teapot handle. For grasping the teapot handle, this is the ideal interaction point as it sits at the midpoint of the handle loop where a hand would naturally grip. It is consistently visible across multiple views and correctly positioned on the handle structure.\"}"
     },
     {
       "touchpoint": "select_point_axis",
       "attempts": 1,
       "rejections": [],
       "flags": [],
-      "raw": "{\"candidate_id\": 1, \"axis\": \"teapot.spout_axis\", \"sign\": \"-\", \"secondary\": \"teapot.up_axis\", \"rationale\": \"The task is to move the teapot spout over the mug opening to pour. Candidate 1 is the constructed spout_center, which is the ideal interaction point for aligning the spout tip over the mug's opening_center. The spout_axis pointing in the negative direction (downward/outward from spout tip toward the cup) is the correct axis to align with the mug's opening_axis for pouring. This is the canonical pour interaction point on the teapot.\"}"
+      "raw": "{\"candidate_id\": 3, \"rationale\": \"The stage requires carrying the spout tip over the mug opening. Candidate 3 is the constructed spout_tip point, located at the very tip of the teapot spout \u2014 the exact point that needs to be positioned over the mug opening for pouring. This is clearly visible across multiple views as the outermost point of the spout.\"}"
     },
     {
       "touchpoint": "select_point_axis",
       "attempts": 1,
       "rejections": [],
       "flags": [],
-      "raw": "{\"candidate_id\": 1, \"axis\": \"teapot.spout_axis\", \"sign\": \"+\", \"secondary\": null, \"rationale\": \"For pouring, the spout tip is the functional interaction point where liquid exits. Candidate 1 (constructed spout_center) is the canonical spout center point. The spout_axis points from the teapot body outward through the spout, and tilting the teapot so the spout points downward (rotating about the handle axis) directs flow into the mug. The spout_axis with + sign aligns the spout toward the mug opening.\"}"
+      "raw": "{\"candidate_id\": 3, \"rationale\": \"The stage is 'tilt about the spout tip to pour', so the interaction point must be the spout tip. Candidate 3 is the constructed spout_tip point, which is consistently shown at the very tip/end of the spout across all views. This is the exact point about which the teapot tilts to pour liquid into the mug.\"}"
     },
     {
       "touchpoint": "select_point_axis",
       "attempts": 1,
       "rejections": [],
       "flags": [],
-      "raw": "{\"candidate_id\": 0, \"axis\": \"mug.opening_axis\", \"sign\": \"+\", \"secondary\": null, \"rationale\": \"To move the teapot over the cup, the teapot's spout must be positioned above the mug's opening. The canonical interaction point is the opening_center (candidate 0), which is the constructed center of the mug's rim/opening. The relevant axis is mug.opening_axis in the + direction (pointing upward out of the opening), which defines where the teapot should be placed above the mug.\"}"
+      "raw": "{\"candidate_id\": 2, \"rationale\": \"The stage requires the mug opening (rim) as the interaction point where a spout must reach. Candidate 2 is the constructed opening_center at the rim, which represents the center of the mug's opening. This is the most appropriate anchor point for a spout reaching the mug opening, as it defines the geometric center of the rim opening where liquid would be poured in.\"}"
     }
   ]
 }
