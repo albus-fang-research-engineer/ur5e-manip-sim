@@ -14,18 +14,31 @@ slide direction). The panels reflect that:
     gray dots + IDs     the full candidate pool from candidates.json
     black dot           each SELECTED candidate (the anchor point —
                         always consumed)
-    solid triad         a frame the planner consumes: the w-owning
-                        object's CANONICAL frame at its selected point
-                        (transport_passive; via compile_tsr._canonical_w
-                        at the manifest spawn poses, so the fallback-x
-                        route matches the compile gate exactly), or the
-                        grasp classifier frame (grasp role).
+    solid RGB triad     EVERY panel: the anchor object's CANONICAL frame
+                        at the role's selected point (via
+                        compile_tsr._canonical_w at the manifest spawn
+                        poses, so the fallback-x route matches the
+                        compile gate exactly). One orientation per
+                        object, anchored per role — the canonical-frame
+                        redesign's invariant made visible; mismatched
+                        triads across panels of one object mean a route
+                        or frames.json-vs-refined divergence. It is w
+                        for the w-owner roles and (by the passive-less
+                        rule, Tw_e = I) for the grasp — stage 1 still
+                        routes handle_grasp_tsr, see the arrow below —
+                        and the relation-row axis source on mover roles.
                         x/front red, y/left gold, z/axis blue
-    dashed gray triad   the resolved selection frame on mover roles
-                        (transport_active, pour): NOT consumed under the
-                        emitted arm — only its anchor point is (the
-                        feature Tw_e pins); drawn faint for the hand-arm
-                        pour, whose tilt_frame still reads the axis.
+    dashed gray triad   mover roles (transport_active, pour) only: the
+                        resolved call-#2 selection frame. NOT consumed
+                        under the emitted arm — only its anchor point is
+                        (the feature Tw_e pins); kept as hand-arm
+                        tilt_frame context.
+    magenta arrow       grasp only: the classifier slide/wrap axis (the
+                        resolved handle axis — the one direction
+                        grasp_tsr's slide corridor and yaw wrap live
+                        on). The corridor is symmetric, so the call-#2
+                        sign fixes only the arrow's direction, not the
+                        accept set.
 
 so a wrong candidate, a wrong canonical route, or a frames.json-vs-
 refined divergence is visible before the frame ever reaches the planner
@@ -190,46 +203,62 @@ def main() -> None:
         o = sel_T[:3, 3]
         ax.scatter(*np.atleast_2d(o).T, s=60, c="black", marker="o",
                    label=f"anchor: mark {sel_id}")
-        title = (f"{role} — {name}, z = {rf.selection.sign}"
-                 f"{rf.selection.axis.partition('.')[2]} ({rf.axis_source}), "
-                 f"secondary {rf.secondary_source}")
+        axis_desc = (f"z = {rf.selection.sign}"
+                     f"{rf.selection.axis.partition('.')[2]} "
+                     f"({rf.axis_source})")
+        # EVERY role: the anchor object's canonical frame at the mark —
+        # the redesign's invariant (one orientation per object, anchored
+        # per role) made visible. Same helper + spawn poses as the emit
+        # gate, so the fallback-x route cannot drift from the compiler.
+        try:
+            w_frame, route = _canonical_w(
+                name, mover_name if mover_name != name else None,
+                symbols_all, body_poses, rf.frame.point, role)
+            T = w_frame.T()
+            canon = (f"{name} canonical @ mark {sel_id}: "
+                     f"z = up_axis, x = {route}")
+        except Exception as e:                   # no up_axis etc.: fall back
+            print(f"[preview] {role}: canonical frame unavailable ({e}); "
+                  "drawing the selection frame")
+            T, canon = sel_T, None
+        overlay = None                # extra per-role glyph on the anchor
         if role in W_OWNER_ROLES:
-            # what the compiler consumes: the w-owner's CANONICAL frame at
-            # the selected point, fallback-x route included — same helper,
-            # same spawn poses as the emit gate, so this cannot drift
-            try:
-                w_frame, route = _canonical_w(
-                    name, mover_name if mover_name != name else None,
-                    symbols_all, body_poses, rf.frame.point, role)
-                T, solid = w_frame.T(), True
-                title = (f"{role} — w = {name} canonical @ mark {sel_id}: "
-                         f"z = up_axis, x = {route}\n"
-                         "(one frame, shared by transport & pour)")
-            except Exception as e:               # no up_axis etc.: fall back
-                print(f"[preview] {role}: canonical w unavailable ({e}); "
-                      "drawing the selection frame")
-                T, solid = sel_T, True
+            title = ((f"{role} — w = {canon}\n"
+                      "(one frame, shared by transport & pour)")
+                     if canon else
+                     f"{role} — {name} selection frame, {axis_desc}")
         elif role in MOVER_ROLES:
-            # only the POINT is consumed (the feature Tw_e pins); the
-            # axes bind nothing under the emitted arm — drawn faint for
-            # the hand arm's tilt_frame
-            T, solid = sel_T, False
-            title = (f"{role} — {name} feature point (Tw_e pin); "
-                     f"axes hand-arm only: z = {rf.selection.sign}"
-                     f"{rf.selection.axis.partition('.')[2]}")
-        else:                                    # grasp: frame consumed
-            T, solid = sel_T, True
-            title += "\n(grasp classifier frame)"
+            # the POINT is consumed (the feature Tw_e pins) and the
+            # canonical axes displace in relation rows; the call-#2
+            # selection frame binds nothing under the emitted arm —
+            # kept dashed for the hand arm's tilt_frame
+            overlay = "selection" if canon else None
+            title = ((f"{role} — {canon}\n"
+                      f"anchor = Tw_e pin; selection axes hand-arm "
+                      f"only: {axis_desc}")
+                     if canon else
+                     f"{role} — {name} selection frame, {axis_desc}")
+        else:                                    # grasp
+            overlay = "slide" if canon else None
+            title = ((f"{role} — {canon}\n"
+                      f"classifier slide/wrap axis: {axis_desc}")
+                     if canon else
+                     f"{role} — {name} classifier frame, {axis_desc}")
         for col, color, lbl in ((0, "red", "x/front"),
                                 (1, "goldenrod", "y/left"),
                                 (2, "blue", "z/axis")):
             seg = np.array([T[:3, 3], T[:3, 3] + L * T[:3, col]])
-            if solid:
-                ax.plot(*seg.T, color=color, lw=2.6, label=lbl)
-            else:
+            ax.plot(*seg.T, color=color, lw=2.6, label=lbl)
+        if overlay == "selection":
+            for col in range(3):
+                seg = np.array([o, o + 0.85 * L * sel_T[:3, col]])
                 ax.plot(*seg.T, color="0.55", lw=1.2, ls="--",
                         label="selection axes (unconsumed)"
                         if col == 0 else None)
+        elif overlay == "slide":
+            seg = np.array([o, o + 1.15 * L * sel_T[:3, 2]])
+            ax.plot(*seg.T, color="darkmagenta", lw=2.0,
+                    label="classifier slide/wrap axis")
         c0 = V.mean(axis=0)
         lim = np.array([c0 - 1.7 * L, c0 + 1.7 * L])
         ax.set_xlim(lim[:, 0]); ax.set_ylim(lim[:, 1])
