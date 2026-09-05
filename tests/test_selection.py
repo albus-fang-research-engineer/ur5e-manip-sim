@@ -7,6 +7,7 @@ whose z is NOT the refined up (the pour frame's z = tilt case), with
 refine_frame's rejection asymmetry preserved per component."""
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -529,3 +530,65 @@ def test_resolve_point_only_defaults_axis_with_provenance():
     assert "point-only default" in rf.axis_source
     rt = selection_from_json(selection_to_json(sel))
     assert rt.axis is None and rt.candidate_id == sel.candidate_id
+
+
+# ------------------------------------------ selected_points (shared anchor
+# resolution for the emit gate and the #3 stage-frame render)
+
+ASSET_DIRS = {"teapot": Path("assets/objects/teapot"),
+              "mug": Path("assets/objects/mug")}
+_HAVE_POOLS = all((d / "candidates.json").exists() for d in ASSET_DIRS.values())
+
+
+def _pour_tea_selections():
+    """The point-only artifact shape select_frames.py writes (axis None;
+    the object recorded explicitly) for the fixed pour-tea roles."""
+    from manip_sim.vlm import StageSpec
+    sels = {"grasp": PointAxisSelection(1, None, "+", None, ""),
+            "transport_active": PointAxisSelection(3, None, "+", None, ""),
+            "pour": PointAxisSelection(3, None, "+", None, ""),
+            "transport_passive": PointAxisSelection(2, None, "+", None, "")}
+    objects = {"grasp": "teapot", "transport_active": "teapot",
+               "pour": "teapot", "transport_passive": "mug"}
+    role_index = {"grasp": 1, "transport_active": 2, "pour": 3,
+                  "transport_passive": 2}
+    stages = {
+        "grasp": StageSpec(1, "grasp", "teapot", None, {"teapot": ("handle",)}),
+        "transport_active": StageSpec(2, "transport", "teapot", "mug",
+                                      {"teapot": ("spout",), "mug": ("rim",)}),
+        "pour": StageSpec(3, "pour", "teapot", "mug",
+                          {"teapot": ("spout",), "mug": ("rim",)}),
+    }
+    return sels, objects, role_index, stages
+
+
+@pytest.mark.skipif(not _HAVE_POOLS, reason="candidate pools not written")
+def test_selected_points_roots_w_on_the_passive_and_pins_the_active_feature():
+    from manip_sim.frames import load_symbols
+    from manip_sim.selection import load_pool, selected_points
+    sels, objects, role_index, stages = _pour_tea_selections()
+    symbols = {n: load_symbols(d) for n, d in ASSET_DIRS.items()}
+    mug2 = load_pool(ASSET_DIRS["mug"])[2]["xyz"]
+    tp3 = load_pool(ASSET_DIRS["teapot"])[3]["xyz"]
+    tp1 = load_pool(ASSET_DIRS["teapot"])[1]["xyz"]
+    for role in ("transport_active", "pour"):
+        w, e = selected_points(role, stages[role], sels, objects, role_index,
+                               ASSET_DIRS, symbols)
+        np.testing.assert_allclose(w, mug2)       # the mug opening, both stages
+        np.testing.assert_allclose(e, tp3)        # the spout tip
+    w, e = selected_points("grasp", stages["grasp"], sels, objects,
+                           role_index, ASSET_DIRS, symbols)
+    np.testing.assert_allclose(w, tp1)            # handle: teapot owns w
+    assert e is None                              # the gripper is the mover
+
+
+@pytest.mark.skipif(not _HAVE_POOLS, reason="candidate pools not written")
+def test_selected_points_refuses_a_stage_with_no_w_selection_yet():
+    from manip_sim.frames import load_symbols
+    from manip_sim.selection import selected_points
+    sels, objects, role_index, stages = _pour_tea_selections()
+    symbols = {n: load_symbols(d) for n, d in ASSET_DIRS.items()}
+    role_index = {**role_index, "transport_passive": 5}   # selected AFTER pour
+    with pytest.raises(SystemExit, match="no call-#2 selection on 'mug'"):
+        selected_points("pour", stages["pour"], sels, objects, role_index,
+                        ASSET_DIRS, symbols)

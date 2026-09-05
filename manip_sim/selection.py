@@ -558,3 +558,55 @@ def load_selections(path) -> dict[str, PointAxisSelection]:
     outputs, and what plan_pour_tea consumes via --selections."""
     spec = json.loads(Path(path).read_text())
     return {role: selection_from_json(d) for role, d in spec.items()}
+
+def selection_objects(path, sels: dict[str, PointAxisSelection] | None = None
+                      ) -> dict[str, str]:
+    """role -> object for a selections artifact. The artifact records the
+    object explicitly (point-only selections carry no axis to derive it
+    from); the axis prefix is the fallback for pre-"object" artifacts."""
+    raw = json.loads(Path(path).read_text())
+    sels = sels if sels is not None else load_selections(path)
+    out = {}
+    for role, s in sels.items():
+        obj = raw[role].get("object") or (s.axis or "").partition(".")[0]
+        if not obj:
+            raise SystemExit(
+                f"[selection] role {role}: artifact records no object and "
+                "carries no axis to derive it from — regenerate with the "
+                "current select_frames.py")
+        out[role] = obj
+    return out
+
+
+def selected_points(role: str, stage, sels: dict[str, PointAxisSelection],
+                    objects: dict[str, str], role_index: dict[str, int],
+                    asset_dirs: dict, symbols: dict
+                    ) -> tuple[np.ndarray, np.ndarray | None]:
+    """(w_point, e_point) for a stage from the role-keyed call-#2
+    selections — the anchor points the compiler roots w on and Tw_e
+    pins, shared by the emit gate (emit_constraints.py) and the #3
+    stage-frame render (render_stage_frames.py) so both see one origin.
+
+    w's origin is the point most recently selected on the w-owning
+    object at or before this stage (the passive's interaction point,
+    e.g. the mug opening serves transport and pour alike); the feature
+    is this role's own selection when it lies on the active object
+    (None when the active frame is the gripper — no passive)."""
+    w_obj = stage.passive or stage.active
+    active = stage.active if stage.passive else None
+
+    def point(r):
+        o = objects[r]
+        return resolve_selection(sels[r], load_pool(asset_dirs[o]),
+                                 symbols[o]).frame.point
+
+    k = role_index[role]
+    on_w = [r for r in sels
+            if objects[r] == w_obj and role_index.get(r, -1) <= k]
+    if not on_w:
+        raise SystemExit(f"[selection] no call-#2 selection on {w_obj!r} at "
+                         f"or before stage {k} to root w on (roles "
+                         f"{sorted(sels)})")
+    w_role = max(on_w, key=lambda r: (role_index[r], r == role))
+    e_point = (point(role) if active and objects[role] == active else None)
+    return point(w_role), e_point

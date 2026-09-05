@@ -117,37 +117,6 @@ def _two_pass_inputs(role: str, sel_path: Path):
     return sel, views or None
 
 
-def _selected_points(role: str, stage: StageSpec, sels: dict,
-                     role_index: dict[str, int], asset_dirs: dict,
-                     symbols: dict) -> tuple[np.ndarray, np.ndarray | None]:
-    """(w_point, e_point) for a stage from the role-keyed call-#2
-    selections: w's origin is the point most recently selected on the
-    w-owning object at or before this stage (the passive's interaction
-    point, e.g. the mug opening serves transport and pour alike); the
-    feature is this role's own selection when it lies on the mover
-    (None when the mover is the gripper)."""
-    from manip_sim.selection import load_pool, resolve_selection
-    w_obj = stage.passive or stage.active
-    mover = stage.active if stage.passive else None
-
-    def obj_of(r):
-        return sels[r].axis.partition(".")[0]
-
-    def point(r):
-        o = obj_of(r)
-        return resolve_selection(sels[r], load_pool(asset_dirs[o]),
-                                 symbols[o]).frame.point
-
-    k = role_index[role]
-    on_w = [r for r in sels if obj_of(r) == w_obj and role_index.get(r, -1) <= k]
-    if not on_w:
-        raise SystemExit(f"[emit] no call-#2 selection on {w_obj!r} at or "
-                         f"before stage {k} to root w on (roles {sorted(sels)})")
-    w_role = max(on_w, key=lambda r: (role_index[r], r == role))
-    e_point = point(role) if mover and obj_of(role) == mover else None
-    return point(w_role), e_point
-
-
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--selections", default=None, metavar="JSON",
@@ -178,15 +147,17 @@ def main() -> None:
     # when given (the only source under runtime grounding — authored
     # symbol names do not exist there), else the authored symbols
     if args.selections:
-        from manip_sim.selection import load_selections
+        from manip_sim.selection import (load_selections, selected_points,
+                                         selection_objects)
         sels = load_selections(args.selections)
+        objects = selection_objects(args.selections, sels)
         if args.stage_plan:
             role_index = {r: st.index for r, (_, st) in b.roles.items()}
         else:
             from scripts.select_frames import ROLES
             role_index = {r: st.index for r, (_, st) in ROLES.items()}
-        points = {role: _selected_points(role, stage, sels, role_index,
-                                         asset_dirs, symbols)
+        points = {role: selected_points(role, stage, sels, objects,
+                                        role_index, asset_dirs, symbols)
                   for stage, role in stages}
     else:
         if "spout_tip" not in symbols.get("teapot", Symbols("x", {}, {})).points:
