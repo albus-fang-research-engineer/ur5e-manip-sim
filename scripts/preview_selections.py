@@ -1,21 +1,37 @@
 """Preview a selections artifact: resolve every role through
-manip_sim.selection and render the anchored frame triads on the object
-clouds — the inspection step for the OUTPUT side of the wiring, the
-complement of render_candidates.py (which inspects the INPUT menu).
+manip_sim.selection and render, per stage role, WHAT THE PLANNER
+CONSUMES on the object clouds — the inspection step for the OUTPUT side
+of the wiring, the complement of render_candidates.py (which inspects
+the INPUT menu).
 
-For each object referenced by the selections file it draws:
+Since the canonical-frame redesign the compiler roots every stage's w
+on the w-owning object's canonical frame at the call-#2 POINT; the
+selected axes are consumed only by the grasp classifier (hand arm's
+slide direction). The panels reflect that:
 
-    gray cloud        mesh vertices (proposal.load_obj — numpy only,
-                      no trimesh/mujoco dependency)
-    gray dots + IDs   the full candidate pool from candidates.json
-    black dot         each SELECTED candidate (the anchor)
-    triads            the resolved frame at each anchor:
-                      x/front red, y/left gold, z/axis blue
+    gray cloud          mesh vertices (proposal.load_obj — numpy only,
+                        no trimesh/mujoco dependency)
+    gray dots + IDs     the full candidate pool from candidates.json
+    black dot           each SELECTED candidate (the anchor point —
+                        always consumed)
+    solid triad         a frame the planner consumes: the w-owning
+                        object's CANONICAL frame at its selected point
+                        (transport_passive; via compile_tsr._canonical_w
+                        at the manifest spawn poses, so the fallback-x
+                        route matches the compile gate exactly), or the
+                        grasp classifier frame (grasp role).
+                        x/front red, y/left gold, z/axis blue
+    dashed gray triad   the resolved selection frame on mover roles
+                        (transport_active, pour): NOT consumed under the
+                        emitted arm — only its anchor point is (the
+                        feature Tw_e pins); drawn faint for the hand-arm
+                        pour, whose tilt_frame still reads the axis.
 
-so a wrong sign, a wrong candidate, or a frames.json-vs-refined
-divergence is visible before the frame ever reaches the planner or the
-preview critic. Provenance (which source resolved each ingredient) is
-printed per role — the same comment string the Frame carries.
+so a wrong candidate, a wrong canonical route, or a frames.json-vs-
+refined divergence is visible before the frame ever reaches the planner
+or the preview critic. Provenance (which source resolved each
+ingredient) is printed per role — the same comment string the Frame
+carries.
 
 With --refine, the Orient-Anything ladder is exercised the same way
 demo_refine_frame.py does (truth + tilt as the coarse stand-in), and
@@ -40,11 +56,18 @@ from pathlib import Path
 
 import numpy as np
 
+from manip_sim.compile_tsr import _canonical_w
 from manip_sim.frames import load_symbols
 from manip_sim.proposal import load_obj
 from manip_sim.selection import (extremal_band, load_pool, load_selections,
                                  refine_body_basis, resolve_selection)
 from manip_sim.scene import add_scene_arg, load_scene
+from manip_sim.tsr import pose_from_pos_quat_wxyz
+
+# stage-role semantics (select_frames.ROLES / the task contract): which
+# roles select the w-owning object's point vs the mover's feature point
+W_OWNER_ROLES = ("transport_passive",)
+MOVER_ROLES = ("transport_active", "pour")
 
 
 def _unit(v):
@@ -109,11 +132,13 @@ def main() -> None:
         by_obj.setdefault(s.axis.partition(".")[0], {})[role] = s
 
     panels = []
+    symbols_all: dict = {}
     for name, roles in sorted(by_obj.items()):
         obj_dir = scene.asset_dirs[name]
         V, _ = load_obj(obj_dir / "meshes" / f"{name}_visual.obj")
         spec = json.loads((obj_dir / "frames.json").read_text())
         sym = load_symbols(obj_dir)
+        symbols_all[name] = sym
         pool = load_pool(obj_dir)
         basis = (build_basis(name, V, spec, sym, args.tilt_deg,
                              args.front_tilt_deg) if args.refine else None)
@@ -136,6 +161,12 @@ def main() -> None:
     # unreadable; per-role panels show each frame alone on its object.
     clouds = {name: V for name, V, _, _ in panels}
     pools = {name: pool for name, _, pool, _ in panels}
+    # the mover (fallback-x donor for a frontless w-owner) and the spawn
+    # poses the emit gate freezes the canonical frame on
+    mover_name = next((s.axis.partition(".")[0] for r, s in sorted(sels.items())
+                       if r in MOVER_ROLES), None)
+    body_poses = {n: pose_from_pos_quat_wxyz(*pq)
+                  for n, pq in scene.fixed_poses().items()}
     roles = [(role, name, rf) for name, _, _, resolved in panels
              for role, rf in resolved.items()]
     roles.sort(key=lambda t: t[0])
@@ -155,25 +186,57 @@ def main() -> None:
                        linewidths=0)
             ax.text(*c["xyz"], f"{i}", fontsize=6, color="0.25")
         L = 0.35 * float(np.linalg.norm(V.max(0) - V.min(0)))
-        T = rf.frame.T()
-        o = T[:3, 3]
+        sel_T = rf.frame.T()
+        o = sel_T[:3, 3]
         ax.scatter(*np.atleast_2d(o).T, s=60, c="black", marker="o",
                    label=f"anchor: mark {sel_id}")
+        title = (f"{role} — {name}, z = {rf.selection.sign}"
+                 f"{rf.selection.axis.partition('.')[2]} ({rf.axis_source}), "
+                 f"secondary {rf.secondary_source}")
+        if role in W_OWNER_ROLES:
+            # what the compiler consumes: the w-owner's CANONICAL frame at
+            # the selected point, fallback-x route included — same helper,
+            # same spawn poses as the emit gate, so this cannot drift
+            try:
+                w_frame, route = _canonical_w(
+                    name, mover_name if mover_name != name else None,
+                    symbols_all, body_poses, rf.frame.point, role)
+                T, solid = w_frame.T(), True
+                title = (f"{role} — w = {name} canonical @ mark {sel_id}: "
+                         f"z = up_axis, x = {route}\n"
+                         "(one frame, shared by transport & pour)")
+            except Exception as e:               # no up_axis etc.: fall back
+                print(f"[preview] {role}: canonical w unavailable ({e}); "
+                      "drawing the selection frame")
+                T, solid = sel_T, True
+        elif role in MOVER_ROLES:
+            # only the POINT is consumed (the feature Tw_e pins); the
+            # axes bind nothing under the emitted arm — drawn faint for
+            # the hand arm's tilt_frame
+            T, solid = sel_T, False
+            title = (f"{role} — {name} feature point (Tw_e pin); "
+                     f"axes hand-arm only: z = {rf.selection.sign}"
+                     f"{rf.selection.axis.partition('.')[2]}")
+        else:                                    # grasp: frame consumed
+            T, solid = sel_T, True
+            title += "\n(grasp classifier frame)"
         for col, color, lbl in ((0, "red", "x/front"),
                                 (1, "goldenrod", "y/left"),
                                 (2, "blue", "z/axis")):
-            seg = np.array([o, o + L * T[:3, col]])
-            ax.plot(*seg.T, color=color, lw=2.6, label=lbl)
+            seg = np.array([T[:3, 3], T[:3, 3] + L * T[:3, col]])
+            if solid:
+                ax.plot(*seg.T, color=color, lw=2.6, label=lbl)
+            else:
+                ax.plot(*seg.T, color="0.55", lw=1.2, ls="--",
+                        label="selection axes (unconsumed)"
+                        if col == 0 else None)
         c0 = V.mean(axis=0)
         lim = np.array([c0 - 1.7 * L, c0 + 1.7 * L])
         ax.set_xlim(lim[:, 0]); ax.set_ylim(lim[:, 1])
         ax.set_zlim(lim[:, 2])
         ax.set_box_aspect((1, 1, 1))
         ax.set_axis_off()
-        ax.set_title(
-            f"{role} — {name}, z = {rf.selection.sign}"
-            f"{rf.selection.axis.partition('.')[2]} ({rf.axis_source}), "
-            f"secondary {rf.secondary_source}", fontsize=9)
+        ax.set_title(title, fontsize=9)
         ax.legend(loc="upper left", fontsize=7)
     fig.suptitle("refined basis" if args.refine else "frames.json arm",
                  fontsize=10)
