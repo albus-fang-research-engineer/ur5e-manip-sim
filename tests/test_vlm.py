@@ -205,13 +205,13 @@ def good_emission():
     return {
         "stage": 2, "name": "pour", "active": "teapot", "passive": "mug",
         "path_tsr": {
-            "rot": [{"axis": "teapot.up_axis", "relation": "parallel",
+            "rot": [{"axis": "teapot.+up", "relation": "parallel",
                      "reference": "world.z", "tol": "moderate"}],
             "trans": "free"},
         "subgoal_tsr": {
-            "rot": [{"axis": "teapot.pour_axis",
+            "rot": [{"axis": "teapot.+front",
                      "relation": "antiparallel",
-                     "reference": "mug.up_axis", "tol": "loose"},
+                     "reference": "mug.+up", "tol": "loose"},
                     {"relation": "free", "row": "yaw"}],
             "trans": [
                 {"term": "above", "anchor": "mug.opening_center",
@@ -259,6 +259,147 @@ def test_emission_rejects_unknown_anchor(vocab):
     doc["subgoal_tsr"]["trans"][0]["anchor"] = "mug.spout_tip"
     with pytest.raises(ParseRejection):
         parse_emission(json.dumps(doc), vocab)
+
+
+# ---------------------------------------- #3 six-direction axis alphabet
+
+def _rot(axis, rel, ref, tol="moderate"):
+    return {"axis": axis, "relation": rel, "reference": ref, "tol": tol}
+
+
+def _emission_with(rows):
+    doc = good_emission()
+    doc["subgoal_tsr"]["rot"] = rows
+    return doc
+
+
+def test_direction_names_is_the_drawn_triad_and_nothing_else(vocab):
+    """The #3 accept set is exactly the licensed signed canonical
+    directions per object: teapot all six, the sim mug only +-up (no
+    front_axis column). Fitted axes and world.* are NOT in it — the
+    drawn triad and the token alphabet are the same set."""
+    d = vocab.direction_names()
+    assert {f"teapot.{t}" for t in CANONICAL_DIRS} <= d
+    assert {"mug.+up", "mug.-up"} <= d
+    assert "mug.+front" not in d and "mug.-left" not in d
+    assert not any(n.endswith("_axis") for n in d)
+    assert not any(n.startswith("world.") for n in d)
+    # the fitted table is untouched for its other customers
+    assert "teapot.pour_axis" in vocab.axis_names()
+
+
+@pytest.mark.parametrize("a,rel,ref,want_rel", [
+    ("teapot.+up", "parallel", "mug.+up", "parallel"),
+    ("teapot.-up", "antiparallel", "mug.+up", "parallel"),
+    ("teapot.+up", "antiparallel", "mug.-up", "parallel"),
+    ("teapot.-up", "parallel", "mug.-up", "parallel"),
+    ("teapot.-up", "parallel", "mug.+up", "antiparallel"),
+    ("teapot.-front", "antiparallel", "world.z", "parallel"),
+    ("teapot.+front", "antiparallel", "world.z", "antiparallel"),
+    ("teapot.-left", "perpendicular", "mug.+up", "perpendicular"),
+    ("teapot.+left", "perpendicular", "mug.-up", "perpendicular"),
+])
+def test_rot_row_sign_normalization(vocab, a, rel, ref, want_rel):
+    """Signs are stripped at parse time; a negative sign product flips
+    parallel<->antiparallel; perpendicular is sign-invariant; world.z
+    carries '+'. The compiler sees only unsigned canonical axis names."""
+    em = parse_emission(json.dumps(_emission_with([_rot(a, rel, ref)])), vocab)
+    row = em.subgoal_tsr.rot[0]
+    assert row.axis == f"teapot.{a.split('.')[1][1:].replace('left', 'lateral')}_axis"
+    assert row.reference == ("world.z" if ref == "world.z"
+                             else "mug.up_axis")
+    assert row.relation == want_rel
+    assert row.tol == "moderate"
+
+
+def test_rot_row_equivalent_forms_yield_identical_rows(vocab):
+    a = parse_emission(json.dumps(_emission_with(
+        [_rot("teapot.-up", "antiparallel", "mug.+up")])), vocab)
+    b = parse_emission(json.dumps(_emission_with(
+        [_rot("teapot.+up", "parallel", "mug.+up")])), vocab)
+    assert a.subgoal_tsr.rot == b.subgoal_tsr.rot
+
+
+@pytest.mark.parametrize("slot,bad", [
+    ("axis", "teapot.pour_axis"),      # fitted axis name: not a token any more
+    ("axis", "teapot.up_axis"),        # unsigned canonical column name
+    ("axis", "+up"),                   # unqualified
+    ("axis", "mug.+front"),            # unlicensed for this object (no front)
+    ("axis", "world.z"),               # world is a reference, never an axis
+    ("reference", "world.x"),          # scene layout, not gravity
+    ("reference", "world.y"),
+    ("reference", "mug.up_axis"),
+    ("reference", "mug.+front"),
+    ("reference", "teapot.pour_axis"),
+])
+def test_rot_row_rejects_tokens_outside_the_direction_alphabet(vocab, slot, bad):
+    row = _rot("teapot.+up", "parallel", "mug.+up")
+    row[slot] = bad
+    with pytest.raises(ParseRejection) as e:
+        parse_emission(json.dumps(_emission_with([row])), vocab)
+    assert repr(bad) in str(e.value) and slot in str(e.value)
+
+
+def test_rot_row_reference_rejection_offers_world_z(vocab):
+    """The rejection text is the model's repair input: it must list
+    world.z among the allowed references, and the list is sorted so the
+    text is deterministic across runs."""
+    row = _rot("teapot.+up", "parallel", "world.x")
+    with pytest.raises(ParseRejection) as e:
+        parse_emission(json.dumps(_emission_with([row])), vocab)
+    msg = str(e.value)
+    assert "'world.z'" in msg and "'world.x'" not in msg.split("allowed")[1]
+    allowed = msg.split("allowed: ")[1]
+    assert allowed == str(sorted(eval(allowed)))
+
+
+def test_along_takes_a_fused_direction_token(vocab):
+    doc = good_emission()
+    doc["subgoal_tsr"]["trans"] = [{"term": "along", "axis": "mug.-up"}]
+    em = parse_emission(json.dumps(doc), vocab)
+    t = em.subgoal_tsr.trans[0]
+    assert (t.term, t.axis, t.sign) == ("along", "mug.up_axis", "-")
+
+
+@pytest.mark.parametrize("term", [
+    {"term": "along", "axis": "mug.up_axis", "sign": "-"},   # old form
+    {"term": "along", "axis": "mug.-up", "sign": "-"},       # redundant sign
+    {"term": "along", "axis": "mug.+front"},                 # unlicensed
+    {"term": "along", "axis": "world.z"},
+])
+def test_along_rejects_separate_sign_and_non_direction_tokens(vocab, term):
+    doc = good_emission()
+    doc["subgoal_tsr"]["trans"] = [term]
+    with pytest.raises(ParseRejection):
+        parse_emission(json.dumps(doc), vocab)
+
+
+def test_emission_prompt_speaks_the_direction_alphabet(vocab):
+    """The #3 prompt lists licensed directions per object and no fitted
+    axis names; world.z stays as the one world reference; the point-only
+    #2 selection contributes only its candidate id (no axis/sign
+    injection). The schema-only and image arms share this text."""
+    from manip_sim.vlm import build_emission_prompt
+    system, msgs = build_emission_prompt(STAGE, vocab)
+    assert vocab.describe_directions() in system
+    assert "pour_axis" not in system and "handle_axis" not in system
+    assert "up_axis" not in system and "front_axis" not in system
+    assert "world.z" in system and "world.x" not in system
+    for d in CANONICAL_DIRS:
+        assert f"obj.{d}" in system
+    sel = PointAxisSelection(candidate_id=12, axis=None, sign="+",
+                             secondary=None, rationale="")
+    _, msgs = build_emission_prompt(STAGE, vocab, selection=sel)
+    text = msgs[0]["content"][0]["text"]
+    assert "candidate 12" in text and "None" not in text and "sign" not in text
+
+
+def test_describe_directions_lists_licensed_set_per_object(vocab):
+    desc = vocab.describe_directions()
+    assert "object `mug`:" in desc and "+up, -up" in desc
+    assert "+front, -front, +left, -left, +up, -up" in desc
+    assert "opening_center" in desc and "rim_radius" in desc
+    assert "pour_axis" not in desc
 
 
 # -------------------------------------------------------- touchpoints #4/#5

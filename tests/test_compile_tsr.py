@@ -50,7 +50,7 @@ def _tilted(T, deg, axis=(1.0, 0.0, 0.0)):
     return T
 
 
-UPRIGHT = {"axis": "teapot.up_axis", "relation": "parallel",
+UPRIGHT = {"axis": "teapot.+up", "relation": "parallel",
            "reference": "world.z", "tol": "moderate"}
 TRANSPORT = {
     "stage": 2, "name": "transport", "active": "teapot", "passive": "mug",
@@ -63,7 +63,7 @@ TRANSPORT = {
     "verify": "spout tip hovers over the mug opening",
 }
 
-SPOUT_DOWN = {"axis": "teapot.front_axis", "relation": "antiparallel",
+SPOUT_DOWN = {"axis": "teapot.+front", "relation": "antiparallel",
               "reference": "world.z", "tol": "tight"}
 POUR = {
     "stage": 3, "name": "pour", "active": "teapot", "passive": "mug",
@@ -105,8 +105,8 @@ def test_w_uses_passive_front_when_present():
     # swap roles: the teapot (which has a front) is passive
     doc = {**TRANSPORT, "active": "mug", "passive": "teapot",
            "path_tsr": {"rot": "free", "trans": "free"},
-           "subgoal_tsr": {"rot": [{"axis": "mug.up_axis", "relation": "parallel",
-                                    "reference": "teapot.up_axis", "tol": "tight"}],
+           "subgoal_tsr": {"rot": [{"axis": "mug.+up", "relation": "parallel",
+                                    "reference": "teapot.+up", "tol": "tight"}],
                            "trans": "free"}}
     cs = compile_stage(emission(doc), SYMBOLS, POSES, w_point=TIP)
     front = _u(POSES["teapot"][:3, :3] @ SYMBOLS["teapot"].axes["front_axis"])
@@ -274,7 +274,7 @@ def test_corridor_never_on_pitch():
 
 def test_perpendicular_fixes_one_tilt():
     doc = {**TRANSPORT, "subgoal_tsr": {"rot": [
-        {"axis": "teapot.front_axis", "relation": "perpendicular",
+        {"axis": "teapot.+front", "relation": "perpendicular",
          "reference": "world.z", "tol": "loose"}], "trans": "free"}}
     cs = compile_stage(emission(doc), SYMBOLS, POSES, w_point=OPENING, e_point=TIP)
     # front is horizontal at entry: goal == entry; the tilt of front toward
@@ -293,8 +293,8 @@ def test_two_rows_fully_determine_attitude():
                       mg.quantities)
     doc = {**TRANSPORT, "subgoal_tsr": {"rot": [
         UPRIGHT,
-        {"axis": "teapot.front_axis", "relation": "parallel",
-         "reference": "mug.front_axis", "tol": "loose"}], "trans": "free"}}
+        {"axis": "teapot.+front", "relation": "parallel",
+         "reference": "mug.+front", "tol": "loose"}], "trans": "free"}}
     syms = {**SYMBOLS, "mug": fronted}
     em = parse_emission(json.dumps(doc), Vocabulary.from_symbols(syms))
     cs = compile_stage(em, syms, POSES, w_point=OPENING, e_point=TIP)
@@ -353,8 +353,8 @@ def test_anchor_off_w_object_rejected():
 def test_reference_on_active_object_rejected():
     doc = dict(TRANSPORT)
     doc["subgoal_tsr"] = {"rot": [
-        {"axis": "teapot.up_axis", "relation": "parallel",
-         "reference": "teapot.pour_axis", "tol": "tight"}],
+        {"axis": "teapot.+up", "relation": "parallel",
+         "reference": "teapot.+front", "tol": "tight"}],
         "trans": "free"}
     assert "degenerate" in _expect(doc).reason
 
@@ -362,7 +362,7 @@ def test_reference_on_active_object_rejected():
 def test_axis_on_passive_object_rejected():
     doc = dict(TRANSPORT)
     doc["subgoal_tsr"] = {"rot": [
-        {"axis": "mug.up_axis", "relation": "parallel",
+        {"axis": "mug.+up", "relation": "parallel",
          "reference": "world.z", "tol": "tight"}], "trans": "free"}
     assert "must belong to the active object" in _expect(doc).reason
 
@@ -386,14 +386,14 @@ def test_reference_off_w_basis_rejected():
 
 def test_half_turn_flip_rejected():
     doc = {**TRANSPORT, "subgoal_tsr": {"rot": [
-        {"axis": "teapot.up_axis", "relation": "antiparallel",
+        {"axis": "teapot.+up", "relation": "antiparallel",
          "reference": "world.z", "tol": "tight"}], "trans": "free"}}
     assert "half-turn" in _expect(doc, e_point=TIP).reason
 
 
 def test_perpendicular_from_parallel_entry_rejected():
     doc = {**TRANSPORT, "subgoal_tsr": {"rot": [
-        {"axis": "teapot.up_axis", "relation": "perpendicular",
+        {"axis": "teapot.+up", "relation": "perpendicular",
          "reference": "world.z", "tol": "tight"}], "trans": "free"}}
     assert "ambiguous" in _expect(doc, e_point=TIP).reason
 
@@ -488,3 +488,37 @@ def test_path_and_subgoal_errors_reported_together():
     # single-TSR failure keeps the plain shape
     doc["path_tsr"] = {"rot": "free", "trans": "free"}
     assert _expect(doc).others == ()
+
+
+# --------------------------- six-direction alphabet: compiler unchanged
+
+def test_direction_tokens_compile_identically_to_unsigned_rows():
+    """Patch-1 invariant: the parser's sign normalization hands the
+    compiler exactly the unsigned RotRow it consumed before the alphabet
+    change, so B^w, T0_w and Tw_e are bit-identical between (a) the
+    six-direction emission parsed through vlm.py and (b) a hand-built
+    StageEmission in the compiler's own unsigned form. The two signed
+    spellings of the pour tilt are checked against the same target."""
+    from dataclasses import replace
+    from manip_sim.vlm import RotRow
+    parsed = emission(POUR)                        # "teapot.+front antiparallel world.z"
+    flipped = dict(POUR)
+    flipped["path_tsr"] = {**POUR["path_tsr"], "rot": [
+        {"axis": "teapot.-front", "relation": "parallel",
+         "reference": "world.z", "tol": "tight"}]}
+    flipped["subgoal_tsr"] = {**POUR["subgoal_tsr"], "rot": flipped["path_tsr"]["rot"]}
+    parsed_flipped = emission(flipped)
+    unsigned = RotRow(axis="teapot.front_axis", relation="antiparallel",
+                      reference="world.z", tol="tight")
+    hand = replace(parsed,
+                   path_tsr=replace(parsed.path_tsr, rot=(unsigned,)),
+                   subgoal_tsr=replace(parsed.subgoal_tsr, rot=(unsigned,)))
+    assert parsed.path_tsr.rot == (unsigned,) == parsed_flipped.path_tsr.rot
+    outs = [compile_stage(e, SYMBOLS, POSES, w_point=OPENING, e_point=TIP)
+            for e in (parsed, parsed_flipped, hand)]
+    for cs in outs[1:]:
+        for k in ("path", "subgoal"):
+            a, b = getattr(outs[0], k), getattr(cs, k)
+            np.testing.assert_array_equal(a.Bw, b.Bw)
+            np.testing.assert_array_equal(a.T0_w, b.T0_w)
+            np.testing.assert_array_equal(a.Tw_e, b.Tw_e)

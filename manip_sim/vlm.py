@@ -4,7 +4,8 @@ discrete VLM touchpoints:
     #1  plan_stages         stage plan / part naming
     #2  select_point_axis   interaction point (MOKA-style marks;
                             direction/named-axis ablation arms)
-    #3  emit_constraints    per-stage TSR schema filling
+    #3  emit_constraints    per-stage TSR schema filling; axes are the
+                            six signed canonical directions (+world.z)
     #4  critique_preview    render-and-check critic verdict
     #5  repair              typed failure -> symbolic repair action
 
@@ -23,7 +24,9 @@ anything outside it is REJECTED, not coerced. Concretely:
     grounded quantity symbols (rim_radius, ...); bare numeric literals
     inside expressions are permitted but FLAGGED and logged — the
     documented soft boundary of the bound vocabulary;
-  * signs are the VLM's only geometric contribution: a binary +/- token.
+  * signs are the VLM's only geometric contribution: a binary +/- token,
+    fused into the direction token at #3 ("teapot.-up") and normalized
+    at parse time into the compiler's unsigned axis + relation/sign form.
 
 Single-source vocabulary: one Vocabulary object is built from the same
 artifacts the geometric pipeline uses (frames.json Symbols tables, the
@@ -90,15 +93,23 @@ ROT_ROWS = ("roll", "pitch", "yaw")
 TRANS_ROWS = ("x", "y", "z")
 WORLD_AXES = ("world.x", "world.y", "world.z")
 
-# Direction alphabet for the #2 canonical-directions ABLATION ARM (the
-# default #2 scheme is point-only): six signed canonical directions with
-# the sign fused into the token. Per object, only tokens whose canonical
-# column exists are licensed; see Vocabulary.canonical_directions. Its
-# renders would carry the drawn triad; the drawn triad's customers in
-# the default pipeline are the #3/#4 image-conditioned arms, never the
-# point-only #2 views.
+# Direction alphabet: six signed canonical directions with the sign
+# fused into the token. Per object, only tokens whose canonical column
+# exists are licensed; see Vocabulary.canonical_directions. This is the
+# ONLY axis alphabet at #3 (rot-row axis/reference, along) — the fitted
+# part axes (pour_axis, handle_axis, tilt_axis) stay in frames.json for
+# the grasp classifier but are not VLM-referenceable — and the #2
+# canonical-directions ABLATION ARM's direction slot (the default #2
+# scheme is point-only). The set is exactly what a drawn canonical triad
+# shows: three positive arrows, each '-' the same arrow reversed.
 CANONICAL_DIRS = ("+front", "-front", "+left", "-left", "+up", "-up")
 _DIR_AXIS = {"front": "front_axis", "left": "lateral_axis", "up": "up_axis"}
+# The only world direction licensed as a #3 rot-row reference: gravity is
+# task-relevant; world.x/y are scene layout, and compile_tsr._basis_row
+# accepts them only when the scene yaw happens to land them on a w basis
+# vector. The compiler still resolves world.x/y internally (the fallback
+# ladder for a front-less w owner) — that is its bookkeeping, not a token.
+WORLD_REFS = ("world.z",)
 # The canonical object frame every object carries (frames.py): caller-
 # supplied up/front, lateral = up x front. The compiler roots each stage's
 # w on the passive object's; describe_symbols lists them apart from the
@@ -224,6 +235,13 @@ class Vocabulary:
         axes = set(self.objects[obj]["axes"])
         return tuple(d for d in CANONICAL_DIRS if _DIR_AXIS[d[1:]] in axes)
 
+    def direction_names(self) -> set[str]:
+        """The #3 axis accept set: every object's licensed signed
+        directions, qualified ("teapot.-up"). Deliberately excludes the
+        fitted part axes and world.*; rot-row references add WORLD_REFS."""
+        return {f"{o}.{d}" for o in self.objects
+                for d in self.canonical_directions(o)}
+
     def quantity_names(self) -> set[str]:
         return self._qualified("quantities")
 
@@ -241,6 +259,21 @@ class Vocabulary:
             lines.append(
                 f"  quantities: {', '.join(t['quantities']) or '(none)'}")
         lines.append("world: world.z (up)")
+        return "\n".join(lines)
+
+    def describe_directions(self) -> str:
+        """#3 symbol table: per object the licensed signed canonical
+        directions, points and quantities. describe_symbols (fitted axes
+        included) stays for #1 and the #2 named-axis arm."""
+        lines = []
+        for o, t in sorted(self.objects.items()):
+            dirs = self.canonical_directions(o)
+            lines.append(f"object `{o}`:")
+            lines.append(f"  directions: {', '.join(dirs) or '(none)'}")
+            lines.append(f"  points:     {', '.join(t['points']) or '(none)'}")
+            lines.append(
+                f"  quantities: {', '.join(t['quantities']) or '(none)'}")
+        lines.append("world: world.z (up; rot-row reference only)")
         return "\n".join(lines)
 
     def describe_marks(self) -> str:
@@ -713,7 +746,31 @@ def parse_point_axis_named(raw: str, vocab: Vocabulary) -> PointAxisSelection:
                               secondary=secondary, rationale=rationale)
 
 
+_FLIP = {"parallel": "antiparallel", "antiparallel": "parallel",
+         "perpendicular": "perpendicular"}
+
+
+def _norm_dir(token: str, vocab: Vocabulary, ctx: str) -> tuple[str, str]:
+    """'obj.±dir' -> (qualified canonical axis, sign), e.g. "teapot.-up"
+    -> ("teapot.up_axis", "-"). Membership is the object's licensed
+    direction set (Vocabulary.direction_names); anything else — fitted
+    axis names, unqualified tokens, world.* — is a ParseRejection. The
+    compiler receives only the unsigned axis it already resolves; the
+    raw signed token survives in CallLog.raw."""
+    tok = _enum(token, sorted(vocab.direction_names()), ctx)
+    obj, d = tok.split(".", 1)
+    return f"{obj}.{_DIR_AXIS[d[1:]]}", d[0]
+
+
 def _parse_rot_rows(rows, vocab: Vocabulary, ctx: str) -> tuple[RotRow, ...]:
+    """Relation rows in the six-direction alphabet. Signs are normalized
+    away here: strip both, and when the sign product is negative swap
+    parallel<->antiparallel (perpendicular is sign-invariant), so
+    "teapot.-up antiparallel mug.+up" and "teapot.+up parallel mug.+up"
+    yield the same RotRow — an algebraic identity, not a numeric table,
+    hence this layer. world.z is the one licensed world reference and
+    carries '+'. Ownership (axis on the active object, reference on the
+    w owner) is the compiler's check, not the parser's."""
     if rows == "free":
         return tuple(RotRow(axis=None, relation="free", reference=None,
                             tol=None, row=r) for r in ROT_ROWS)
@@ -730,13 +787,20 @@ def _parse_rot_rows(rows, vocab: Vocabulary, ctx: str) -> tuple[RotRow, ...]:
             out.append(RotRow(axis=None, relation="free", reference=None,
                               tol=None, row=row))
             continue
-        axis = _enum(_need(r, "axis", str, c), vocab.axis_names(),
-                     f"{c}.axis")
+        axis, a_sign = _norm_dir(_need(r, "axis", str, c), vocab, f"{c}.axis")
         rel = _enum(_need(r, "relation", str, c), ROT_RELATIONS,
                     f"{c}.relation")
-        ref = _enum(_need(r, "reference", str, c), vocab.axis_names(),
-                    f"{c}.reference")
+        ref_tok = _need(r, "reference", str, c)
+        if ref_tok in WORLD_REFS:
+            ref, r_sign = ref_tok, "+"
+        else:
+            # _enum against the union so the rejection lists world.z too
+            _enum(ref_tok, sorted(vocab.direction_names() | set(WORLD_REFS)),
+                  f"{c}.reference")
+            ref, r_sign = _norm_dir(ref_tok, vocab, f"{c}.reference")
         tol = _enum(_need(r, "tol", str, c), ROT_TOLS, f"{c}.tol")
+        if a_sign != r_sign:
+            rel = _FLIP[rel]
         out.append(RotRow(axis=axis, relation=rel, reference=ref, tol=tol))
     return tuple(out)
 
@@ -747,8 +811,7 @@ def _parse_trans_terms(terms, vocab: Vocabulary,
         return (TransTerm(term="free"),)
     if not isinstance(terms, list):
         raise ParseRejection(f"{ctx}.trans must be 'free' or a list")
-    points, axes, quants = (vocab.point_names(), vocab.axis_names(),
-                            vocab.quantity_names())
+    points, quants = vocab.point_names(), vocab.quantity_names()
     out = []
     for i, t in enumerate(terms):
         if not isinstance(t, dict):
@@ -773,10 +836,13 @@ def _parse_trans_terms(terms, vocab: Vocabulary,
                              f"{c}.anchor"),
                 tol=_enum(_need(t, "tol", str, c), SLACKS, f"{c}.tol")))
         elif term == "along":
-            out.append(TransTerm(
-                term=term,
-                axis=_enum(_need(t, "axis", str, c), axes, f"{c}.axis"),
-                sign=_enum(_need(t, "sign", str, c), SIGNS, f"{c}.sign")))
+            if "sign" in t:
+                raise ParseRejection(
+                    f"{c}: 'sign' is fused into the direction token "
+                    "(e.g. \"mug.-up\"); drop the 'sign' key")
+            axis, sign = _norm_dir(_need(t, "axis", str, c), vocab,
+                                   f"{c}.axis")
+            out.append(TransTerm(term=term, axis=axis, sign=sign))
         elif term == "inside":
             out.append(TransTerm(
                 term=term,
@@ -1032,6 +1098,10 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
                           selection: PointAxisSelection | None = None,
                           view_paths: list[Path] | None = None
                           ) -> tuple[str, list]:
+    """#3 prompt in the six-direction alphabet. The schema-only (text)
+    arm and the image-conditioned arm share this text verbatim — the
+    modality ablation must compare modalities, not vocabularies; the
+    image arm adds only the renders and, later, a triad legend."""
     system = (
         "You are the constraint-emission module. Fill the TSR schema for "
         "one stage: a path TSR (holds along the whole motion) and a "
@@ -1040,38 +1110,44 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
         "numerics. You must NEVER write a numeric rotation. Translational "
         "'expr' bounds may use arithmetic over the grounded quantity "
         "symbols only.\n\n"
+        "Axes are SIGNED CANONICAL DIRECTIONS of an object: "
+        "obj.+front, obj.-front, obj.+left, obj.-left, obj.+up, obj.-up. "
+        "Each object licenses only the directions listed for it below; "
+        "a '-' direction is the exact opposite of its '+'. The two forms "
+        "'A.-up antiparallel B.+up' and 'A.+up parallel B.+up' mean the "
+        "same thing; write whichever reads naturally.\n\n"
         "The constraint frame w is fixed by rule, not emitted: z = the "
-        "passive object's up_axis, x = its front_axis, origin = the "
-        "interaction point selected on it; it is frozen at stage entry. "
-        "Rotation rows relate an axis of the MOVING (active) object to a "
-        "static reference — a passive-object axis or world.z. A row fixes "
-        "only what its pair determines: parallel/antiparallel pin the "
-        "axis direction and leave rotation about the reference free; "
-        "perpendicular pins one tilt. Degrees of freedom no row mentions "
-        "are FREE. The subgoal is centered on the attitude that satisfies "
-        "its rows, reached by the smallest rotation from the entry "
-        "attitude; a path row bounds the sweep from entry to that "
+        "passive object's +up, x = its +front, origin = the interaction "
+        "point selected on it; it is frozen at stage entry. Rotation rows "
+        "relate a direction of the ACTIVE (moving) object to a static "
+        "reference — a passive-object direction or world.z (up; gravity). "
+        "A row fixes only what its pair determines: parallel/antiparallel "
+        "pin the axis direction and leave rotation about the reference "
+        "free; perpendicular pins one tilt. Degrees of freedom no row "
+        "mentions are FREE. The subgoal is centered on the attitude that "
+        "satisfies its rows, reached by the smallest rotation from the "
+        "entry attitude; a path row bounds the sweep from entry to that "
         "attitude. Translation terms are relative to anchor points on the "
         "passive object, in w with z up.\n\n"
-        f"Grounded symbols:\n{vocab.describe_symbols()}\n\n"
+        f"Grounded symbols:\n{vocab.describe_directions()}\n\n"
         "Vocabulary: rot relations " + str(list(ROT_RELATIONS)) +
         " with tol in " + str(list(ROT_TOLS)) +
         "; trans terms 'free' | above/below(anchor, clearance in "
         + str(list(CLEARANCES)) + ", slack in " + str(list(SLACKS)) +
         ") | centered(anchor, tol in " + str(list(SLACKS)) +
-        ") | along(axis, sign) | inside(anchor, slack) | expr(row in "
+        ") | along(direction) | inside(anchor, slack) | expr(row in "
         + str(list(TRANS_ROWS)) + ", lo, hi as quantity arithmetic).\n\n"
         "Output schema: {\"stage\": int, \"name\": str, \"active\": obj, "
         "\"passive\": obj|null, \"path_tsr\": {\"rot\": \"free\"|[rot row, ...], "
         "\"trans\": \"free\"|[trans term, ...]}, \"subgoal_tsr\": "
         "{...same...}, \"verify\": str}.\n"
-        "rot row: {\"axis\": \"active.axis\", \"relation\": str, \"reference\": "
-        "\"passive.axis\"|\"world.z\", \"tol\": str} or {\"relation\": \"free\", "
+        "rot row: {\"axis\": \"active.+dir\", \"relation\": str, \"reference\": "
+        "\"passive.+dir\"|\"world.z\", \"tol\": str} or {\"relation\": \"free\", "
         "\"row\": \"roll\"|\"pitch\"|\"yaw\"}.\n"
         "trans term: {\"term\": \"free\"} | {\"term\": \"above\"|\"below\", "
         "\"anchor\": \"obj.point\", \"clearance\": str, \"slack\": str} | "
         "{\"term\": \"centered\", \"anchor\": \"obj.point\", \"tol\": str} | "
-        "{\"term\": \"along\", \"axis\": \"obj.axis\", \"sign\": \"+\"|\"-\"} | "
+        "{\"term\": \"along\", \"axis\": \"obj.+dir\"} | "
         "{\"term\": \"inside\", \"anchor\": \"obj.point\", \"slack\": str} | "
         "{\"term\": \"expr\", \"row\": \"x\"|\"y\"|\"z\", \"lo\": str, "
         "\"hi\": str}. Use exactly these key names. "
@@ -1080,21 +1156,20 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
             f"active={stage.active}, passive={stage.passive}.")
     if stage.passive:
         text += (f" Rot rows: the constrained axis must be a {stage.active}. "
-                 f"axis; the reference a {stage.passive}. axis or world.z. "
-                 f"Trans anchors must be {stage.passive}. points.")
+                 f"direction; the reference a {stage.passive}. direction or "
+                 f"world.z. Trans anchors must be {stage.passive}. points.")
     else:
         text += (" This stage has no passive object: the moving frame is the "
                  f"GRIPPER holding {stage.active}, which owns w; the gripper "
-                 "has no grounded axes, so relation rot rows cannot be "
+                 "has no grounded directions, so relation rot rows cannot be "
                  "grounded. Write rot as \"free\" (or per row "
                  "{\"relation\": \"free\", \"row\": ...}) and anchor trans "
                  f"terms on {stage.active} points.")
     if selection:
         text += (f" Selected interaction point candidate "
-                 f"{selection.candidate_id}, axis {selection.axis}, sign "
-                 f"{selection.sign}.")
+                 f"{selection.candidate_id}.")
     parts: list[dict] = [_text(text)]
-    for p in (view_paths or []):     # two-pass ablation arm: selected-axis render
+    for p in (view_paths or []):     # image-conditioned arm
         parts.append(image_block(p))
     return system, [{"role": "user", "content": parts}]
 
