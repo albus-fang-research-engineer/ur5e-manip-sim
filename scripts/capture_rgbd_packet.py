@@ -228,12 +228,13 @@ def main():
     depth[depth > DEPTH_MAX] = 0.0
 
     try:
-        seg = CU.get_camera_segmentation(sim=env.sim, camera_name=cam,
-                                         camera_height=h, camera_width=w)
+        # robosuite's helper already flips to row0=top (camera_utils does
+        # [::-1] internally); flipping again mirrors every mask vertically.
+        seg = np.asarray(CU.get_camera_segmentation(sim=env.sim, camera_name=cam,
+                                                    camera_height=h, camera_width=w))
     except TypeError:  # older/newer camera_utils signature
-        seg = env.sim.render(camera_name=cam, height=h, width=w,
-                             segmentation=True)
-    seg = np.asarray(seg)[::-1]
+        seg = np.asarray(env.sim.render(camera_name=cam, height=h, width=w,
+                                        segmentation=True))[::-1]
 
     K = CU.get_camera_intrinsic_matrix(env.sim, cam, h, w).astype(np.float64)
     T_world_cam = CU.get_camera_extrinsic_matrix(env.sim, cam).astype(np.float64)

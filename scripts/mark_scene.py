@@ -46,11 +46,13 @@ def segbuffer_marks(scene, out: Path, camera: str = CAMERA, h: int = H, w: int =
     obs = env._get_observations(force_update=True)
     rgb = np.asarray(obs[f"{camera}_image"], np.uint8)[::-1].copy()
     try:
-        seg = CU.get_camera_segmentation(sim=env.sim, camera_name=camera,
-                                         camera_height=h, camera_width=w)
+        # robosuite's helper already flips to row0=top (camera_utils does
+        # [::-1] internally); flipping again mirrors every mask vertically.
+        seg = np.asarray(CU.get_camera_segmentation(sim=env.sim, camera_name=camera,
+                                                    camera_height=h, camera_width=w))
     except TypeError:
-        seg = env.sim.render(camera_name=camera, height=h, width=w, segmentation=True)
-    seg = np.asarray(seg)[::-1]
+        seg = np.asarray(env.sim.render(camera_name=camera, height=h, width=w,
+                                        segmentation=True))[::-1]
     names = list(objs)
     masks = masks_from_segmentation(env, seg, names)
 
