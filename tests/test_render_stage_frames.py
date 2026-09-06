@@ -20,8 +20,11 @@ from manip_sim.tsr import pose_from_pos_quat_wxyz
 from manip_sim.vlm import (CANONICAL_DIRS, StageEmission, TSRSpec, TransTerm,
                            RotRow, Vocabulary)
 from scripts.render_candidates import canonical_cameras, project
-from scripts.render_stage_frames import (VIEWS, DrawnFrame, compute_stage_frames,
-                                         draw_frame, render, scene_extent)
+from scripts.render_stage_frames import (END_ON_DEG, VIEWS, LabelRequest,
+                                         compose_view, compute_stage_frames,
+                                         draw_frame, place_labels, render,
+                                         scene_extent, _area)
+from manip_sim.compile_tsr import ALIGN_TOL_RAD
 from scripts.emit_constraints import STAGES
 
 from test_selection import ASSET_DIRS, _HAVE_POOLS, _pour_tea_selections
@@ -92,7 +95,7 @@ def test_fallback_x_is_labeled_and_never_presented_as_a_mug_direction():
     sf = frames["grasp"]
     assert sf.w_object == "teapot" and not sf.w_fallback
     w = next(f for f in sf.frames if f.label == "w")
-    assert w.triad[0][1] == "w.x"
+    assert w.triad == ()           # every w axis merged into the teapot's
 
 
 def test_drawn_triads_are_exactly_the_licensed_direction_alphabet():
@@ -123,17 +126,98 @@ def test_drawn_pixels_are_the_projection_of_the_compiler_basis():
     culling and no rescaling — what the model sees is the basis."""
     from PIL import Image
     _, _, _, frames = _setup()
-    w = next(f for f in frames["pour"].frames if f.label == "w")
+    sf = frames["pour"]
+    w = next(f for f in sf.frames if f.label == "w")
     cam = canonical_cameras(w.origin, RADIUS)["iso"]
-    ends = draw_frame(Image.new("RGB", (1024, 1024)), cam, w, px=1024)
-    assert set(ends) == {"x", "y", "z"}
-    for k in "xyz":
+    ends, modes, segs, labels = draw_frame(Image.new("RGB", (1024, 1024)),
+                                           cam, w, px=1024)
+    assert set(ends) == {"x", "y"}          # z merged into mug.+up
+    assert all(m == "arrow" for m in modes.values()) and len(segs) == 2
+    for k in ends:
         pts = np.vstack([w.origin, w.origin + w.length * w.axes[k]])
         uv, _ = project(pts, cam, px=1024)
         np.testing.assert_allclose(np.array(ends[k]), uv, atol=1e-9)
+    # the merged arrow is the mug's up, drawn from the same origin as w
+    mug = next(f for f in sf.frames if f.label == "mug")
+    np.testing.assert_allclose(mug.origin, w.origin, atol=1e-12)
+    np.testing.assert_allclose(mug.axes["up_axis"], w.axes["z"], atol=1e-12)
 
 
-def _gl_available() -> bool:
+def _drawn_arrows(sf):
+    return [(fr.label, k, fr.origin, fr.axes[k], lab)
+            for fr in sf.frames for k, lab, _ in fr.triad]
+
+
+def test_one_arrow_per_distinct_direction_at_an_origin():
+    """Merge invariant: no two drawn arrows share an origin (1 mm) and
+    a direction (ALIGN_TOL). w.z always merges into the owner's +up; on
+    the gripper stage all of w merges, leaving three arrows whose
+    labels carry both names; the fallback w.x / w.y stay separate."""
+    _, _, _, frames = _setup()
+    for role, sf in frames.items():
+        arrows = _drawn_arrows(sf)
+        for i, (_, _, o1, d1, _) in enumerate(arrows):
+            for (_, _, o2, d2, _) in arrows[i + 1:]:
+                if np.linalg.norm(o1 - o2) < 1e-3:
+                    assert float(d1 @ d2) < np.cos(ALIGN_TOL_RAD)
+    g = frames["grasp"]
+    assert len(_drawn_arrows(g)) == 3
+    assert g.merged == {"x": "teapot.front_axis", "y": "teapot.lateral_axis",
+                        "z": "teapot.up_axis"}
+    labels = {lab for _, _, _, _, lab in _drawn_arrows(g)}
+    assert labels == {"w.x = teapot.+front", "w.y = teapot.+left",
+                      "w.z = teapot.+up"}
+    for role in ("transport_active", "pour"):
+        sf = frames[role]
+        assert sf.merged == {"z": "mug.up_axis"}
+        labels = {lab for _, _, _, _, lab in _drawn_arrows(sf)}
+        assert "w.z = mug.+up" in labels and "w.x (fallback)" in labels
+        assert "w.y" in labels and "mug.up" not in labels
+
+
+def test_end_on_axes_become_glyphs_only_in_the_top_view():
+    from PIL import Image
+    _, _, _, frames = _setup()
+    sf = frames["pour"]
+    cams = canonical_cameras(np.zeros(3), RADIUS)
+    teapot = next(f for f in sf.frames if f.label == "teapot")
+    for vname in ("iso", "iso-opp"):
+        _, modes, _, _ = draw_frame(Image.new("RGB", (1024, 1024)),
+                                    cams[vname], teapot)
+        assert all(m == "arrow" for m in modes.values())
+    _, modes, segs, labels = draw_frame(Image.new("RGB", (1024, 1024)),
+                                        cams["top"], teapot)
+    assert modes["up_axis"] == "toward"        # +up points at a top camera
+    assert modes["front_axis"] == modes["lateral_axis"] == "arrow"
+    assert len(segs) == 2                       # glyphs add no segment
+    assert len(labels) == 3                     # but still get a label
+    assert 0 < END_ON_DEG < 45
+
+
+def test_place_labels_separates_colliding_requests():
+    """Two labels on one anchor, an arrow running through the obvious
+    spot: the greedy placer returns non-overlapping boxes that avoid
+    the segment; and it is deterministic."""
+    from PIL import Image
+    reqs = [LabelRequest((500.0, 500.0), "teapot.up", (0, 0, 255), 200.0,
+                         t=np.array([0.0, -1.0])),
+            LabelRequest((500.0, 500.0), "teapot.left", (200, 150, 0), 150.0,
+                         t=np.array([1.0, 0.0])),
+            LabelRequest((500.0, 500.0), "teapot #3", (0, 0, 0), 0.4)]
+    segs = [((500.0, 500.0), (500.0, 300.0)), ((500.0, 500.0), (700.0, 500.0))]
+    boxes = place_labels(Image.new("RGB", (1024, 1024)), list(reqs), segs)
+    assert len(boxes) == 3
+    for i, a in enumerate(boxes):
+        for b in boxes[i + 1:]:
+            assert _area(a, b) == 0.0
+        assert a[0] >= 0 and a[1] >= 0 and a[2] <= 1024 and a[3] <= 1024
+    again = place_labels(Image.new("RGB", (1024, 1024)), list(reqs), segs)
+    assert again == boxes
+
+
+def _probe_gl() -> bool:
+    """Probed ONCE: a failed offscreen context attempt can leave the
+    process unable to survive a second one (MuJoCo aborts, not raises)."""
     try:
         import mujoco
         m = mujoco.MjModel.from_xml_string(
@@ -144,11 +228,14 @@ def _gl_available() -> bool:
         return False
 
 
+_HAVE_GL = _probe_gl()
+
+
 _HAVE_MESHES = all((d / "meshes" / f"{n}_visual.obj").exists()
                    for n, d in ASSET_DIRS.items())
 
 
-@pytest.mark.skipif(not (_HAVE_MESHES and _gl_available()),
+@pytest.mark.skipif(not (_HAVE_MESHES and _HAVE_GL),
                     reason="needs converted visual meshes + offscreen GL")
 def test_render_writes_three_views_per_stage_and_a_manifest(tmp_path):
     scene, symbols, poses, _ = _setup()
@@ -166,6 +253,40 @@ def test_render_writes_three_views_per_stage_and_a_manifest(tmp_path):
         for p in rec["views"].values():
             assert Path(p).exists() and Path(p).stat().st_size > 0
         assert set(rec["w"]) == {"object", "point_body", "candidate_id",
-                                 "x_route", "fallback"}
+                                 "x_route", "fallback", "merged"}
     assert manifest["roles"]["pour"]["w"]["candidate_id"] == 2
     assert manifest["roles"]["pour"]["w"]["fallback"] is True
+    assert manifest["roles"]["pour"]["w"]["merged"] == {"z": "mug.up_axis"}
+    assert manifest["roles"]["pour"]["end_on"]["top"] == {
+        "mug": ["up_axis"], "teapot": ["up_axis"]}
+    assert manifest["roles"]["pour"]["end_on"]["iso"] == {}
+
+
+@pytest.mark.skipif(not (_HAVE_MESHES and _HAVE_GL),
+                    reason="needs converted visual meshes + offscreen GL")
+def test_no_label_overlaps_in_any_rendered_view():
+    import mujoco
+    from scripts.render_stage_frames import (CAM_RADIUS_FRAC, PX,
+                                             build_scene_model)
+    scene, symbols, poses, _ = _setup()
+    center, radius = scene_extent(scene, poses)
+    sels, objects, role_index, _ = _pour_tea_selections()
+    frames = compute_stage_frames(STAGES, sels, objects, role_index,
+                                  scene.asset_dirs, symbols, poses, radius)
+    cams = {k: v for k, v in
+            canonical_cameras(center, CAM_RADIUS_FRAC * radius).items()
+            if k in VIEWS}
+    model = build_scene_model(scene, cams)
+    data = mujoco.MjData(model)
+    mujoco.mj_forward(model, data)
+    r = mujoco.Renderer(model, PX, PX)
+    for vname in VIEWS:
+        r.update_scene(data, camera=vname)
+        base = r.render().copy()
+        for role, sf in frames.items():
+            _, info = compose_view(base, cams[vname], sf, vname)
+            boxes = info["labels"]
+            for i, a in enumerate(boxes):
+                for b in boxes[i + 1:]:
+                    assert _area(a, b) == 0.0, (role, vname, a, b)
+    r.close()

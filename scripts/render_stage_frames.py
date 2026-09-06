@@ -8,7 +8,7 @@ attitude the compile gate freezes w and the goal attitude on — what the
 model sees is what the gate tests), from three cameras, with two frames
 drawn:
 
-    w (black, labeled w.x / w.y / w.z)
+    w (DASHED, axis-colored x red / y gold / z blue, labeled w.x / w.y / w.z)
         the constraint frame compile_tsr roots the stage on:
         compile_tsr._canonical_w at the w-owning object's call-#2 point
         — the same function, same poses, same point the gate uses, so
@@ -27,6 +27,26 @@ drawn:
         (an arrowhead carries polarity; six arrows double clutter). The
         picture and the #3 accept set are therefore the same alphabet:
         no token is sayable that is not in the picture.
+    one arrow per distinct direction at an origin
+        w.z is the owner's +up by construction, and on a gripper stage
+        w is the owner's whole canonical frame; drawing both is the
+        same arrow twice. A w axis that shares an origin with a
+        licensed canonical axis and agrees with it within the
+        compiler's ALIGN_TOL is MERGED into the canonical arrow, whose
+        label then carries both names ("w.z = mug.+up") — the
+        equivalence stated in the token the model will write. Decided
+        in the geometry stage (world vectors, compile_tsr's tolerance),
+        never per view; the manifest records the merges.
+    end-on axes
+        per view, an axis within END_ON_DEG of the viewing direction is
+        not drawn as a (vanishing) arrow but as the physics-diagram
+        glyph in its color: (.) toward the camera, (x) away. The three
+        views guarantee every axis is a real arrow somewhere.
+    labels
+        placed greedily — longest projected arrow first — over eight
+        offsets around the tip plus one further along the arrow,
+        choosing the candidate with the least overlap against labels
+        already placed and every drawn segment. Deterministic.
     anchor dots
         the resolved call-#2 points, labeled by object and pool id.
 
@@ -61,7 +81,7 @@ from pathlib import Path
 
 import numpy as np
 
-from manip_sim.compile_tsr import _canonical_w
+from manip_sim.compile_tsr import ALIGN_TOL_RAD, _canonical_w
 from manip_sim.frames import load_symbols
 from manip_sim.scene import add_scene_arg, load_scene
 from manip_sim.selection import (load_pool, load_selections, resolve_selection,
@@ -79,14 +99,21 @@ TRIAD_LEN_FRAC = 0.30                 # of the scene radius
 W_LEN_FRAC = 0.40                     # w drawn longer than the owner's triad
                                       # so coincident axes (w.z = owner up)
                                       # stay distinguishable
-CAM_RADIUS_FRAC = 1.4                 # camera distance uses the extent
+CAM_RADIUS_FRAC = 1.15                # camera distance uses the extent
                                       # inflated by the longest arrow so
                                       # tips and labels stay in frame
-W_COLOR = (20, 20, 20)
+END_ON_DEG = 15.0                     # axis within this of the view axis
+                                      # -> glyph, not arrow (per view)
 DOT_R = 9
+DASH_PX, GAP_PX = 12, 8               # w line style
+GLYPH_R = 12
 FRAMES_DIR = Path("outputs/frames")
 
-W_TRIAD = (("x", "w.x", W_COLOR), ("y", "w.y", W_COLOR), ("z", "w.z", W_COLOR))
+AXIS_COLOR = {a: col for a, _, col in TRIAD_AXES}     # canonical columns
+W_TRIAD = (("x", "w.x", AXIS_COLOR["front_axis"]),
+           ("y", "w.y", AXIS_COLOR["lateral_axis"]),
+           ("z", "w.z", AXIS_COLOR["up_axis"]))
+_DIR_OF = {"front_axis": "+front", "lateral_axis": "+left", "up_axis": "+up"}
 
 
 # --------------------------------------------------------------- geometry
@@ -99,6 +126,7 @@ class DrawnFrame:
     axes: dict[str, np.ndarray]       # axis key -> world unit direction
     triad: tuple                      # (key, label, color) rows to draw
     length: float
+    style: str = "solid"              # "solid" (canonical) | "dashed" (w)
 
 
 @dataclass
@@ -116,6 +144,7 @@ class StageFrames:
     frames: list[DrawnFrame] = field(default_factory=list)
     anchors: list[tuple[str, np.ndarray]] = field(default_factory=list)  # (label, world)
     triads: list[dict] = field(default_factory=list)   # manifest records
+    merged: dict[str, str] = field(default_factory=dict)  # w key -> "obj.axis"
 
 
 def _world(T: np.ndarray, p_body) -> np.ndarray:
@@ -175,8 +204,8 @@ def compute_stage_frames(stages, sels, objects, role_index, asset_dirs,
         sf.frames.append(DrawnFrame(
             label="w", origin=T0_w[:3, 3],
             axes={"x": T0_w[:3, 0], "y": T0_w[:3, 1], "z": T0_w[:3, 2]},
-            triad=(("x", x_lab, W_COLOR),) + W_TRIAD[1:],
-            length=W_LEN_FRAC * radius))
+            triad=(("x", x_lab, W_TRIAD[0][2]),) + W_TRIAD[1:],
+            length=W_LEN_FRAC * radius, style="dashed"))
         # the w-owner's own licensed triad at the w point
         fr, rec = _canonical_triad(w_obj, symbols, poses[w_obj], w_point,
                                    vocab, radius)
@@ -190,53 +219,155 @@ def compute_stage_frames(stages, sels, objects, role_index, asset_dirs,
             sf.frames.append(fr)
             sf.triads.append({"role_in_stage": "active", **rec})
             sf.anchors.append((f"{active} #{cand[role]}", fr.origin))
+        _merge_coincident(sf)
         out[role] = sf
     return out
 
 
+def _merge_coincident(sf: StageFrames, origin_tol: float = 1e-3) -> None:
+    """One arrow per distinct direction at an origin: a w axis sharing
+    an origin with a licensed canonical axis and agreeing with it within
+    compile_tsr's ALIGN_TOL is dropped from the w frame and its name
+    appended to the canonical arrow's label. Pure geometry on world
+    vectors; recorded in sf.merged."""
+    w = next(f for f in sf.frames if f.label == "w")
+    keep = []
+    for key, lab, col in w.triad:
+        d = w.axes[key]
+        hit = None
+        for fr in sf.frames:
+            if fr is w or np.linalg.norm(fr.origin - w.origin) > origin_tol:
+                continue
+            for a, dv in fr.axes.items():
+                if float(np.dot(d, dv)) > np.cos(ALIGN_TOL_RAD):
+                    hit = (fr, a)
+                    break
+            if hit:
+                break
+        if hit is None:
+            keep.append((key, lab, col))
+            continue
+        fr, a = hit
+        fr.triad = tuple((k, (f"w.{key} = {fr.label}.{_DIR_OF[k]}"
+                              if k == a else l), c) for k, l, c in fr.triad)
+        sf.merged[key] = f"{fr.label}.{a}"
+    w.triad = tuple(keep)
+
+
 # ---------------------------------------------------------------- drawing
 
-def draw_frame(img, cam: dict, fr: DrawnFrame, px: int = PX,
-               font_px: int = FONT_PX) -> dict[str, tuple]:
-    """Labeled positive arrows for one frame; no occlusion culling
-    (directions are frame metadata). Returns the pixel endpoints per
-    axis key — the projection test compares these against project() of
-    the compiler's basis."""
+@dataclass
+class LabelRequest:
+    """A label to place: its anchor pixel, text, color and a priority
+    (projected arrow length; anchors and glyphs get a low fixed one).
+    `t` is the arrow's image-plane unit direction (None for dots)."""
+    anchor: tuple[float, float]
+    text: str
+    color: tuple
+    priority: float
+    t: np.ndarray | None = None
+
+
+def _cam_forward(cam: dict) -> np.ndarray:
+    import mujoco
+    R = np.empty(9)
+    mujoco.mju_quat2Mat(R, cam["quat"])
+    return -R.reshape(3, 3)[:, 2]           # MuJoCo cameras look along -z
+
+
+def _line(dr, a, b, col, width, style):
+    """Solid, or dashed (DASH_PX on / GAP_PX off) in `col` over a white
+    underlay so it reads on any background."""
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    if style == "solid":
+        dr.line([*a, *b], fill=(255, 255, 255), width=width + 3)
+        dr.line([*a, *b], fill=col, width=width)
+        return
+    v = b - a
+    n = np.linalg.norm(v)
+    if n < 1e-6:
+        return
+    t = v / n
+    pos = 0.0
+    segs = []
+    while pos < n:
+        segs.append((a + pos * t, a + min(pos + DASH_PX, n) * t))
+        pos += DASH_PX + GAP_PX
+    for p0, p1 in segs:
+        dr.line([*p0, *p1], fill=(255, 255, 255), width=width + 3)
+    for p0, p1 in segs:
+        dr.line([*p0, *p1], fill=col, width=width)
+
+
+def _arrowhead(dr, u0, v0, u1, v1, col, width):
+    t = np.array([u1 - u0, v1 - v0], float)
+    n = np.linalg.norm(t)
+    if n < 1e-6:
+        return
+    t = t / n
+    pn = np.array([-t[1], t[0]])
+    for side in (1.0, -1.0):
+        b = np.array([u1, v1]) - 14.0 * t + side * 8.0 * pn
+        dr.line([b[0], b[1], u1, v1], fill=(255, 255, 255), width=width + 3)
+        dr.line([b[0], b[1], u1, v1], fill=col, width=width)
+
+
+def _glyph(dr, u, v, col, toward: bool):
+    """(.) toward the camera, (x) away — in the axis color."""
+    r = GLYPH_R
+    dr.ellipse([u - r, v - r, u + r, v + r], fill=(255, 255, 255),
+               outline=col, width=4)
+    if toward:
+        dr.ellipse([u - 4, v - 4, u + 4, v + 4], fill=col)
+    else:
+        k = r * 0.6
+        dr.line([u - k, v - k, u + k, v + k], fill=col, width=4)
+        dr.line([u - k, v + k, u + k, v - k], fill=col, width=4)
+
+
+def draw_frame(img, cam: dict, fr: DrawnFrame, px: int = PX
+               ) -> tuple[dict[str, tuple], dict[str, str], list, list]:
+    """Arrows (or end-on glyphs) for one frame; no occlusion culling
+    (directions are frame metadata). Returns (pixel endpoints per axis
+    key — the projection test compares these against project() of the
+    compiler's basis; per-axis mode "arrow" | "toward" | "away";
+    drawn segments; label requests). Labels are NOT drawn here — see
+    place_labels."""
     from PIL import ImageDraw
     dr = ImageDraw.Draw(img)
-    font = _font(font_px)
+    fwd = _cam_forward(cam)
     ends_px: dict[str, tuple] = {}
+    modes: dict[str, str] = {}
+    segments: list = []
+    labels: list[LabelRequest] = []
+    width = 3
     for key, label, col in fr.triad:
         d = fr.axes[key]
         ends = np.vstack([fr.origin, fr.origin + fr.length * d])
         uv, _ = project(ends, cam, px=px)
         (u0, v0), (u1, v1) = uv
         ends_px[key] = ((float(u0), float(v0)), (float(u1), float(v1)))
-        width = 4 if fr.label == "w" else 3
-        dr.line([u0, v0, u1, v1], fill=(255, 255, 255), width=width + 3)
-        dr.line([u0, v0, u1, v1], fill=col, width=width)
+        c = float(np.dot(d, fwd))
+        if abs(c) > np.cos(np.deg2rad(END_ON_DEG)):
+            toward = c < 0
+            modes[key] = "toward" if toward else "away"
+            _glyph(dr, u0, v0, col, toward)
+            labels.append(LabelRequest((float(u0), float(v0)), label, col,
+                                       priority=0.5))
+            continue
+        modes[key] = "arrow"
+        _line(dr, (u0, v0), (u1, v1), col, width, fr.style)
+        _arrowhead(dr, u0, v0, u1, v1, col, width)
+        segments.append(((u0, v0), (u1, v1)))
         t = np.array([u1 - u0, v1 - v0], float)
-        n = np.linalg.norm(t)
-        if n > 1e-6:
-            t = t / n
-            p = np.array([-t[1], t[0]])
-            for side in (1.0, -1.0):
-                b = np.array([u1, v1]) - 14.0 * t + side * 8.0 * p
-                dr.line([b[0], b[1], u1, v1], fill=(255, 255, 255),
-                        width=width + 3)
-                dr.line([b[0], b[1], u1, v1], fill=col, width=width)
-        if fr.label == "w":            # w labels left of / above the tip:
-            tw = dr.textlength(label, font=font)   # away from the canonical
-            xy = (u1 - tw - 8, v1 - font_px - 6)   # labels drawn tip-right
-        else:
-            xy = (u1 + 8, v1 - 10)
-        dr.text(xy, label, fill=col, font=font, stroke_width=3,
-                stroke_fill=(255, 255, 255))
-    return ends_px
+        n = float(np.linalg.norm(t))
+        labels.append(LabelRequest((float(u1), float(v1)), label, col,
+                                   priority=n, t=t / n if n > 1e-6 else None))
+    return ends_px, modes, segments, labels
 
 
 def draw_anchor(img, cam: dict, label: str, xyz: np.ndarray,
-                px: int = PX, font_px: int = FONT_PX) -> None:
+                px: int = PX) -> LabelRequest:
     from PIL import ImageDraw
     dr = ImageDraw.Draw(img)
     uv, _ = project(xyz[None, :], cam, px=px)
@@ -244,10 +375,114 @@ def draw_anchor(img, cam: dict, label: str, xyz: np.ndarray,
     r = DOT_R
     dr.ellipse([u - r, v - r, u + r, v + r], fill=(0, 0, 0),
                outline=(255, 255, 255), width=3)
+    return LabelRequest((float(u), float(v)), label, (0, 0, 0), priority=0.4)
+
+
+# ---------------------------------------------------------- label placement
+
+_OFFSETS = ((1, 0), (-1, 0), (0, -1), (0, 1), (1, -1), (-1, -1), (1, 1), (-1, 1))
+LABEL_PAD = 10
+
+
+def _bbox_at(dr, font, text, x, y):
+    l, t, r, b = dr.textbbox((x, y), text, font=font, stroke_width=3)
+    return (float(l), float(t), float(r), float(b))
+
+
+def _area(a, b) -> float:
+    w = min(a[2], b[2]) - max(a[0], b[0])
+    h = min(a[3], b[3]) - max(a[1], b[1])
+    return max(0.0, w) * max(0.0, h)
+
+
+def _segment_hits_box(seg, box) -> bool:
+    """Liang-Barsky: does segment (p0, p1) intersect the box?"""
+    (x0, y0), (x1, y1) = seg
+    l, t, r, b = box
+    dx, dy = x1 - x0, y1 - y0
+    u0, u1 = 0.0, 1.0
+    for p, q in ((-dx, x0 - l), (dx, r - x0), (-dy, y0 - t), (dy, b - y0)):
+        if abs(p) < 1e-12:
+            if q < 0:
+                return False
+            continue
+        u = q / p
+        if p < 0:
+            u0 = max(u0, u)
+        else:
+            u1 = min(u1, u)
+        if u0 > u1:
+            return False
+    return True
+
+
+def place_labels(img, requests: list[LabelRequest], segments: list,
+                 px: int = PX, font_px: int = FONT_PX) -> list[tuple]:
+    """Greedy point-feature label placement, highest priority (longest
+    projected arrow) first. Candidates: eight compass offsets around
+    the anchor and one further along the arrow. Cost: overlap area with
+    labels already placed, plus a fixed cost per drawn segment the box
+    crosses, plus a large out-of-frame penalty. Deterministic — ties
+    break in candidate order. Returns the placed boxes (tests assert
+    none overlap)."""
+    from PIL import ImageDraw
+    dr = ImageDraw.Draw(img)
     font = _font(font_px)
-    tw = dr.textlength(label, font=font)
-    dr.text((u - tw - r, v + r), label, fill=(0, 0, 0), font=font,
-            stroke_width=3, stroke_fill=(255, 255, 255))
+    placed: list[tuple] = []
+    order = sorted(range(len(requests)), key=lambda i: -requests[i].priority)
+    for i in order:
+        rq = requests[i]
+        w_txt = dr.textlength(rq.text, font=font)
+        h_txt = font_px + 6
+        cands = []
+        ax, ay = rq.anchor
+        for ox, oy in _OFFSETS:
+            x = ax + ox * LABEL_PAD - (w_txt if ox < 0 else w_txt / 2 if ox == 0 else 0)
+            y = ay + oy * LABEL_PAD - (h_txt if oy < 0 else h_txt / 2 if oy == 0 else 0)
+            cands.append((x, y))
+        if rq.t is not None:
+            tip = np.array(rq.anchor) + 26.0 * rq.t
+            cands.append((tip[0] - (w_txt if rq.t[0] < 0 else 0),
+                          tip[1] - (h_txt if rq.t[1] < 0 else 0)))
+        best, best_cost = None, None
+        for (x, y) in cands:
+            box = _bbox_at(dr, font, rq.text, x, y)
+            cost = sum(_area(box, pb) for pb in placed)
+            cost += 60.0 * sum(_segment_hits_box(sg, box) for sg in segments)
+            if box[0] < 0 or box[1] < 0 or box[2] > px or box[3] > px:
+                cost += 1e6
+            if best_cost is None or cost < best_cost:
+                best, best_cost = (x, y, box), cost
+        x, y, box = best
+        dr.text((x, y), rq.text, fill=rq.color, font=font, stroke_width=3,
+                stroke_fill=(255, 255, 255))
+        placed.append(box)
+    return placed
+
+
+def compose_view(base: np.ndarray, cam: dict, sf: StageFrames,
+                 vname: str) -> tuple:
+    """One view of one stage: arrows / glyphs / anchor dots, then the
+    labels placed over everything. Returns (image, info) with info =
+    {"end_on": {label -> [axis keys]}, "labels": placed boxes}."""
+    from PIL import Image, ImageDraw
+    img = Image.fromarray(base)
+    segments, requests, end_on = [], [], {}
+    for lab, xyz in sf.anchors:
+        requests.append(draw_anchor(img, cam, lab, xyz))
+    for fr in sorted(sf.frames, key=lambda f: f.label == "w"):   # w on top
+        _, modes, segs, labs = draw_frame(img, cam, fr)
+        segments += segs
+        requests += labs
+        eo = [k for k, m in modes.items() if m != "arrow"]
+        if eo:
+            end_on[fr.label] = eo
+    placed = place_labels(img, requests, segments)
+    ImageDraw.Draw(img).text(
+        (14, 10), f"stage {sf.stage} {sf.name} — {vname}",
+        fill=(30, 30, 30), font=_font(FONT_PX),
+        stroke_width=2, stroke_fill=(255, 255, 255))
+    return img, {"end_on": end_on, "labels": placed}
 
 
 # ------------------------------------------------------------------ scene
@@ -336,30 +571,21 @@ def render(scene, frames: dict[str, StageFrames], out_dir: Path,
     for role, sf in frames.items():
         rdir = out_dir / role
         rdir.mkdir(parents=True, exist_ok=True)
-        views = {}
+        views, end_on = {}, {}
         for vname in VIEWS:
-            img = Image.fromarray(base[vname])
-            cam = cams[vname]
-            for lab, xyz in sf.anchors:
-                draw_anchor(img, cam, lab, xyz)
-            for fr in sf.frames:          # w last: drawn on top
-                if fr.label != "w":
-                    draw_frame(img, cam, fr)
-            draw_frame(img, cam, next(f for f in sf.frames if f.label == "w"))
-            ImageDraw.Draw(img).text(
-                (14, 10), f"stage {sf.stage} {sf.name} — {vname}",
-                fill=(30, 30, 30), font=_font(FONT_PX),
-                stroke_width=2, stroke_fill=(255, 255, 255))
+            img, info = compose_view(base[vname], cams[vname], sf, vname)
             path = rdir / f"{vname}.png"
             img.save(path)
             views[vname] = str(path)
+            end_on[vname] = info["end_on"]
         manifest_roles[role] = {
             "stage": sf.stage, "name": sf.name, "active": sf.active,
             "passive": sf.passive,
             "w": {"object": sf.w_object, "point_body": sf.w_point_body,
                   "candidate_id": sf.w_candidate_id, "x_route": sf.w_x_route,
-                  "fallback": sf.w_fallback},
+                  "fallback": sf.w_fallback, "merged": sf.merged},
             "triads": sf.triads,
+            "end_on": end_on,
             "views": views,
         }
     manifest = {"scene": str(scene.path), "poses": "spawn",
