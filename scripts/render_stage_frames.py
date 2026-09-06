@@ -106,7 +106,7 @@ END_ON_DEG = 15.0                     # axis within this of the view axis
                                       # -> glyph, not arrow (per view)
 DOT_R = 9
 DASH_PX, GAP_PX = 12, 8               # w line style
-GLYPH_R = 12
+GLYPH_R = 20
 FRAMES_DIR = Path("outputs/frames")
 
 AXIS_COLOR = {a: col for a, _, col in TRIAD_AXES}     # canonical columns
@@ -315,14 +315,17 @@ def _arrowhead(dr, u0, v0, u1, v1, col, width):
 def _glyph(dr, u, v, col, toward: bool):
     """(.) toward the camera, (x) away — in the axis color."""
     r = GLYPH_R
+    dr.ellipse([u - r - 2, v - r - 2, u + r + 2, v + r + 2],
+               fill=(255, 255, 255))                     # white underlay
     dr.ellipse([u - r, v - r, u + r, v + r], fill=(255, 255, 255),
-               outline=col, width=4)
+               outline=col, width=5)
     if toward:
-        dr.ellipse([u - 4, v - 4, u + 4, v + 4], fill=col)
+        k = r * 0.35
+        dr.ellipse([u - k, v - k, u + k, v + k], fill=col)
     else:
         k = r * 0.6
-        dr.line([u - k, v - k, u + k, v + k], fill=col, width=4)
-        dr.line([u - k, v + k, u + k, v - k], fill=col, width=4)
+        dr.line([u - k, v - k, u + k, v + k], fill=col, width=5)
+        dr.line([u - k, v + k, u + k, v - k], fill=col, width=5)
 
 
 def draw_frame(img, cam: dict, fr: DrawnFrame, px: int = PX
