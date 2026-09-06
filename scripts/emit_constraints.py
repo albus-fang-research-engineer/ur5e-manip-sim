@@ -13,10 +13,16 @@ below, or with --stage-plan the stages call #1 bound to those planner
 roles — same binding select_frames.py uses):
 
   1. emit    Client.emit_constraints(StageSpec, vocab[, selection,
-             views]) — two-pass mode (--selections) attaches the
-             touchpoint-#2 selection for the stage's active role plus
-             the marked renders, per the emission-modality ablation's
-             two-pass arm; default is single-pass schema-only.
+             views, frames]). Two arms of the emission-modality
+             ablation, same system text, same anchor points:
+               schema-only  (default) text only;
+               framed       (--frames) the stage's render_stage_frames
+                            views — w and the licensed canonical triads
+                            drawn at the call-#2 points — plus
+                            vlm.frames_legend in the user turn and the
+                            #2 candidate id.
+             --selections supplies the ANCHOR POINTS (w's origin, the
+             active feature) to both arms; it does not pick the arm.
   2. ground  compile_tsr.compile_stage at the manifest's spawn poses
              (upright, teapot facing the mug — every rule-table gate is
              an attitude question, so the spawn attitude exercises
@@ -39,7 +45,10 @@ Requires ANTHROPIC_API_KEY.
     PYTHONPATH=. python scripts/emit_constraints.py \
         --stage-plan outputs/stage_plan/pour_tea.marks.json
     PYTHONPATH=. python scripts/emit_constraints.py \
-        --selections outputs/selections/pour_tea.json     # two-pass
+        --selections outputs/selections/pour_tea.json     # #2 anchors
+    PYTHONPATH=. python scripts/emit_constraints.py \
+        --selections outputs/selections/pour_tea.json \
+        --frames outputs/frames/manifest.json             # framed arm
     PYTHONPATH=. python scripts/emit_constraints.py \
         --out outputs/emissions/other.json
 
@@ -68,10 +77,9 @@ COMPILE_RETRIES = 2      # re-emissions per stage on a CompileError (stopgap
                          # for touchpoint #5); attempts = 1 + retries
 
 OUT = Path("outputs/emissions/pour_tea.json")
-VLM_DIR = Path("outputs/candidates/vlm")
 
 # fixed pour-tea stage structure (mirrors select_frames.py's table);
-# `role` keys the --selections artifact for the two-pass arm.
+# `role` keys the --selections and --frames artifacts.
 STAGES = (
     (StageSpec(index=1, name="grasp", active="teapot", passive=None,
                parts={"teapot": ("handle",)}), "grasp"),
@@ -90,45 +98,45 @@ def _spawn_poses(scene) -> dict[str, np.ndarray]:
     return {n: pose_from_pos_quat_wxyz(*pq) for n, pq in scene.fixed_poses().items()}
 
 
-def _two_pass_inputs(role: str, sel_path: Path):
-    """(PointAxisSelection, view paths) for a stage's active role from a
-    touchpoint-#2 artifact + the --vlm render manifest, or (None, None)
-    with a warning when either is missing."""
-    from manip_sim.vlm import PointAxisSelection
-    sels = json.loads(sel_path.read_text())
-    if role not in sels:
-        print(f"[emit] WARNING: role {role!r} absent from {sel_path}; "
-              "falling back to single-pass for this stage")
-        return None, None
-    d = sels[role]
-    sel = PointAxisSelection(
-        candidate_id=d["candidate_id"], axis=d["axis"], sign=d["sign"],
-        secondary=d.get("secondary"), rationale=d.get("rationale", ""))
-    obj = d.get("object") or ("mug" if role == "transport_passive"
-                              else "teapot")
-    mpath = VLM_DIR / obj / "manifest.json"
-    if not mpath.exists():
-        print(f"[emit] WARNING: no render manifest {mpath}; "
-              "two-pass views unavailable, sending selection only")
-        return sel, None
-    manifest = json.loads(mpath.read_text())
-    # manifest["views"] is {view_name: {path, visible_ids}} (render_candidates)
-    views = [Path(v["path"]) for _, v in sorted(manifest.get("views", {}).items())]
-    return sel, views or None
+def _framed_inputs(role: str, manifest: dict, views=None
+                   ) -> tuple[list[Path], dict]:
+    """(view paths, render record) for a stage from a render_stage_frames
+    manifest; the record feeds vlm.frames_legend. Missing role is a
+    hard error: an arm that silently degrades to schema-only would
+    corrupt the modality ablation."""
+    roles = manifest.get("roles", {})
+    if role not in roles:
+        raise SystemExit(f"[emit] role {role!r} absent from the --frames "
+                         f"manifest (has {sorted(roles)}); re-run "
+                         "render_stage_frames.py on the same selections")
+    rec = roles[role]
+    order = views or manifest.get("views") or sorted(rec["views"])
+    paths = [Path(rec["views"][v]) for v in order]
+    missing = [str(p) for p in paths if not p.exists()]
+    if missing:
+        raise SystemExit(f"[emit] --frames views missing on disk: {missing}")
+    return paths, rec
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--selections", default=None, metavar="JSON",
-                    help="touchpoint-#2 artifact; enables the two-pass "
-                         "emission arm (selection + marked renders in "
-                         "the prompt)")
+                    help="touchpoint-#2 artifact: the anchor points w is "
+                         "rooted on and Tw_e pins (both arms)")
+    ap.add_argument("--frames", default=None, metavar="JSON",
+                    help="render_stage_frames.py manifest; switches on "
+                         "the framed (image-conditioned) arm: the stage's "
+                         "views + legend + #2 candidate id in the prompt. "
+                         "Requires --selections")
     ap.add_argument("--out", default=str(OUT), metavar="JSON")
     ap.add_argument("--stage-plan", default=None, metavar="JSON",
                     help="plan_stages.py artifact; the stages bound to the "
                          "grasp / transport_active / pour roles replace STAGES")
     add_scene_arg(ap)
     args = ap.parse_args()
+    if args.frames and not args.selections:
+        raise SystemExit("[emit] --frames needs --selections (the frames "
+                         "were rendered at those points)")
     scene = load_scene(args.scene, getattr(args, "grounding", None))
     asset_dirs = scene.asset_dirs
     poses = _spawn_poses(scene)
@@ -167,20 +175,23 @@ def main() -> None:
         points = {"grasp": (tp["handle_center"], None),
                   "transport_active": (mg["opening_center"], tp["spout_tip"]),
                   "pour": (mg["opening_center"], tp["spout_tip"])}
+    manifest = json.loads(Path(args.frames).read_text()) if args.frames else None
     client = Client()
 
-    emissions, gate = [], []
+    emissions, gate, framed = [], [], {}
     for stage, role in stages:
-        sel = views = None
-        if args.selections:
-            sel, views = _two_pass_inputs(role, Path(args.selections))
+        sel = views = rec = None
+        if manifest is not None:            # framed arm
+            views, rec = _framed_inputs(role, manifest)
+            sel = sels[role]
+            framed[role] = [str(v) for v in views]
         w_point, e_point = points[role]     # keyed by ROLE: stage names are free text
         rejections: list[tuple[str, str]] = []   # (raw emission, reason)
         err: dict | None = None
         for attempt in range(1 + COMPILE_RETRIES):
             em = client.emit_constraints(stage, vocab, selection=sel,
                                          view_paths=views,
-                                         rejections=rejections)
+                                         rejections=rejections, frames=rec)
             print(f"[emit] stage {em.stage} ({em.name}) attempt {attempt}")
             try:
                 cs = compile_stage(em, symbols, poses, w_point=w_point,
@@ -209,8 +220,10 @@ def main() -> None:
         "task": b.plan.task if args.stage_plan else "pour tea from the teapot into the mug",
         "stage_plan": args.stage_plan,
         "selections": args.selections,
+        "frames": args.frames,
         "roles": [r for _, r in stages],
-        "arm": "two-pass" if args.selections else "schema-only",
+        "arm": "framed" if args.frames else "schema-only",
+        "views": framed,
         "emissions": [asdict(e) for e in emissions],
         "compiled": [{"stage": n, "grounded": ok, "Bw": rows,
                       "error": err}

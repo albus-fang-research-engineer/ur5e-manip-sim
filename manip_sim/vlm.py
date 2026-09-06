@@ -1094,14 +1094,63 @@ def build_point_axis_prompt_named(stage: StageSpec, vocab: Vocabulary,
     return system, [{"role": "user", "content": content}]
 
 
+def frames_legend(stage: StageSpec, frames: dict) -> str:
+    """The image-conditioned (framed) arm's reading guide for one
+    stage's render_stage_frames.py record (manifest["roles"][role]):
+    what the arrows, dashes, dual labels, glyphs and dots mean, in the
+    tokens the model will write. Per-stage facts (which object owns w,
+    where it is anchored, merges, a fallback x) come from the record,
+    never retyped. Lives in the USER turn so the system text is
+    byte-identical across the modality ablation's arms."""
+    w = frames["w"]
+    w_obj = w["object"]
+    triads = {t["role_in_stage"]: t for t in frames["triads"]}
+    lines = [
+        "The attached images show the scene at stage entry from three "
+        "views (iso, iso-opp, top). Reading guide:",
+        "- Solid colored arrows are canonical directions of an object: "
+        "red = <obj>.+front, gold = <obj>.+left, blue = <obj>.+up. Each "
+        "object shows only the directions it licenses; a '-' direction "
+        "is the drawn arrow reversed.",
+        "- Dashed arrows in the same colors are the frame w that "
+        "translation terms are written in (w.x red, w.y gold, w.z blue).",
+        "- An arrow labeled with two names, e.g. 'w.z = mug.+up', is one "
+        "direction with both meanings.",
+        "- A circled dot is an axis pointing at the camera; a circled "
+        "cross points away from it.",
+        "- Black dots are the selected interaction points, labeled "
+        "'<obj> #<id>' by the candidate id you chose earlier.",
+    ]
+    col_dir = {v: k for k, v in _DIR_AXIS.items()}          # up_axis -> up
+    merged = [f"w.{k} = {m.split('.')[0]}.+{col_dir[m.split('.')[1]]}"
+              for k, m in sorted(w.get("merged", {}).items())]
+    lines.append(f"- In this stage w is anchored at {w_obj} #{w['candidate_id']}"
+                 + (f" ({', '.join(merged)})" if merged else "") + ".")
+    if w.get("fallback"):
+        lines.append(f"- 'w.x (fallback)' means w.x is NOT a direction of "
+                     f"{w_obj} (it licenses no front); it was fixed by rule "
+                     f"({w['x_route']}), so no direction token names it; "
+                     "x/y translation bounds go through 'expr', "
+                     "'centered' or 'inside'.")
+    for role, t in triads.items():
+        dirs = ", ".join(f"{t['object']}.{d}" for d in t["directions"])
+        where = ("at the w anchor" if role == "w_owner"
+                 else f"at {t['object']}'s selected feature point")
+        lines.append(f"- {t['object']} ({'w owner' if role == 'w_owner' else 'active'}) "
+                     f"triad {where}; licensed directions: {dirs}.")
+    return "\n".join(lines)
+
+
 def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
                           selection: PointAxisSelection | None = None,
-                          view_paths: list[Path] | None = None
+                          view_paths: list[Path] | None = None,
+                          frames: dict | None = None
                           ) -> tuple[str, list]:
     """#3 prompt in the six-direction alphabet. The schema-only (text)
-    arm and the image-conditioned arm share this text verbatim — the
-    modality ablation must compare modalities, not vocabularies; the
-    image arm adds only the renders and, later, a triad legend."""
+    arm and the image-conditioned (framed) arm share the SYSTEM text
+    verbatim — the modality ablation must compare modalities, not
+    vocabularies; the framed arm adds only the renders and, in the user
+    turn, frames_legend() for the stage's render record."""
     system = (
         "You are the constraint-emission module. Fill the TSR schema for "
         "one stage: a path TSR (holds along the whole motion) and a "
@@ -1168,8 +1217,10 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
     if selection:
         text += (f" Selected interaction point candidate "
                  f"{selection.candidate_id}.")
+    if frames is not None:
+        text += "\n\n" + frames_legend(stage, frames)
     parts: list[dict] = [_text(text)]
-    for p in (view_paths or []):     # image-conditioned arm
+    for p in (view_paths or []):     # image-conditioned (framed) arm
         parts.append(image_block(p))
     return system, [{"role": "user", "content": parts}]
 
@@ -1359,7 +1410,8 @@ class Client:
     def emit_constraints(self, stage: StageSpec, vocab: Vocabulary,
                          selection: PointAxisSelection | None = None,
                          view_paths: list[Path] | None = None,
-                         rejections: list[tuple[str, str]] | None = None
+                         rejections: list[tuple[str, str]] | None = None,
+                         frames: dict | None = None
                          ) -> StageEmission:
         """`rejections`: (raw_emission, slot-named CompileError text) pairs
         from earlier attempts at this stage, replayed as assistant/user
@@ -1369,7 +1421,7 @@ class Client:
         it exists: the compiler's typed failure is what the model sees,
         nothing else."""
         system, messages = build_emission_prompt(stage, vocab, selection,
-                                                 view_paths)
+                                                 view_paths, frames)
         for raw, r in rejections or []:
             messages = messages + [
                 {"role": "assistant", "content": [_text(raw)]},

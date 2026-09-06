@@ -402,6 +402,87 @@ def test_describe_directions_lists_licensed_set_per_object(vocab):
     assert "pour_axis" not in desc
 
 
+# ------------------------------------------- #3 framed arm (image-conditioned)
+
+def _pour_frames_record(fallback=True):
+    """A render_stage_frames manifest role record, as the driver passes
+    it: w on the mug at #2 (z merged into mug.+up, fallback x), the
+    teapot's full triad at #3."""
+    return {
+        "stage": 3, "name": "pour", "active": "teapot", "passive": "mug",
+        "w": {"object": "mug", "point_body": [-0.0118, 0.0, 0.0404],
+              "candidate_id": 2,
+              "x_route": "teapot lateral (up x front) at entry",
+              "fallback": fallback, "merged": {"z": "mug.up_axis"}},
+        "triads": [
+            {"role_in_stage": "w_owner", "object": "mug",
+             "point_body": [-0.0118, 0.0, 0.0404],
+             "axes_drawn": ["up_axis"], "directions": ["+up", "-up"]},
+            {"role_in_stage": "active", "object": "teapot",
+             "point_body": [-0.086, 0.085, 0.038],
+             "axes_drawn": ["front_axis", "lateral_axis", "up_axis"],
+             "directions": list(CANONICAL_DIRS)}],
+        "end_on": {"iso": {}, "iso-opp": {},
+                   "top": {"mug": ["up_axis"], "teapot": ["up_axis"]}},
+        "views": {"iso": "outputs/frames/pour/iso.png",
+                  "iso-opp": "outputs/frames/pour/iso-opp.png",
+                  "top": "outputs/frames/pour/top.png"},
+    }
+
+
+def test_framed_arm_shares_the_system_text_and_adds_only_the_legend(vocab, tmp_path):
+    """Modality-ablation invariant: schema-only and framed arms have
+    byte-identical SYSTEM text; the framed arm differs only by the
+    candidate id, the legend in the user turn, and the image blocks."""
+    from manip_sim.vlm import build_emission_prompt, frames_legend
+    png = tmp_path / "v.png"
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 32)
+    sel = PointAxisSelection(candidate_id=3, axis=None, sign="+",
+                             secondary=None, rationale="")
+    rec = _pour_frames_record()
+    sys0, m0 = build_emission_prompt(STAGE, vocab)
+    sys1, m1 = build_emission_prompt(STAGE, vocab, sel, [png, png, png], rec)
+    assert sys0 == sys1
+    t0 = m0[0]["content"][0]["text"]
+    t1 = m1[0]["content"][0]["text"]
+    assert t1.startswith(t0)
+    assert t1 == t0 + " Selected interaction point candidate 3.\n\n" \
+        + frames_legend(STAGE, rec)
+    assert [b["type"] for b in m1[0]["content"]] == ["text"] + ["image"] * 3
+    assert [b["type"] for b in m0[0]["content"]] == ["text"]
+
+
+def test_frames_legend_states_the_render_facts_in_token_form():
+    from manip_sim.vlm import frames_legend
+    leg = frames_legend(STAGE, _pour_frames_record())
+    assert "anchored at mug #2 (w.z = mug.+up)" in leg
+    assert "'w.x (fallback)'" in leg and "teapot lateral (up x front)" in leg
+    assert "licensed directions: mug.+up, mug.-up." in leg
+    assert ("licensed directions: teapot.+front, teapot.-front, "
+            "teapot.+left, teapot.-left, teapot.+up, teapot.-up.") in leg
+    assert "red = <obj>.+front" in leg and "Dashed arrows" in leg
+    assert "circled dot" in leg and "circled cross" in leg
+    assert "pour_axis" not in leg and "up_axis" not in leg
+    # no fallback -> no fallback paragraph
+    leg2 = frames_legend(STAGE, _pour_frames_record(fallback=False))
+    assert "fallback" not in leg2
+
+
+def test_frames_legend_grasp_stage_names_the_whole_merged_frame():
+    from manip_sim.vlm import frames_legend
+    rec = _pour_frames_record(fallback=False)
+    rec.update(stage=1, name="grasp", passive=None)
+    rec["w"].update(object="teapot", candidate_id=1,
+                    merged={"x": "teapot.front_axis",
+                            "y": "teapot.lateral_axis",
+                            "z": "teapot.up_axis"})
+    rec["triads"] = [rec["triads"][1] | {"role_in_stage": "w_owner"}]
+    leg = frames_legend(STAGE, rec)
+    assert ("anchored at teapot #1 (w.x = teapot.+front, w.y = teapot.+left, "
+            "w.z = teapot.+up)") in leg
+    assert "(w owner)" in leg and "(active)" not in leg
+
+
 # -------------------------------------------------------- touchpoints #4/#5
 
 def test_critic_reject_requires_edits(vocab):
