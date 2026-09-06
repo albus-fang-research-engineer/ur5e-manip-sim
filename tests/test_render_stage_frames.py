@@ -143,6 +143,19 @@ def test_drawn_pixels_are_the_projection_of_the_compiler_basis():
     np.testing.assert_allclose(mug.axes["up_axis"], w.axes["z"], atol=1e-12)
 
 
+def test_anchor_dots_are_labeled_with_point_tokens():
+    """The dots carry the token the model writes as a trans anchor, not
+    the call-#2 candidate id (which call #3 never saw)."""
+    _, _, _, frames = _setup()
+    labels = {role: [lab for lab, _ in sf.anchors] for role, sf in frames.items()}
+    assert labels["grasp"] == ["teapot.handle_center"]
+    assert labels["pour"] == ["mug.opening_center", "teapot.spout_tip"]
+    assert labels["transport_active"] == labels["pour"]
+    for sf in frames.values():
+        assert "#" not in "".join(l for l, _ in sf.anchors)
+        assert all(t["point"] for t in sf.triads)
+
+
 def _drawn_arrows(sf):
     return [(fr.label, k, fr.origin, fr.axes[k], lab)
             for fr in sf.frames for k, lab, _ in fr.triad]
@@ -252,8 +265,10 @@ def test_render_writes_three_views_per_stage_and_a_manifest(tmp_path):
         assert set(rec["views"]) == set(VIEWS)
         for p in rec["views"].values():
             assert Path(p).exists() and Path(p).stat().st_size > 0
-        assert set(rec["w"]) == {"object", "point_body", "candidate_id",
-                                 "x_route", "fallback", "merged"}
+        assert set(rec["w"]) == {"object", "point", "point_body",
+                                 "candidate_id", "x_route", "fallback",
+                                 "merged"}
+    assert manifest["roles"]["pour"]["w"]["point"] == "mug.opening_center"
     assert manifest["roles"]["pour"]["w"]["candidate_id"] == 2
     assert manifest["roles"]["pour"]["w"]["fallback"] is True
     assert manifest["roles"]["pour"]["w"]["merged"] == {"z": "mug.up_axis"}

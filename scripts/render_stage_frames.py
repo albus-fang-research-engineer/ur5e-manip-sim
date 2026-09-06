@@ -48,7 +48,11 @@ drawn:
         choosing the candidate with the least overlap against labels
         already placed and every drawn segment. Deterministic.
     anchor dots
-        the resolved call-#2 points, labeled by object and pool id.
+        the resolved call-#2 points, labeled with the POINT TOKEN the
+        model writes as a trans anchor ("mug.opening_center") when the
+        point is a symbol point (the compiler requires w's origin to be
+        one); otherwise by pool id ("teapot #7"). A candidate id means
+        nothing to call #3 — it never saw the marks.
 
 Three views, not eight: render_candidates' eight exist so every SURFACE
 mark is unoccluded in >=1 view; triads are drawn without culling, and
@@ -147,6 +151,19 @@ class StageFrames:
     merged: dict[str, str] = field(default_factory=dict)  # w key -> "obj.axis"
 
 
+def point_token(obj: str, symbols, xyz, tol: float = 1e-5) -> str | None:
+    """'obj.<point>' for a body point that is one of the object's symbol
+    points, else None."""
+    for name, p in symbols[obj].points.items():
+        if np.allclose(np.asarray(p, float), np.asarray(xyz, float), atol=tol):
+            return f"{obj}.{name}"
+    return None
+
+
+def _anchor_label(obj: str, symbols, xyz, cand_id) -> str:
+    return point_token(obj, symbols, xyz) or f"{obj} #{cand_id}"
+
+
 def _world(T: np.ndarray, p_body) -> np.ndarray:
     return (T @ np.append(np.asarray(p_body, float).reshape(3), 1.0))[:3]
 
@@ -167,6 +184,7 @@ def _canonical_triad(obj: str, symbols, T: np.ndarray, point_body,
                     triad=triad, length=TRIAD_LEN_FRAC * radius)
     rec = {"object": obj,
            "point_body": np.round(np.asarray(point_body, float), 5).tolist(),
+           "point": point_token(obj, symbols, point_body),
            "axes_drawn": sorted(axes), "directions": list(licensed)}
     return fr, rec
 
@@ -211,14 +229,16 @@ def compute_stage_frames(stages, sels, objects, role_index, asset_dirs,
                                    vocab, radius)
         sf.frames.append(fr)
         sf.triads.append({"role_in_stage": "w_owner", **rec})
-        sf.anchors.append((f"{w_obj} #{sf.w_candidate_id}", fr.origin))
+        sf.anchors.append((_anchor_label(w_obj, symbols, w_point,
+                                         sf.w_candidate_id), fr.origin))
         # the active object's licensed triad at its feature point
         if active is not None and e_point is not None:
             fr, rec = _canonical_triad(active, symbols, poses[active],
                                        e_point, vocab, radius)
             sf.frames.append(fr)
             sf.triads.append({"role_in_stage": "active", **rec})
-            sf.anchors.append((f"{active} #{cand[role]}", fr.origin))
+            sf.anchors.append((_anchor_label(active, symbols, e_point,
+                                             cand[role]), fr.origin))
         _merge_coincident(sf)
         out[role] = sf
     return out
@@ -423,7 +443,8 @@ def place_labels(img, requests: list[LabelRequest], segments: list,
                  px: int = PX, font_px: int = FONT_PX) -> list[tuple]:
     """Greedy point-feature label placement, highest priority (longest
     projected arrow) first. Candidates: eight compass offsets around
-    the anchor and one further along the arrow. Cost: overlap area with
+    the anchor at two radii, and two reaches along the arrow. Cost:
+    overlap area with
     labels already placed, plus a fixed cost per drawn segment the box
     crosses, plus a large out-of-frame penalty. Deterministic — ties
     break in candidate order. Returns the placed boxes (tests assert
@@ -439,14 +460,17 @@ def place_labels(img, requests: list[LabelRequest], segments: list,
         h_txt = font_px + 6
         cands = []
         ax, ay = rq.anchor
-        for ox, oy in _OFFSETS:
-            x = ax + ox * LABEL_PAD - (w_txt if ox < 0 else w_txt / 2 if ox == 0 else 0)
-            y = ay + oy * LABEL_PAD - (h_txt if oy < 0 else h_txt / 2 if oy == 0 else 0)
-            cands.append((x, y))
+        for ring in (1.0, 2.8):            # near ring first; far ring when
+            for ox, oy in _OFFSETS:        # long labels crowd the near one
+                pad = ring * LABEL_PAD
+                x = ax + ox * pad - (w_txt if ox < 0 else w_txt / 2 if ox == 0 else 0)
+                y = ay + oy * pad - (h_txt if oy < 0 else h_txt / 2 if oy == 0 else 0)
+                cands.append((x, y))
         if rq.t is not None:
-            tip = np.array(rq.anchor) + 26.0 * rq.t
-            cands.append((tip[0] - (w_txt if rq.t[0] < 0 else 0),
-                          tip[1] - (h_txt if rq.t[1] < 0 else 0)))
+            for reach in (26.0, 48.0):
+                tip = np.array(rq.anchor) + reach * rq.t
+                cands.append((tip[0] - (w_txt if rq.t[0] < 0 else 0),
+                              tip[1] - (h_txt if rq.t[1] < 0 else 0)))
         best, best_cost = None, None
         for (x, y) in cands:
             box = _bbox_at(dr, font, rq.text, x, y)
@@ -585,6 +609,8 @@ def render(scene, frames: dict[str, StageFrames], out_dir: Path,
             "stage": sf.stage, "name": sf.name, "active": sf.active,
             "passive": sf.passive,
             "w": {"object": sf.w_object, "point_body": sf.w_point_body,
+                  "point": next(t["point"] for t in sf.triads
+                                if t["role_in_stage"] == "w_owner"),
                   "candidate_id": sf.w_candidate_id, "x_route": sf.w_x_route,
                   "fallback": sf.w_fallback, "merged": sf.merged},
             "triads": sf.triads,

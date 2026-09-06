@@ -483,6 +483,102 @@ def test_frames_legend_grasp_stage_names_the_whole_merged_frame():
     assert "(w owner)" in leg and "(active)" not in leg
 
 
+# ------------------------------------------------ #3 target-form rot rows
+
+@pytest.mark.parametrize("row,want", [
+    ({"axis": "teapot.+front", "points": "mug.-up"},
+     ("teapot.front_axis", "antiparallel", "mug.up_axis")),
+    ({"axis": "teapot.-front", "points": "mug.+up"},
+     ("teapot.front_axis", "antiparallel", "mug.up_axis")),
+    ({"axis": "teapot.+up", "points": "mug.+up"},
+     ("teapot.up_axis", "parallel", "mug.up_axis")),
+    ({"axis": "teapot.+up", "points": "world.z"},
+     ("teapot.up_axis", "parallel", "world.z")),
+    ({"axis": "teapot.+up", "points": "world.+z"},
+     ("teapot.up_axis", "parallel", "world.z")),
+    ({"axis": "teapot.+front", "points": "world.-z"},
+     ("teapot.front_axis", "antiparallel", "world.z")),
+    ({"axis": "teapot.-left", "perpendicular_to": "mug.+up"},
+     ("teapot.lateral_axis", "perpendicular", "mug.up_axis")),
+    ({"axis": "teapot.+left", "perpendicular_to": "world.-z"},
+     ("teapot.lateral_axis", "perpendicular", "world.z")),
+])
+def test_target_form_rows_normalize_to_the_compiler_rows(vocab, row, want):
+    """'points' names WHERE the axis should point; the adverb is derived
+    from the sign product. The model never writes 'antiparallel'."""
+    em = parse_emission(json.dumps(_emission_with([{**row, "tol": "tight"}])),
+                        vocab)
+    r = em.subgoal_tsr.rot[0]
+    assert (r.axis, r.relation, r.reference) == want and r.tol == "tight"
+
+
+def test_target_and_relation_forms_are_the_same_row(vocab):
+    a = parse_emission(json.dumps(_emission_with(
+        [{"axis": "teapot.+front", "points": "mug.-up", "tol": "loose"}])), vocab)
+    b = parse_emission(json.dumps(_emission_with(
+        [_rot("teapot.+front", "antiparallel", "mug.+up", "loose")])), vocab)
+    assert a.subgoal_tsr.rot == b.subgoal_tsr.rot
+
+
+@pytest.mark.parametrize("row,msg", [
+    ({"axis": "teapot.+up", "points": "mug.+up", "relation": "parallel",
+      "tol": "tight"}, "exactly one of"),
+    ({"axis": "teapot.+up", "points": "mug.+up", "perpendicular_to": "mug.+up",
+      "tol": "tight"}, "exactly one of"),
+    ({"axis": "teapot.+up", "tol": "tight"}, "exactly one of"),
+    ({"axis": "teapot.+up", "points": "mug.+up", "reference": "mug.+up",
+      "tol": "tight"}, "drop 'reference'"),
+    ({"axis": "teapot.+up", "perpendicular_to": "mug.+up",
+      "reference": "world.z", "tol": "tight"}, "drop 'reference'"),
+    ({"axis": "teapot.+up", "points": "world.x", "tol": "tight"}, "'world.x'"),
+    ({"axis": "teapot.+up", "points": "mug.+front", "tol": "tight"},
+     "'mug.+front'"),
+    ({"axis": "teapot.+up", "points": "teapot.up_axis", "tol": "tight"},
+     "'teapot.up_axis'"),
+])
+def test_target_form_rejections(vocab, row, msg):
+    with pytest.raises(ParseRejection, match=msg.replace("'", "'")):
+        parse_emission(json.dumps(_emission_with([row])), vocab)
+
+
+def test_emission_prompt_teaches_the_target_syntax_and_rule_table(vocab):
+    from manip_sim.vlm import ROT_ROW_SYNTAX, build_emission_prompt
+    assert ROT_ROW_SYNTAX == "target"
+    system, _ = build_emission_prompt(STAGE, vocab)
+    assert "antiparallel" not in system.replace("no 'antiparallel'", "")
+    assert '"points"' in system and '"perpendicular_to"' in system
+    assert "world.-z" in system
+    assert "decide FIRST which active direction" in system
+    assert "Rule-table limit per TSR" in system
+    assert "'inside' bounds all three rows" in system
+    # no task nouns in the core emission text
+    for word in ("spout", "pour", "teapot", "mug"):
+        assert word not in system.split("Grounded symbols")[0]
+
+
+def test_frames_legend_names_the_anchor_point_token_and_not_inside():
+    from manip_sim.vlm import frames_legend
+    rec = _pour_frames_record()
+    rec["w"]["point"] = "mug.opening_center"
+    leg = frames_legend(STAGE, rec)
+    assert "anchored at mug.opening_center (w.z = mug.+up)" in leg
+    assert "bound x/y with 'centered' or 'expr'" in leg
+    assert "'inside' bounds all three rows" in leg
+    assert "#<id>" not in leg
+
+
+def test_call_log_records_views_and_legend(vocab, tmp_path):
+    png = tmp_path / "v.png"
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 32)
+    good = json.dumps(good_emission())
+    c = Client(transport=canned(good, good))
+    c.emit_constraints(STAGE, vocab)
+    assert (c.logs[-1].views, c.logs[-1].legend) == (0, False)
+    c.emit_constraints(STAGE, vocab, view_paths=[png, png, png],
+                       frames=_pour_frames_record())
+    assert (c.logs[-1].views, c.logs[-1].legend) == (3, True)
+
+
 # -------------------------------------------------------- touchpoints #4/#5
 
 def test_critic_reject_requires_edits(vocab):

@@ -104,12 +104,23 @@ WORLD_AXES = ("world.x", "world.y", "world.z")
 # shows: three positive arrows, each '-' the same arrow reversed.
 CANONICAL_DIRS = ("+front", "-front", "+left", "-left", "+up", "-up")
 _DIR_AXIS = {"front": "front_axis", "left": "lateral_axis", "up": "up_axis"}
-# The only world direction licensed as a #3 rot-row reference: gravity is
+# The only world direction licensed as a #3 rot-row reference, in both
+# signs (world.z == world.+z; world.-z is "down"): gravity is
 # task-relevant; world.x/y are scene layout, and compile_tsr._basis_row
 # accepts them only when the scene yaw happens to land them on a w basis
 # vector. The compiler still resolves world.x/y internally (the fallback
 # ladder for a front-less w owner) — that is its bookkeeping, not a token.
-WORLD_REFS = ("world.z",)
+WORLD_REFS = ("world.z", "world.+z", "world.-z")
+# Rot-row syntax the #3 prompt teaches (the parser accepts both):
+#   "target"    {"axis": active.±dir, "points": ref.±dir | world.±z, "tol"}
+#               or {"axis": ..., "perpendicular_to": ref.+dir, "tol"} —
+#               the model names WHERE the axis should point; the sign
+#               lives in the target token (an arrow in the picture) and
+#               the adverb is derived. Consistent with `along`.
+#   "relation"  {"axis", "relation": parallel|antiparallel|perpendicular,
+#               "reference", "tol"} — the model infers the adverb.
+# A constant, not a flag: the syntax ablation edits it under a --tag.
+ROT_ROW_SYNTAX = "target"
 # The canonical object frame every object carries (frames.py): caller-
 # supplied up/front, lateral = up x front. The compiler roots each stage's
 # w on the passive object's; describe_symbols lists them apart from the
@@ -762,14 +773,24 @@ def _norm_dir(token: str, vocab: Vocabulary, ctx: str) -> tuple[str, str]:
     return f"{obj}.{_DIR_AXIS[d[1:]]}", d[0]
 
 
+def _norm_ref(token: str, vocab: Vocabulary, ctx: str) -> tuple[str, str]:
+    """Reference / target token -> (unsigned name, sign): a licensed
+    signed direction, or world.z in either sign."""
+    if token in WORLD_REFS:
+        return "world.z", ("-" if token == "world.-z" else "+")
+    # _enum against the union so the rejection lists the world tokens too
+    _enum(token, sorted(vocab.direction_names() | set(WORLD_REFS)), ctx)
+    return _norm_dir(token, vocab, ctx)
+
+
 def _parse_rot_rows(rows, vocab: Vocabulary, ctx: str) -> tuple[RotRow, ...]:
-    """Relation rows in the six-direction alphabet. Signs are normalized
-    away here: strip both, and when the sign product is negative swap
-    parallel<->antiparallel (perpendicular is sign-invariant), so
-    "teapot.-up antiparallel mug.+up" and "teapot.+up parallel mug.+up"
-    yield the same RotRow — an algebraic identity, not a numeric table,
-    hence this layer. world.z is the one licensed world reference and
-    carries '+'. Ownership (axis on the active object, reference on the
+    """Rot rows in the six-direction alphabet, in either syntax (see
+    ROT_ROW_SYNTAX). Signs are normalized away here: strip both, and
+    when the sign product is negative swap parallel<->antiparallel
+    (perpendicular is sign-invariant), so "+front points mug.-up",
+    "-front points mug.+up" and "+front antiparallel mug.+up" yield the
+    same RotRow — an algebraic identity, not a numeric table, hence
+    this layer. Ownership (axis on the active object, reference on the
     w owner) is the compiler's check, not the parser's."""
     if rows == "free":
         return tuple(RotRow(axis=None, relation="free", reference=None,
@@ -787,17 +808,31 @@ def _parse_rot_rows(rows, vocab: Vocabulary, ctx: str) -> tuple[RotRow, ...]:
             out.append(RotRow(axis=None, relation="free", reference=None,
                               tol=None, row=row))
             continue
+        forms = [k for k in ("points", "perpendicular_to", "relation") if k in r]
+        if len(forms) != 1:
+            raise ParseRejection(
+                f"{c}: give exactly one of 'points', 'perpendicular_to' "
+                f"or 'relation' (got {forms or 'none'})")
+        form = forms[0]
         axis, a_sign = _norm_dir(_need(r, "axis", str, c), vocab, f"{c}.axis")
-        rel = _enum(_need(r, "relation", str, c), ROT_RELATIONS,
-                    f"{c}.relation")
-        ref_tok = _need(r, "reference", str, c)
-        if ref_tok in WORLD_REFS:
-            ref, r_sign = ref_tok, "+"
+        if form == "points":
+            if "reference" in r:
+                raise ParseRejection(f"{c}: 'points' names the target; "
+                                     "drop 'reference'")
+            ref, r_sign = _norm_ref(_need(r, "points", str, c), vocab,
+                                    f"{c}.points")
+            rel = "parallel"
+        elif form == "perpendicular_to":
+            if "reference" in r:
+                raise ParseRejection(f"{c}: 'perpendicular_to' names the "
+                                     "reference; drop 'reference'")
+            ref, r_sign = _norm_ref(_need(r, "perpendicular_to", str, c),
+                                    vocab, f"{c}.perpendicular_to")
+            rel = "perpendicular"
         else:
-            # _enum against the union so the rejection lists world.z too
-            _enum(ref_tok, sorted(vocab.direction_names() | set(WORLD_REFS)),
-                  f"{c}.reference")
-            ref, r_sign = _norm_dir(ref_tok, vocab, f"{c}.reference")
+            rel = _enum(r["relation"], ROT_RELATIONS, f"{c}.relation")
+            ref, r_sign = _norm_ref(_need(r, "reference", str, c), vocab,
+                                    f"{c}.reference")
         tol = _enum(_need(r, "tol", str, c), ROT_TOLS, f"{c}.tol")
         if a_sign != r_sign:
             rel = _FLIP[rel]
@@ -1094,6 +1129,41 @@ def build_point_axis_prompt_named(stage: StageSpec, vocab: Vocabulary,
     return system, [{"role": "user", "content": content}]
 
 
+_ROT_ROW_TEXT = {
+    "target": (
+        "Rotation rows say where a direction of the ACTIVE (moving) "
+        "object should point. For each row decide FIRST which active "
+        "direction this stage acts on, THEN where it should point at the "
+        "subgoal, and name that as a signed direction: 'points' a "
+        "passive-object direction or world.z / world.-z (an aligning row: "
+        "pins that direction, leaves rotation about it free); or "
+        "'perpendicular_to' a direction (pins one tilt, no heading). The "
+        "sign is carried by the target token: {\"axis\": \"A.+front\", "
+        "\"points\": \"B.-up\"} means A's +front ends up pointing the "
+        "way B's -up points. There is no 'antiparallel'."),
+    "relation": (
+        "Rotation rows relate a direction of the ACTIVE (moving) object "
+        "to a static reference — a passive-object direction or world.z. "
+        "A row fixes only what its pair determines: parallel/antiparallel "
+        "pin the axis direction and leave rotation about the reference "
+        "free; perpendicular pins one tilt. 'A.-up antiparallel B.+up' "
+        "and 'A.+up parallel B.+up' mean the same thing."),
+}
+_ROT_ROW_SCHEMA = {
+    "target": (
+        "rot row: {\"axis\": \"active.+dir\", \"points\": "
+        "\"passive.+dir\"|\"passive.-dir\"|\"world.z\"|\"world.-z\", "
+        "\"tol\": str} | {\"axis\": \"active.+dir\", \"perpendicular_to\": "
+        "\"passive.+dir\"|\"world.z\", \"tol\": str} | {\"relation\": "
+        "\"free\", \"row\": \"roll\"|\"pitch\"|\"yaw\"}.\n"),
+    "relation": (
+        "rot row: {\"axis\": \"active.+dir\", \"relation\": "
+        + str(list(ROT_RELATIONS)) + ", \"reference\": "
+        "\"passive.+dir\"|\"world.z\", \"tol\": str} or {\"relation\": "
+        "\"free\", \"row\": \"roll\"|\"pitch\"|\"yaw\"}.\n"),
+}
+
+
 def frames_legend(stage: StageSpec, frames: dict) -> str:
     """The image-conditioned (framed) arm's reading guide for one
     stage's render_stage_frames.py record (manifest["roles"][role]):
@@ -1114,24 +1184,25 @@ def frames_legend(stage: StageSpec, frames: dict) -> str:
         "is the drawn arrow reversed.",
         "- Dashed arrows in the same colors are the frame w that "
         "translation terms are written in (w.x red, w.y gold, w.z blue).",
-        "- An arrow labeled with two names, e.g. 'w.z = mug.+up', is one "
+        "- An arrow labeled with two names, e.g. 'w.z = <obj>.+up', is one "
         "direction with both meanings.",
         "- A circled dot is an axis pointing at the camera; a circled "
         "cross points away from it.",
-        "- Black dots are the selected interaction points, labeled "
-        "'<obj> #<id>' by the candidate id you chose earlier.",
+        "- Black dots are the selected interaction points, labeled with "
+        "the point token you anchor translation terms on.",
     ]
     col_dir = {v: k for k, v in _DIR_AXIS.items()}          # up_axis -> up
     merged = [f"w.{k} = {m.split('.')[0]}.+{col_dir[m.split('.')[1]]}"
               for k, m in sorted(w.get("merged", {}).items())]
-    lines.append(f"- In this stage w is anchored at {w_obj} #{w['candidate_id']}"
+    where = w.get("point") or f"{w_obj} #{w['candidate_id']}"
+    lines.append(f"- In this stage w is anchored at {where}"
                  + (f" ({', '.join(merged)})" if merged else "") + ".")
     if w.get("fallback"):
         lines.append(f"- 'w.x (fallback)' means w.x is NOT a direction of "
                      f"{w_obj} (it licenses no front); it was fixed by rule "
                      f"({w['x_route']}), so no direction token names it; "
-                     "x/y translation bounds go through 'expr', "
-                     "'centered' or 'inside'.")
+                     "bound x/y with 'centered' or 'expr' ('inside' "
+                     "bounds all three rows).")
     for role, t in triads.items():
         dirs = ", ".join(f"{t['object']}.{d}" for d in t["directions"])
         where = ("at the w anchor" if role == "w_owner"
@@ -1162,25 +1233,24 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
         "Axes are SIGNED CANONICAL DIRECTIONS of an object: "
         "obj.+front, obj.-front, obj.+left, obj.-left, obj.+up, obj.-up. "
         "Each object licenses only the directions listed for it below; "
-        "a '-' direction is the exact opposite of its '+'. The two forms "
-        "'A.-up antiparallel B.+up' and 'A.+up parallel B.+up' mean the "
-        "same thing; write whichever reads naturally.\n\n"
+        "a '-' direction is the exact opposite of its '+'. world.z is up "
+        "(gravity); world.-z is down.\n\n"
         "The constraint frame w is fixed by rule, not emitted: z = the "
         "passive object's +up, x = its +front, origin = the interaction "
-        "point selected on it; it is frozen at stage entry. Rotation rows "
-        "relate a direction of the ACTIVE (moving) object to a static "
-        "reference — a passive-object direction or world.z (up; gravity). "
-        "A row fixes only what its pair determines: parallel/antiparallel "
-        "pin the axis direction and leave rotation about the reference "
-        "free; perpendicular pins one tilt. Degrees of freedom no row "
-        "mentions are FREE. The subgoal is centered on the attitude that "
-        "satisfies its rows, reached by the smallest rotation from the "
-        "entry attitude; a path row bounds the sweep from entry to that "
-        "attitude. Translation terms are relative to anchor points on the "
-        "passive object, in w with z up.\n\n"
+        "point selected on it; it is frozen at stage entry. "
+        + _ROT_ROW_TEXT[ROT_ROW_SYNTAX] +
+        " Degrees of freedom no row mentions are FREE. The subgoal is "
+        "centered on the attitude that satisfies its rows, reached by the "
+        "smallest rotation from the entry attitude; a path row bounds the "
+        "sweep from entry to that attitude. Rule-table limit per TSR: ONE "
+        "row of either kind, or TWO aligning rows on independent active "
+        "directions (which fully determine the attitude); an aligning row "
+        "plus a perpendicular row, or two perpendicular rows, is rejected. "
+        "Translation terms are relative to anchor points on the passive "
+        "object, in w with z up; 'centered' and 'expr' bound x/y only, "
+        "'inside' bounds all three rows.\n\n"
         f"Grounded symbols:\n{vocab.describe_directions()}\n\n"
-        "Vocabulary: rot relations " + str(list(ROT_RELATIONS)) +
-        " with tol in " + str(list(ROT_TOLS)) +
+        "Vocabulary: rot tol in " + str(list(ROT_TOLS)) +
         "; trans terms 'free' | above/below(anchor, clearance in "
         + str(list(CLEARANCES)) + ", slack in " + str(list(SLACKS)) +
         ") | centered(anchor, tol in " + str(list(SLACKS)) +
@@ -1190,9 +1260,7 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
         "\"passive\": obj|null, \"path_tsr\": {\"rot\": \"free\"|[rot row, ...], "
         "\"trans\": \"free\"|[trans term, ...]}, \"subgoal_tsr\": "
         "{...same...}, \"verify\": str}.\n"
-        "rot row: {\"axis\": \"active.+dir\", \"relation\": str, \"reference\": "
-        "\"passive.+dir\"|\"world.z\", \"tol\": str} or {\"relation\": \"free\", "
-        "\"row\": \"roll\"|\"pitch\"|\"yaw\"}.\n"
+        + _ROT_ROW_SCHEMA[ROT_ROW_SYNTAX] +
         "trans term: {\"term\": \"free\"} | {\"term\": \"above\"|\"below\", "
         "\"anchor\": \"obj.point\", \"clearance\": str, \"slack\": str} | "
         "{\"term\": \"centered\", \"anchor\": \"obj.point\", \"tol\": str} | "
@@ -1310,6 +1378,8 @@ class CallLog:
     rejections: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
     raw: str = ""          # accepted (parsed) response text, for replay
+    views: int = 0         # image blocks attached (modality evidence)
+    legend: bool = False   # frames_legend in the user turn
 
 
 class Client:
@@ -1431,8 +1501,10 @@ class Client:
                     "as needed.")]}]
         emission = self._ask("emit_constraints", system, messages,
                              lambda raw: parse_emission(raw, vocab))
-        # surface literal flags into the call log
+        # surface literal flags + modality into the call log
         log = self.logs[-1]
+        log.views = len(view_paths or [])
+        log.legend = frames is not None
         for spec in (emission.path_tsr, emission.subgoal_tsr):
             for t in spec.trans:
                 log.flags.extend(t.flags)
