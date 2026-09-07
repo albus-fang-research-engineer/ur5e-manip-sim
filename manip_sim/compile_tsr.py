@@ -447,11 +447,23 @@ def _solve_rows(rel: list, R0_w: np.ndarray) -> tuple[np.ndarray, list]:
         ang_a = np.arccos(np.clip(a1 @ a2, -1, 1))
         ang_t = np.arccos(np.clip(t1 @ t2, -1, 1))
         if abs(ang_a - ang_t) > ALIGN_TOL_RAD:
-            raise CompileError(s2, (
-                f"rows are mutually inconsistent: the axes are "
+            # Slot BOTH rows. The compiler cannot tell which of the pair
+            # is the mistaken one, and slotting only the second taught
+            # the repair turn to edit the second — which in every logged
+            # case was the correct spout row. The message also closes the
+            # sign-flip escape: canonical axes are orthogonal, so the
+            # axis angle is 90 and a reference sign flip moves the
+            # reference angle between 0 and 180, never to 90.
+            raise CompileError(s1, (
+                f"inconsistent with {s2}: the axes are "
                 f"{np.degrees(ang_a):.0f} deg apart but the references "
-                f"{np.degrees(ang_t):.0f} deg apart; no attitude satisfies "
-                "both — drop or restate one"))
+                f"{np.degrees(ang_t):.0f} deg apart, so no attitude "
+                "satisfies both. Drop one of the two rows — keep the one "
+                "naming the direction this stage must point somewhere. "
+                "Flipping a sign cannot fix it: the two angles would "
+                "still differ"),
+                others=(CompileError(s2, f"the other row of the pair; "
+                                         f"see {s1}"),))
         Rd = _kabsch([(a1, t1), (a2, t2)])
         fixed = []
         for s, r, t in ((s1, r1, t1), (s2, r2, t2)):
@@ -686,7 +698,9 @@ def compile_stage(emission: StageEmission,
         tsrs[ctx] = TSR(T0_w=T0_w, Tw_e=Tw_e, Bw=Bw,
                         name=f"{emission.name}/{ctx}(emitted)")
     if errs:
-        raise CompileError(errs[0].slot, errs[0].reason, tuple(errs[1:]))
+        # flatten: a per-TSR error may itself carry paired slots
+        flat = [e for err in errs for e in err.all()]
+        raise CompileError(flat[0].slot, flat[0].reason, tuple(flat[1:]))
 
     return CompiledStage(stage=emission.stage, name=emission.name,
                          path=tsrs["path"], subgoal=tsrs["subgoal"],

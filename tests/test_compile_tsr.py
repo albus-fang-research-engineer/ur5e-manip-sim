@@ -391,6 +391,30 @@ def test_half_turn_flip_rejected():
     assert "half-turn" in _expect(doc, e_point=TIP).reason
 
 
+INCONSISTENT = [                # axes 90 deg apart, references 180 deg apart
+    UPRIGHT,
+    {"axis": "teapot.+front", "relation": "antiparallel",
+     "reference": "mug.+up", "tol": "loose"}]
+
+
+def test_inconsistent_pair_slots_both_rows():
+    doc = {**TRANSPORT, "subgoal_tsr": {"rot": INCONSISTENT, "trans": "free"}}
+    err = _expect(doc, e_point=TIP)
+    assert err.slot == "transport.subgoal.rot[0]"
+    assert [o.slot for o in err.others] == ["transport.subgoal.rot[1]"]
+    assert "Drop one" in err.reason and "restate" not in err.reason
+    assert "sign" in err.reason
+
+
+def test_inconsistent_pair_slots_survive_two_tsr_combine():
+    doc = {**TRANSPORT, "path_tsr": {"rot": INCONSISTENT, "trans": "free"},
+           "subgoal_tsr": {"rot": INCONSISTENT, "trans": "free"}}
+    err = _expect(doc, e_point=TIP)
+    assert [e.slot for e in err.all()] == [
+        "transport.path.rot[0]", "transport.path.rot[1]",
+        "transport.subgoal.rot[0]", "transport.subgoal.rot[1]"]
+
+
 def test_perpendicular_from_parallel_entry_rejected():
     doc = {**TRANSPORT, "subgoal_tsr": {"rot": [
         {"axis": "teapot.+up", "relation": "perpendicular",
