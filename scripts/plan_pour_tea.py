@@ -214,13 +214,17 @@ def main() -> None:
     mug_sym = load_symbols(scene.asset_dirs["mug"])
     if args.selections:
         # VLM-selected arm: the four task frames resolved from a role-
-        # keyed touchpoint-#2 artifact (candidate mark ID + grounded
-        # axis + sign) through the candidate pools — the wiring that
-        # replaces the four hardcoded reads below. Missing roles / bad
-        # IDs / unlicensed axes raise typed ResolutionErrors.
+        # keyed touchpoint-#2 artifact (candidate mark ID; axis None
+        # under the point-only scheme -> the resolver's canonical up)
+        # through the candidate pools — the wiring that replaces the
+        # four hardcoded reads below. The object comes from the
+        # artifact's "object" field (selection_objects), never from the
+        # axis prefix. Missing roles / bad IDs raise typed errors.
         from manip_sim.selection import (load_pool, load_selections,
-                                         resolve_selection)
+                                         resolve_selection,
+                                         selection_objects)
         sels = load_selections(args.selections)
+        objects = selection_objects(args.selections, sels)
         missing = ROLES - set(sels)
         if missing:
             raise SystemExit(f"[pour_tea] selections file lacks roles "
@@ -230,7 +234,7 @@ def main() -> None:
 
         def _frame(role):
             s = sels[role]
-            obj = s.axis.partition(".")[0]
+            obj = objects[role]
             rf = resolve_selection(s, pools[obj], syms[obj])
             print(f"[pour_tea] {role}: {rf.frame.comment}")
             return rf.frame

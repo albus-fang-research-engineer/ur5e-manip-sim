@@ -249,14 +249,16 @@ def main() -> None:
     sel_path = read_selections(plan) or None
     if sel_path:
         from manip_sim.selection import (load_pool, load_selections,
-                                         resolve_selection)
+                                         resolve_selection,
+                                         selection_objects)
         sels = load_selections(sel_path)
-        pools = {n: load_pool(d) for n, d in scene.asset_dirs.items()}
-        syms = {"teapot": teapot_sym, "mug": mug_sym}
+        objects = selection_objects(sel_path, sels)   # not the axis prefix:
+        pools = {n: load_pool(d) for n, d in scene.asset_dirs.items()}  # point-only
+        syms = {"teapot": teapot_sym, "mug": mug_sym}                    # sels have none
 
         def _frame(role):
             sel = sels[role]
-            obj = sel.axis.partition(".")[0]
+            obj = objects[role]
             return resolve_selection(sel, pools[obj], syms[obj]).frame
 
         handle = _frame("grasp")
