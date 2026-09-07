@@ -1,0 +1,234 @@
+{
+  "scene": "scenes/pour_tea.json",
+  "poses": "spawn",
+  "views": [
+    "iso",
+    "iso-opp",
+    "top"
+  ],
+  "px": 1024,
+  "roles": {
+    "grasp": {
+      "stage": 1,
+      "name": "grasp",
+      "active": "teapot",
+      "passive": null,
+      "w": {
+        "object": "teapot",
+        "point_body": [
+          0.0656,
+          -0.0661,
+          0.0019
+        ],
+        "point": "teapot.handle_center",
+        "candidate_id": 1,
+        "x_route": "teapot.front_axis",
+        "fallback": false,
+        "merged": {
+          "x": "teapot.front_axis",
+          "y": "teapot.lateral_axis",
+          "z": "teapot.up_axis"
+        }
+      },
+      "triads": [
+        {
+          "role_in_stage": "w_owner",
+          "object": "teapot",
+          "point_body": [
+            0.0656,
+            -0.0661,
+            0.0019
+          ],
+          "point": "teapot.handle_center",
+          "axes_drawn": [
+            "front_axis",
+            "lateral_axis",
+            "up_axis"
+          ],
+          "directions": [
+            "+front",
+            "-front",
+            "+left",
+            "-left",
+            "+up",
+            "-up"
+          ]
+        }
+      ],
+      "end_on": {
+        "iso": {},
+        "iso-opp": {},
+        "top": {
+          "teapot": [
+            "up_axis"
+          ]
+        }
+      },
+      "views": {
+        "iso": "outputs/frames/grasp/iso.png",
+        "iso-opp": "outputs/frames/grasp/iso-opp.png",
+        "top": "outputs/frames/grasp/top.png"
+      }
+    },
+    "transport_active": {
+      "stage": 2,
+      "name": "transport",
+      "active": "teapot",
+      "passive": "mug",
+      "w": {
+        "object": "mug",
+        "point_body": [
+          -0.0118,
+          -0.0,
+          0.0404
+        ],
+        "point": "mug.opening_center",
+        "candidate_id": 2,
+        "x_route": "teapot lateral (up x front) at entry",
+        "fallback": true,
+        "merged": {
+          "z": "mug.up_axis"
+        }
+      },
+      "triads": [
+        {
+          "role_in_stage": "w_owner",
+          "object": "mug",
+          "point_body": [
+            -0.0118,
+            -0.0,
+            0.0404
+          ],
+          "point": "mug.opening_center",
+          "axes_drawn": [
+            "up_axis"
+          ],
+          "directions": [
+            "+up",
+            "-up"
+          ]
+        },
+        {
+          "role_in_stage": "active",
+          "object": "teapot",
+          "point_body": [
+            -0.0861,
+            0.0848,
+            0.0382
+          ],
+          "point": "teapot.spout_tip",
+          "axes_drawn": [
+            "front_axis",
+            "lateral_axis",
+            "up_axis"
+          ],
+          "directions": [
+            "+front",
+            "-front",
+            "+left",
+            "-left",
+            "+up",
+            "-up"
+          ]
+        }
+      ],
+      "end_on": {
+        "iso": {},
+        "iso-opp": {},
+        "top": {
+          "mug": [
+            "up_axis"
+          ],
+          "teapot": [
+            "up_axis"
+          ]
+        }
+      },
+      "views": {
+        "iso": "outputs/frames/transport_active/iso.png",
+        "iso-opp": "outputs/frames/transport_active/iso-opp.png",
+        "top": "outputs/frames/transport_active/top.png"
+      }
+    },
+    "pour": {
+      "stage": 3,
+      "name": "pour",
+      "active": "teapot",
+      "passive": "mug",
+      "w": {
+        "object": "mug",
+        "point_body": [
+          -0.0118,
+          -0.0,
+          0.0404
+        ],
+        "point": "mug.opening_center",
+        "candidate_id": 2,
+        "x_route": "teapot lateral (up x front) at entry",
+        "fallback": true,
+        "merged": {
+          "z": "mug.up_axis"
+        }
+      },
+      "triads": [
+        {
+          "role_in_stage": "w_owner",
+          "object": "mug",
+          "point_body": [
+            -0.0118,
+            -0.0,
+            0.0404
+          ],
+          "point": "mug.opening_center",
+          "axes_drawn": [
+            "up_axis"
+          ],
+          "directions": [
+            "+up",
+            "-up"
+          ]
+        },
+        {
+          "role_in_stage": "active",
+          "object": "teapot",
+          "point_body": [
+            -0.0861,
+            0.0848,
+            0.0382
+          ],
+          "point": "teapot.spout_tip",
+          "axes_drawn": [
+            "front_axis",
+            "lateral_axis",
+            "up_axis"
+          ],
+          "directions": [
+            "+front",
+            "-front",
+            "+left",
+            "-left",
+            "+up",
+            "-up"
+          ]
+        }
+      ],
+      "end_on": {
+        "iso": {},
+        "iso-opp": {},
+        "top": {
+          "mug": [
+            "up_axis"
+          ],
+          "teapot": [
+            "up_axis"
+          ]
+        }
+      },
+      "views": {
+        "iso": "outputs/frames/pour/iso.png",
+        "iso-opp": "outputs/frames/pour/iso-opp.png",
+        "top": "outputs/frames/pour/top.png"
+      }
+    }
+  }
+}

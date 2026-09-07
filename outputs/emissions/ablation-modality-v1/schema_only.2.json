@@ -1,0 +1,401 @@
+{
+  "task": "pour tea from the teapot into the mug",
+  "stage_plan": null,
+  "selections": "outputs/selections/pour_tea.json",
+  "frames": null,
+  "roles": [
+    "grasp",
+    "transport_active",
+    "pour"
+  ],
+  "arm": "schema-only",
+  "views": {},
+  "emissions": [
+    {
+      "stage": 1,
+      "name": "grasp",
+      "active": "teapot",
+      "passive": null,
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "roll"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "pitch"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "yaw"
+          }
+        ],
+        "trans": [
+          {
+            "term": "free",
+            "anchor": null,
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "roll"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "pitch"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "yaw"
+          }
+        ],
+        "trans": [
+          {
+            "term": "inside",
+            "anchor": "teapot.handle_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": "snug",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "verify": "Gripper is firmly closed around teapot handle with no translational slip; grasp is stable and ready for pour motion."
+    },
+    {
+      "stage": 2,
+      "name": "transport",
+      "active": "teapot",
+      "passive": "mug",
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.up_axis",
+            "relation": "parallel",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "above",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "large",
+            "slack": "loose",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.up_axis",
+            "relation": "parallel",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          },
+          {
+            "axis": "teapot.front_axis",
+            "relation": "perpendicular",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "centered",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": "moderate",
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "above",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "small",
+            "slack": "snug",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "verify": "teapot is upright above mug opening with spout horizontal, ready to pour"
+    },
+    {
+      "stage": 3,
+      "name": "pour",
+      "active": "teapot",
+      "passive": "mug",
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.front_axis",
+            "relation": "perpendicular",
+            "reference": "mug.up_axis",
+            "tol": "moderate",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "above",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "small",
+            "slack": "moderate",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "centered",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": "moderate",
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.lateral_axis",
+            "relation": "parallel",
+            "reference": "mug.up_axis",
+            "tol": "moderate",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "above",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "small",
+            "slack": "moderate",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "centered",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": "moderate",
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "verify": "Teapot is tilted so its +left axis points toward mug.+up (rotating about the front axis to tip the spout downward over the mug opening), with the spout centered above mug.opening_center throughout the pour motion."
+    }
+  ],
+  "compiled": [
+    {
+      "stage": "grasp",
+      "grounded": true,
+      "Bw": {
+        "path": [
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ],
+        "subgoal": [
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ]
+      },
+      "error": null
+    },
+    {
+      "stage": "transport",
+      "grounded": false,
+      "Bw": null,
+      "error": {
+        "slot": "transport.subgoal.rot[1]",
+        "reason": "2 relation rows (['parallel', 'perpendicular']) are outside the rule table: one row of any relation, or two parallel/antiparallel rows with independent axes (which fully determine the attitude). Drop the extra row or split the stage",
+        "others": [],
+        "rejections": [
+          "transport.subgoal.rot[1]: rows are mutually inconsistent: the axes are 90 deg apart but the references 180 deg apart; no attitude satisfies both \u2014 drop or restate one",
+          "transport.subgoal.rot[1]: rows are mutually inconsistent: the axes are 90 deg apart but the references 0 deg apart; no attitude satisfies both \u2014 drop or restate one",
+          "transport.subgoal.rot[1]: 2 relation rows (['parallel', 'perpendicular']) are outside the rule table: one row of any relation, or two parallel/antiparallel rows with independent axes (which fully determine the attitude). Drop the extra row or split the stage"
+        ]
+      }
+    },
+    {
+      "stage": "pour",
+      "grounded": true,
+      "Bw": {
+        "path": [
+          [
+            -0.02,
+            0.02
+          ],
+          [
+            -0.02,
+            0.02
+          ],
+          [
+            0.01,
+            0.06
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ],
+        "subgoal": [
+          [
+            -0.02,
+            0.02
+          ],
+          [
+            -0.02,
+            0.02
+          ],
+          [
+            0.01,
+            0.06
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ]
+      },
+      "error": null
+    }
+  ]
+}
