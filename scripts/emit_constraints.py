@@ -23,7 +23,11 @@ roles — same binding select_frames.py uses):
                             #2 candidate id.
              --selections supplies the ANCHOR POINTS (w's origin, the
              active feature) to both arms; it does not pick the arm.
-  2. ground  compile_tsr.compile_stage at the manifest's spawn poses
+  2. ground  compile_tsr.compile_stage at the manifest's spawn poses,
+             then check_pair_consistency (the subgoal must lie on the
+             path manifold — the planner's own sample_intersection test,
+             run here so a path that forbids its subgoal comes back as
+             typed repair text, not as "no grasp survived" downstream)
              (upright, teapot facing the mug — every rule-table gate is
              an attitude question, so the spawn attitude exercises
              exactly what an offline gate can). w is the passive
@@ -68,7 +72,8 @@ from pathlib import Path
 
 import numpy as np
 
-from manip_sim.compile_tsr import CompileError, compile_stage
+from manip_sim.compile_tsr import (CompileError, check_pair_consistency,
+                                   compile_stage)
 from manip_sim.frames import Symbols, load_symbols
 from manip_sim.vlm import Client, StageSpec, Vocabulary
 from manip_sim.scene import add_scene_arg, load_scene
@@ -196,6 +201,7 @@ def main() -> None:
             try:
                 cs = compile_stage(em, symbols, poses, w_point=w_point,
                                    e_point=e_point)
+                check_pair_consistency(cs)   # subgoal on the path manifold?
             except CompileError as e:
                 rejections.append((client.logs[-1].raw, e.text()))
                 print(f"         compile rejected: {e.text()}")

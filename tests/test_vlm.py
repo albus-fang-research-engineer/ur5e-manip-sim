@@ -550,6 +550,8 @@ def test_emission_prompt_teaches_the_target_syntax_and_rule_table(vocab):
     assert "world.-z" in system
     assert "decide FIRST which active direction" in system
     assert "Rule-table limit per TSR" in system
+    assert "A direction the stage rotates must be left free on the path" in system
+    assert "sweep" not in system
     assert "'inside' bounds all three rows" in system
     # no task nouns in the core emission text
     for word in ("spout", "pour", "teapot", "mug"):

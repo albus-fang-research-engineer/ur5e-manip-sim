@@ -522,3 +522,79 @@ def test_direction_tokens_compile_identically_to_unsigned_rows():
             np.testing.assert_array_equal(a.Bw, b.Bw)
             np.testing.assert_array_equal(a.T0_w, b.T0_w)
             np.testing.assert_array_equal(a.Tw_e, b.Tw_e)
+
+
+# ------------------------------- emit-gate pair consistency (not the
+# compiler: the planner's sample_intersection test, run at compile time)
+
+def _pour_doc(path_rot, sub_trans):
+    above = {"term": "above", "anchor": "mug.opening_center",
+             "clearance": "small", "slack": "moderate"}
+    return {"stage": 3, "name": "pour", "active": "teapot", "passive": "mug",
+            "path_tsr": {"rot": path_rot, "trans": [above]},
+            "subgoal_tsr": {"rot": [{"axis": "teapot.+front",
+                                     "points": "mug.-up", "tol": "moderate"}],
+                            "trans": sub_trans},
+            "verify": ""}
+
+
+_SUB_TRANS = [{"term": "above", "anchor": "mug.opening_center",
+               "clearance": "small", "slack": "snug"},
+              {"term": "centered", "anchor": "mug.opening_center", "tol": "snug"}]
+
+
+def _compiled(doc):
+    from manip_sim.compile_tsr import compile_stage
+    return compile_stage(emission(doc), SYMBOLS, POSES, w_point=OPENING, e_point=TIP)
+
+
+def test_pair_check_rejects_a_path_row_on_the_rotated_direction():
+    """The specimen from ablation-modality-v1: every run put the path
+    row on the spout direction (true at entry), which pins the tilt to
+    +-30 deg while the subgoal needs 90 deg. compile_stage grounds both
+    boxes happily; the pair check names the row and says why."""
+    from manip_sim.compile_tsr import CompileError, check_pair_consistency
+    cs = _compiled(_pour_doc([{"axis": "teapot.+front",
+                               "perpendicular_to": "mug.+up", "tol": "loose"}],
+                             _SUB_TRANS))
+    with pytest.raises(CompileError) as e:
+        check_pair_consistency(cs)
+    assert e.value.slot == "pour.path"
+    assert "roll = +90 deg outside [-30, +30]" in e.value.reason
+    assert "leave that direction free on the path" in e.value.reason
+
+
+def test_pair_check_passes_the_invariant_path_row():
+    """The correct pour path pins the axis the stage turns ABOUT (the
+    lateral stays horizontal) and leaves the turn free: subgoal on the
+    path manifold, nothing raised."""
+    from manip_sim.compile_tsr import check_pair_consistency
+    cs = _compiled(_pour_doc([{"axis": "teapot.+left",
+                               "perpendicular_to": "mug.+up", "tol": "tight"}],
+                             _SUB_TRANS))
+    check_pair_consistency(cs)
+    assert any("fixed ['pitch']" in n for n in cs.notes)
+
+
+def test_pair_check_rejects_an_unsampleable_subgoal():
+    from manip_sim.compile_tsr import CompileError, check_pair_consistency
+    cs = _compiled(_pour_doc([{"axis": "teapot.+left",
+                               "perpendicular_to": "mug.+up", "tol": "tight"}],
+                             _SUB_TRANS[:1]))          # z bounded, x/y not
+    with pytest.raises(CompileError) as e:
+        check_pair_consistency(cs)
+    assert e.value.slot == "pour.subgoal.trans"
+    assert "['x', 'y'] are unbounded" in e.value.reason
+
+
+def test_pair_check_is_deterministic():
+    from manip_sim.compile_tsr import CompileError, check_pair_consistency
+    cs = _compiled(_pour_doc([{"axis": "teapot.+front",
+                               "perpendicular_to": "mug.+up", "tol": "loose"}],
+                             _SUB_TRANS))
+    msgs = set()
+    for _ in range(3):
+        with pytest.raises(CompileError) as e:
+            check_pair_consistency(cs)
+        msgs.add(e.value.reason)
+    assert len(msgs) == 1

@@ -691,3 +691,52 @@ def compile_stage(emission: StageEmission,
     return CompiledStage(stage=emission.stage, name=emission.name,
                          path=tsrs["path"], subgoal=tsrs["subgoal"],
                          w_frame=w_frame, notes=tuple(notes))
+
+
+def check_pair_consistency(cs: CompiledStage, rng=None, n: int = 8
+                           ) -> None:
+    """Emit-gate check the compile gate itself does not make: is the
+    subgoal reachable ON the path manifold? Runs the planner's own test
+    (tsr.sample_intersection: draw from the subgoal, keep what the path
+    contains) at the poses the stage was compiled at, and raises a
+    CompileError naming the path rows the subgoal's nominal pose
+    violates when nothing is accepted — the typed repair text for the
+    commonest way an emission is internally inconsistent: a path row on
+    the direction the stage rotates. Pure: compile_stage, the rule table
+    and the boxes are untouched."""
+    from .tsr import displacement_to_pose, sample_intersection
+    rng = np.random.default_rng(0) if rng is None else rng
+    rows = ("x", "y", "z", "roll", "pitch", "yaw")
+    unbounded = [rows[k] for k in range(3) if np.isinf(cs.subgoal.Bw[k]).any()]
+    if unbounded:                      # the planner samples the subgoal
+        raise CompileError(f"{cs.name}.subgoal.trans", (
+            f"subgoal row(s) {unbounded} are unbounded and cannot be "
+            "sampled: a subgoal must bound every translation row "
+            "(above/below bound z; centered/expr bound x and y)"))
+    rep = sample_intersection(cs.subgoal, [cs.path], n=n, rng=rng)
+    if rep.accepted:
+        return
+    center = cs.subgoal.Bw.mean(axis=1)              # the subgoal's box center
+    T_rep = cs.subgoal.T0_w @ displacement_to_pose(center) @ cs.subgoal.Tw_e
+    d = cs.path.displacement(T_rep)
+    bad = []
+    for k in range(6):
+        lo, hi = cs.path.Bw[k]
+        if d[k] < lo - 1e-9 or d[k] > hi + 1e-9:
+            if k < 3:
+                bad.append(f"{rows[k]} = {d[k]:+.3f} m outside "
+                           f"[{lo:+.3f}, {hi:+.3f}]")
+            else:
+                bad.append(f"{rows[k]} = {np.degrees(d[k]):+.0f} deg outside "
+                           f"[{np.degrees(lo):+.0f}, {np.degrees(hi):+.0f}]")
+    slot = f"{cs.name}.path"
+    if not bad:
+        raise CompileError(slot, (
+            f"no subgoal sample lies on the path ({rep.tried} tries): the "
+            "path and subgoal regions do not overlap"))
+    raise CompileError(slot, (
+        "the path excludes the subgoal: at the subgoal's center the path's "
+        + "; ".join(bad) + ". A path row on the direction this stage "
+        "rotates forbids the rotation — leave that direction free on the "
+        "path and constrain it only in the subgoal"))
+
