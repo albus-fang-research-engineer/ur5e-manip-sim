@@ -473,8 +473,10 @@ def _solve_rows(rel: list, R0_w: np.ndarray) -> tuple[np.ndarray, list]:
     raise CompileError(rel[-1][0], (
         f"{len(rel)} relation rows ({kinds}) are outside the rule table: "
         "one row of any relation, or two parallel/antiparallel rows with "
-        "independent axes (which fully determine the attitude). Drop the "
-        "extra row or split the stage"))
+        "independent axes (which fully determine the attitude); a "
+        "perpendicular row beside an aligning row is kept only when the "
+        "aligning row already implies it. Drop the extra row or split the "
+        "stage"))
 
 
 def compile_stage(emission: StageEmission,
@@ -579,6 +581,29 @@ def compile_stage(emission: StageEmission,
             a = R_entry @ _unit(symbols[mover].axes[a_name])
             d = _unit(_axis_dir_world(r.reference, symbols, body_poses, slot))
             rel.append((slot, r, a, d))
+        # A perpendicular row whose reference is collinear with an aligning
+        # row's target is implied by that row: once a_A lands on t_A, any
+        # a_P orthogonal to a_A is orthogonal to t_A, hence to d_P. It adds
+        # no constraint, so drop it with a note instead of rejecting the
+        # pair as outside the rule table. (The pour pair "front points
+        # -up, left perpendicular_to up" is exactly this.)
+        aligning = [x for x in rel if x[1].relation != "perpendicular"]
+        if len(aligning) == 1 and len(rel) > 1:
+            sA, rA, aA, dA = aligning[0]
+            tA = dA if rA.relation == "parallel" else -dA
+            kept = []
+            for x in rel:
+                sP, rP, aP, dP = x
+                implied = (rP.relation == "perpendicular"
+                           and abs(dP @ tA) >= np.cos(ALIGN_TOL_RAD)
+                           and abs(aP @ aA) < np.sin(ALIGN_TOL_RAD))
+                if implied:
+                    notes.append(f"{sP} is implied by {sA} (its reference is "
+                                 f"collinear with {sA}'s target and its axis "
+                                 f"orthogonal to {sA}'s); dropped")
+                else:
+                    kept.append(x)
+            rel = kept
         Rd, fixed = _solve_rows(rel, R0_w)
         R_goal = Rd @ R_entry if mover is not None else None
 

@@ -397,6 +397,39 @@ INCONSISTENT = [                # axes 90 deg apart, references 180 deg apart
      "reference": "mug.+up", "tol": "loose"}]
 
 
+def test_implied_perpendicular_row_is_dropped_with_note():
+    # pour pair: spout down + lateral stays horizontal. The second row is
+    # implied by the first (left _|_ front, front -> -up  =>  left _|_ up).
+    doc = {**POUR, "subgoal_tsr": {"rot": [
+        SPOUT_DOWN,
+        {"axis": "teapot.+left", "relation": "perpendicular",
+         "reference": "mug.+up", "tol": "moderate"}], "trans": "free"}}
+    cs = compile_pour(doc=doc)
+    single = compile_pour(doc={**POUR, "subgoal_tsr": {"rot": [SPOUT_DOWN],
+                                                       "trans": "free"}})
+    np.testing.assert_allclose(cs.subgoal.zero(), single.subgoal.zero(), atol=1e-12)
+    np.testing.assert_allclose(cs.subgoal.Bw, single.subgoal.Bw)
+    assert any("pour.subgoal.rot[1] is implied by pour.subgoal.rot[0]" in n
+               for n in cs.notes)
+
+
+def test_perpendicular_row_not_implied_still_rejected():
+    # reference off the aligning target's line: a yaw constraint, not implied
+    mg = SYMBOLS["mug"]
+    fronted = Symbols("mug", mg.points, {**mg.axes, "front_axis": np.array([0, 1.0, 0]),
+                                         "lateral_axis": np.array([-1.0, 0, 0])},
+                      mg.quantities)
+    doc = {**POUR, "subgoal_tsr": {"rot": [
+        SPOUT_DOWN,
+        {"axis": "teapot.+left", "relation": "perpendicular",
+         "reference": "mug.+front", "tol": "moderate"}], "trans": "free"}}
+    syms = {**SYMBOLS, "mug": fronted}
+    em = parse_emission(json.dumps(doc), Vocabulary.from_symbols(syms))
+    with pytest.raises(CompileError) as e:
+        compile_stage(em, syms, POSES, w_point=OPENING, e_point=TIP)
+    assert "outside the rule table" in e.value.reason
+
+
 def test_inconsistent_pair_slots_both_rows():
     doc = {**TRANSPORT, "subgoal_tsr": {"rot": INCONSISTENT, "trans": "free"}}
     err = _expect(doc, e_point=TIP)
