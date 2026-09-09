@@ -184,6 +184,11 @@ def main() -> None:
     client = Client()
 
     emissions, gate, framed = [], [], {}
+    # `poses` are ENTRY poses: the compiler freezes the goal attitude on
+    # them and the path must admit them. Stage k's mover enters stage k+1
+    # at stage k's subgoal center, so chain it; once a stage fails the
+    # gate there is no honest entry for the next, so stop there rather
+    # than compile it against the spawn pose.
     for stage, role in stages:
         sel = views = rec = None
         if manifest is not None:            # framed arm
@@ -213,12 +218,22 @@ def main() -> None:
                 print(f"         {n}")
             rows = {k: np.round(getattr(cs, k).Bw, 4).tolist()
                     for k in ("path", "subgoal")}
-            gate.append((em.name, True, rows, None))
+            entry = {n: np.round(T, 6).tolist() for n, T in poses.items()}
+            gate.append((em.name, True, rows, None, entry))
+            if em.passive:                  # object mover: exits at the subgoal center
+                poses = {**poses, em.active: cs.subgoal.nominal()}
             break
         else:
             gate.append((em.name, False, None,
-                         {**err, "rejections": [r for _, r in rejections]}))
+                         {**err, "rejections": [r for _, r in rejections]},
+                         {n: np.round(T, 6).tolist() for n, T in poses.items()}))
         emissions.append(em)
+        if not gate[-1][1]:
+            remaining = [st.name for st, _ in stages[len(gate):]]
+            if remaining:
+                print(f"[emit] stage {em.name} failed the gate; not emitting "
+                      f"{remaining} (no entry pose for them)")
+            break
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -232,8 +247,10 @@ def main() -> None:
         "views": framed,
         "emissions": [asdict(e) for e in emissions],
         "compiled": [{"stage": n, "grounded": ok, "Bw": rows,
-                      "error": err}
-                     for n, ok, rows, err in gate],
+                      "error": err, "entry_poses": entry}
+                     for n, ok, rows, err, entry in gate],
+        "stages_reached": len(gate),
+        "stages_total": len(stages),
     }, indent=2) + "\n")
     log = out.with_suffix(".log.json")
     log.write_text(json.dumps([asdict(l) for l in client.logs], indent=2,
@@ -242,7 +259,7 @@ def main() -> None:
 
     print("\n[emit] compile gate:")
     failed = []
-    for name, ok, _, err in gate:
+    for name, ok, _, err, _ in gate:
         if ok:
             print(f"  PASS  {name}: grounded to B^w")
         else:
