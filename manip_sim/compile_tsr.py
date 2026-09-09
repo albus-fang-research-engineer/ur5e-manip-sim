@@ -136,7 +136,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 from .frames import Frame, Symbols
-from .tsr import FREE_ROT, FREE_TRANS, TSR, make_pose
+from .tsr import FREE_ROT, FREE_TRANS, START_PROJECTION_BUDGET_M, TSR, make_pose
 from .vlm import FRAME_AXES, StageEmission, TSRSpec
 
 # ------------------------------------------------- the frozen enum tables
@@ -321,6 +321,10 @@ class _Box:
 
     def __init__(self):
         self.rows: list[tuple[float, float] | None] = [None] * 6
+        # slot that set each side of each row (the containment checks
+        # after compile blame the term that authored the violated bound)
+        self.lo_slot: list[str | None] = [None] * 6
+        self.hi_slot: list[str | None] = [None] * 6
 
     def narrow(self, idx: int, lo: float, hi: float, slot: str):
         if hi < lo:
@@ -328,12 +332,17 @@ class _Box:
         cur = self.rows[idx]
         if cur is None:
             self.rows[idx] = (lo, hi)
+            self.lo_slot[idx] = self.hi_slot[idx] = slot
             return
         nlo, nhi = max(cur[0], lo), min(cur[1], hi)
         if nhi < nlo:
             raise CompileError(slot, (
                 f"row {idx} intersection empty: existing "
                 f"[{cur[0]:.4f}, {cur[1]:.4f}] vs [{lo:.4f}, {hi:.4f}]"))
+        if lo > cur[0]:
+            self.lo_slot[idx] = slot
+        if hi < cur[1]:
+            self.hi_slot[idx] = slot
         self.rows[idx] = (nlo, nhi)
 
     def finish(self, trans_default, rot_default) -> np.ndarray:
@@ -479,6 +488,95 @@ def _solve_rows(rel: list, R0_w: np.ndarray) -> tuple[np.ndarray, list]:
         "stage"))
 
 
+_AXIS = ("x", "y", "z", "roll", "pitch", "yaw")
+_CONTAIN_SAMPLES = 64
+
+
+def _check_path_containment(name: str, path: TSR, subgoal: TSR, pbox: _Box,
+                            T_entry: np.ndarray | None,
+                            notes: list) -> list[CompileError]:
+    """The path TSR holds along the whole motion, so it must admit both
+    ends. (a) Entry: translation excess beyond START_PROJECTION_BUDGET_M
+    is an error (the planner refuses the same nudge), within it a note;
+    any rotation excess is an error. (b) Subgoal: translation rows meet
+    exactly (same T0_w; the displacement's translation is the feature
+    point's position in w regardless of Tw_e); rotation rows meet exactly
+    when both Tw_e share the goal attitude, else by seeded sampling of the
+    subgoal's rotation box. The gripper-mover (grasp) stage has no entry
+    body pose and skips (a)."""
+    errs: list[CompileError] = []
+    p, sg = path.Bw, subgoal.Bw
+
+    def blame(i: int, ex: float) -> str:
+        slot = pbox.lo_slot[i] if ex < 0 else pbox.hi_slot[i]
+        return slot or f"{name}.path"
+
+    if T_entry is not None:
+        ex = path.excess(T_entry)
+        for i in range(3):
+            if abs(ex[i]) <= 1e-9:
+                continue
+            msg = (f"the entry pose lies outside the path's {_AXIS[i]} band "
+                   f"[{p[i, 0]:+.3f}, {p[i, 1]:+.3f}] by {abs(ex[i]):.3f} m")
+            if abs(ex[i]) > START_PROJECTION_BUDGET_M:
+                errs.append(CompileError(blame(i, ex[i]), (
+                    msg + f" — more than the {START_PROJECTION_BUDGET_M} m "
+                    "the planner's start projection closes. Path terms "
+                    f"hold from entry to subgoal: leave {_AXIS[i]} free on "
+                    "the path, or split the stage (lift, then traverse)")))
+            else:
+                notes.append(f"{name}.path: {msg}; within the start-"
+                             f"projection budget ({START_PROJECTION_BUDGET_M} m)")
+        for i in range(3, 6):
+            if abs(ex[i]) > 1e-9:
+                errs.append(CompileError(blame(i, ex[i]), (
+                    f"the entry attitude lies outside the path's {_AXIS[i]} "
+                    f"bound by {np.degrees(abs(ex[i])):.0f} deg; a path row "
+                    "must admit the entry attitude — leave that rotation free "
+                    "on the path or split the stage")))
+    for i in range(3):
+        lo, hi = max(p[i, 0], sg[i, 0]), min(p[i, 1], sg[i, 1])
+        if hi < lo:
+            side = -1.0 if p[i, 0] > sg[i, 1] else 1.0
+            errs.append(CompileError(blame(i, side), (
+                f"the path's {_AXIS[i]} band [{p[i, 0]:+.3f}, {p[i, 1]:+.3f}] "
+                f"does not meet the subgoal's [{sg[i, 0]:+.3f}, {sg[i, 1]:+.3f}]"
+                ": the path must contain the subgoal — use a clearance no "
+                "larger than the subgoal's on the path, or leave "
+                f"{_AXIS[i]} free")))
+    if np.allclose(path.Tw_e[:3, :3], subgoal.Tw_e[:3, :3], atol=1e-9):
+        for i in range(3, 6):
+            if min(p[i, 1], sg[i, 1]) < max(p[i, 0], sg[i, 0]):
+                errs.append(CompileError(blame(i, 1.0), (
+                    f"the path's {_AXIS[i]} bound excludes every subgoal "
+                    f"{_AXIS[i]}: the path's rotation rows must admit the "
+                    "goal attitude — restate the path row or leave the path "
+                    "rotation free")))
+    else:
+        # rotation-only sample of the subgoal box (translation pinned to
+        # its center; unbounded rows to 0) against the path's rotation rows
+        Bw_r = sg.copy()
+        for i in range(3):
+            Bw_r[i] = (0.0, 0.0) if not np.all(np.isfinite(sg[i])) else \
+                      (0.5 * (sg[i, 0] + sg[i, 1]),) * 2
+        probe = TSR(T0_w=subgoal.T0_w, Tw_e=subgoal.Tw_e, Bw=Bw_r)
+        rng = np.random.default_rng(0)
+        ok = sum(np.all(np.abs(path.excess(probe.sample(rng))[3:]) <= 1e-9)
+                 for _ in range(_CONTAIN_SAMPLES))
+        if ok == 0:
+            k = next((pbox.lo_slot[i] for i in range(3, 6) if pbox.lo_slot[i]),
+                     f"{name}.path")
+            errs.append(CompileError(k, (
+                f"no sampled subgoal attitude lies within the path's rotation "
+                f"bounds (0/{_CONTAIN_SAMPLES}): the path's rotation rows "
+                "exclude the goal attitude — restate the path row to admit "
+                "the subgoal attitude or leave the path rotation free")))
+        else:
+            notes.append(f"{name}.path: rotation admits the subgoal "
+                         f"({ok}/{_CONTAIN_SAMPLES} sampled attitudes)")
+    return errs
+
+
 def compile_stage(emission: StageEmission,
                   symbols: dict[str, Symbols],
                   body_poses: dict[str, np.ndarray],
@@ -545,7 +643,7 @@ def compile_stage(emission: StageEmission,
     quantities = {f"{o}.{q}": v for o, s in symbols.items()
                   for q, v in s.quantities.items()}
 
-    def _compile_spec(spec: TSRSpec, ctx: str) -> tuple[np.ndarray, np.ndarray]:
+    def _compile_spec(spec: TSRSpec, ctx: str) -> tuple[np.ndarray, np.ndarray, _Box]:
         box = _Box()
 
         # ---- rotation rows: collect relation rows, solve the goal attitude
@@ -706,22 +804,28 @@ def compile_stage(emission: StageEmission,
                 hi = _eval_expr(t.expr_hi, quantities, slot)
                 box.narrow(_ROW_IDX[t.row], lo, hi, slot)
 
-        return box.finish(trans_default=FREE_TRANS, rot_default=FREE_ROT), Tw_e
+        return box.finish(trans_default=FREE_TRANS, rot_default=FREE_ROT), Tw_e, box
 
     # compile both TSRs before raising so one rejection carries every
     # failed slot: a retry budget spent one slot per attempt on the same
     # mistake in path and subgoal is a budget wasted
     errs: list[CompileError] = []
     tsrs: dict[str, TSR] = {}
+    boxes: dict[str, _Box] = {}
     for ctx, spec in (("path", emission.path_tsr),
                       ("subgoal", emission.subgoal_tsr)):
         try:
-            Bw, Tw_e = _compile_spec(spec, ctx)
+            Bw, Tw_e, boxes[ctx] = _compile_spec(spec, ctx)
         except CompileError as e:
             errs.append(e)
             continue
         tsrs[ctx] = TSR(T0_w=T0_w, Tw_e=Tw_e, Bw=Bw,
                         name=f"{emission.name}/{ctx}(emitted)")
+    if not errs:
+        errs += _check_path_containment(emission.name, tsrs["path"],
+                                        tsrs["subgoal"], boxes["path"],
+                                        body_poses[mover] if mover else None,
+                                        notes)
     if errs:
         # flatten: a per-TSR error may itself carry paired slots
         flat = [e for err in errs for e in err.all()]
@@ -734,15 +838,14 @@ def compile_stage(emission: StageEmission,
 
 def check_pair_consistency(cs: CompiledStage, rng=None, n: int = 8
                            ) -> None:
-    """Emit-gate check the compile gate itself does not make: is the
-    subgoal reachable ON the path manifold? Runs the planner's own test
+    """Emit-gate check: (1) every subgoal translation row is bounded
+    (the planner samples the subgoal), (2) the planner's own joint test
     (tsr.sample_intersection: draw from the subgoal, keep what the path
-    contains) at the poses the stage was compiled at, and raises a
-    CompileError naming the path rows the subgoal's nominal pose
-    violates when nothing is accepted — the typed repair text for the
-    commonest way an emission is internally inconsistent: a path row on
-    the direction the stage rotates. Pure: compile_stage, the rule table
-    and the boxes are untouched."""
+    contains) accepts something. compile_stage already checks path
+    containment per row with typed slots (_check_path_containment), so
+    the row-blaming branch below is a last net for joint misses the
+    per-row checks cannot see. Pure: compile_stage, the rule table and
+    the boxes are untouched."""
     from .tsr import displacement_to_pose, sample_intersection
     rng = np.random.default_rng(0) if rng is None else rng
     rows = ("x", "y", "z", "roll", "pitch", "yaw")

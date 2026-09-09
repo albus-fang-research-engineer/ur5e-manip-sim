@@ -50,6 +50,14 @@ from scipy.spatial.transform import Rotation as R
 
 FREE_ROT: tuple[float, float] = (-np.pi, np.pi)
 FREE_TRANS: tuple[float, float] = (-np.inf, np.inf)
+# Start-projection budget: CBiRRT projects the start configuration onto
+# the path manifold before planning, an UNPLANNED move of the object that
+# is collision-checked only at its endpoint. This is the largest such move
+# the planner is trusted to close; the compiler's emit gate applies the
+# same number to "entry outside the path TSR", so the two agree by
+# construction (hand-authored transport lifts 0.02 m at start; a VLM
+# path term of above(large) at 0.08+ m must fail at both).
+START_PROJECTION_BUDGET_M: float = 0.03
 
 _TWO_PI = 2.0 * np.pi
 

@@ -81,7 +81,15 @@ POUR = {
 }
 
 
-def compile_pour(poses=POSES, doc=POUR):
+# pour's ENTRY is transport's subgoal center (the compiler is handed entry
+# poses, and the path must admit the entry): chain it the way the emit
+# gate does rather than compiling pour against the spawn pose
+TRANSPORT_CS = compile_stage(emission(TRANSPORT), SYMBOLS, POSES,
+                             w_point=OPENING, e_point=TIP)
+POUR_POSES = {**POSES, "teapot": TRANSPORT_CS.subgoal.nominal()}
+
+
+def compile_pour(poses=POUR_POSES, doc=POUR):
     return compile_stage(emission(doc), SYMBOLS, poses, w_point=OPENING,
                          e_point=TIP)
 
@@ -227,7 +235,10 @@ def test_pour_path_corridor_on_roll_from_entry_to_goal():
 
 def test_pour_goal_follows_entry_heading():
     # frozen at entry: a yawed entry tilts about ITS lateral
-    yawed = {**POSES, "teapot": _tilted(POSES["teapot"], 50.0, (0, 0, 1))}
+    # yaw the entry about the (frozen) tip so the tip stays over the opening
+    yawed_T = _tilted(POUR_POSES["teapot"], 50.0, (0, 0, 1))
+    yawed_T[:3, 3] += (POUR_POSES["teapot"][:3, :3] - yawed_T[:3, :3]) @ TIP
+    yawed = {**POUR_POSES, "teapot": yawed_T}
     cs = compile_pour(yawed)
     lat = _u(yawed["teapot"][:3, :3] @ SYMBOLS["teapot"].axes["lateral_axis"])
     np.testing.assert_allclose(cs.subgoal.T0_w[:3, 0], lat, atol=1e-9)
@@ -248,7 +259,7 @@ def test_pour_corridor_off_basis_frees_path_rotation():
                       mg.quantities)
     cs = compile_pour(doc=POUR)  # baseline: corridor exists
     assert any("corridor" in n for n in cs.notes)
-    cs = compile_stage(emission(POUR), {**SYMBOLS, "mug": fronted}, POSES,
+    cs = compile_stage(emission(POUR), {**SYMBOLS, "mug": fronted}, POUR_POSES,
                        w_point=OPENING, e_point=TIP)
     assert all(_is_free(cs.path.Bw[i]) for i in (3, 4, 5))
     assert any("translation carries the path" in n for n in cs.notes)
@@ -265,7 +276,7 @@ def test_corridor_never_on_pitch():
     fronted = Symbols("mug", mg.points, {**mg.axes, "front_axis": front,
                                          "lateral_axis": np.cross([0, 0, 1.0], front)},
                       mg.quantities)
-    cs = compile_stage(emission(POUR), {**SYMBOLS, "mug": fronted}, POSES,
+    cs = compile_stage(emission(POUR), {**SYMBOLS, "mug": fronted}, POUR_POSES,
                        w_point=OPENING, e_point=TIP)
     assert all(_is_free(cs.path.Bw[i]) for i in (3, 4, 5))
 
@@ -312,7 +323,7 @@ def test_sigma_floors_fixed_rows():
     tp = SYMBOLS["teapot"]
     noisy = Symbols("teapot", tp.points, tp.axes, tp.quantities,
                     sigmas={"axes.front_axis": 5.0})
-    cs = compile_stage(emission(POUR), {**SYMBOLS, "teapot": noisy}, POSES,
+    cs = compile_stage(emission(POUR), {**SYMBOLS, "teapot": noisy}, POUR_POSES,
                        w_point=OPENING, e_point=TIP)
     h = SIGMA_K * np.deg2rad(5.0)             # > tight (5 deg)
     np.testing.assert_allclose(cs.subgoal.Bw[3], (-h, h))
@@ -430,6 +441,71 @@ def test_perpendicular_row_not_implied_still_rejected():
     assert "outside the rule table" in e.value.reason
 
 
+# ------------------------------------------------- path containment (step 3)
+
+def _path(doc, rot=None, trans=None):
+    p = dict(doc["path_tsr"])
+    if rot is not None:
+        p["rot"] = rot
+    if trans is not None:
+        p["trans"] = trans
+    return {**doc, "path_tsr": p}
+
+
+ABOVE_LARGE = {"term": "above", "anchor": "mug.opening_center",
+               "clearance": "large", "slack": "loose"}          # z in [0.08, 0.20]
+
+
+def test_entry_outside_path_beyond_budget_rejected():
+    # carry-high transport path; the teapot enters on the table, 0.052 m
+    # below the band: more than the start projection is trusted to close
+    err = _expect(_path(TRANSPORT, trans=[ABOVE_LARGE]), e_point=TIP)
+    assert err.slot == "transport.path.trans[0]"
+    assert "entry pose lies outside" in err.reason and "0.03" in err.reason
+    assert "leave z free" in err.reason
+
+
+def test_entry_outside_path_within_budget_is_a_note():
+    # pour entry tip is 0.055 m above the opening; above(medium, snug) is
+    # [0.03, 0.05]: 0.005 m outside, inside the budget -> note, and the
+    # band still meets the subgoal's [0.01, 0.03] at 0.03
+    cs = compile_pour(doc=_path(POUR, trans=[
+        {"term": "above", "anchor": "mug.opening_center",
+         "clearance": "medium", "slack": "snug"},
+        {"term": "centered", "anchor": "mug.opening_center", "tol": "moderate"}]))
+    assert any("within the start-projection budget" in n for n in cs.notes)
+
+
+def test_path_translation_missing_subgoal_rejected():
+    # path z [0.08, 0.20] vs subgoal z [0.01, 0.03]: the path excludes the
+    # goal; slot is the path term that set the violated side
+    err = _expect(_path(POUR, trans=[
+        ABOVE_LARGE,
+        {"term": "centered", "anchor": "mug.opening_center", "tol": "moderate"}]),
+        poses=POUR_POSES, e_point=TIP)
+    assert err.slot == "pour.path.trans[0]"
+    assert "does not meet the subgoal" in err.reason
+
+
+def test_path_rotation_excluding_goal_attitude_rejected():
+    # ablation-modality-v1's framed pour: path "front perpendicular up"
+    # (spout stays level), subgoal "front antiparallel up" (spout down).
+    # Different Tw_e -> sampled check; no subgoal attitude is on the path.
+    err = _expect(_path(POUR, rot=[
+        {"axis": "teapot.+front", "relation": "perpendicular",
+         "reference": "mug.+up", "tol": "moderate"}]),
+        poses=POUR_POSES, e_point=TIP)
+    assert err.slot == "pour.path.rot[0]"
+    assert "0/64" in err.reason and "exclude the goal attitude" in err.reason
+
+
+def test_path_contains_both_ends_by_construction():
+    cs = compile_pour()
+    assert cs.path.contains(POUR_POSES["teapot"], tol=1e-9)
+    assert cs.path.contains(cs.subgoal.nominal(), tol=1e-9)
+    assert not any("outside" in n for n in cs.notes)
+
+
 def test_inconsistent_pair_slots_both_rows():
     doc = {**TRANSPORT, "subgoal_tsr": {"rot": INCONSISTENT, "trans": "free"}}
     err = _expect(doc, e_point=TIP)
@@ -519,8 +595,8 @@ def test_emission_json_round_trip_and_taskframes_switch(tmp_path):
     # same w origin and the same nominal body pose; both expose .path/.subgoal
     assert np.allclose(h2.subgoal.T0_w[:3, 3], e2.subgoal.T0_w[:3, 3])
     assert np.allclose(h2.subgoal.zero(), e2.subgoal.zero())
-    h3 = hand.pour(POSES["teapot"], POSES["mug"], np.pi / 2)
-    e3 = emitted.pour(POSES["teapot"], POSES["mug"], np.pi / 2)
+    h3 = hand.pour(POUR_POSES["teapot"], POSES["mug"], np.pi / 2)
+    e3 = emitted.pour(POUR_POSES["teapot"], POSES["mug"], np.pi / 2)
     # same goal attitude; the emitted pivot is the opening, the hand one the tip
     assert np.allclose(h3.subgoal.nominal()[:3, :3], e3.subgoal.nominal()[:3, :3])
     assert np.allclose(e3.subgoal.T0_w[:3, 3], e2.subgoal.T0_w[:3, 3])
@@ -571,7 +647,7 @@ def test_direction_tokens_compile_identically_to_unsigned_rows():
                    path_tsr=replace(parsed.path_tsr, rot=(unsigned,)),
                    subgoal_tsr=replace(parsed.subgoal_tsr, rot=(unsigned,)))
     assert parsed.path_tsr.rot == (unsigned,) == parsed_flipped.path_tsr.rot
-    outs = [compile_stage(e, SYMBOLS, POSES, w_point=OPENING, e_point=TIP)
+    outs = [compile_stage(e, SYMBOLS, POUR_POSES, w_point=OPENING, e_point=TIP)
             for e in (parsed, parsed_flipped, hand)]
     for cs in outs[1:]:
         for k in ("path", "subgoal"):
@@ -608,17 +684,17 @@ def _compiled(doc):
 def test_pair_check_rejects_a_path_row_on_the_rotated_direction():
     """The specimen from ablation-modality-v1: every run put the path
     row on the spout direction (true at entry), which pins the tilt to
-    +-30 deg while the subgoal needs 90 deg. compile_stage grounds both
-    boxes happily; the pair check names the row and says why."""
-    from manip_sim.compile_tsr import CompileError, check_pair_consistency
-    cs = _compiled(_pour_doc([{"axis": "teapot.+front",
-                               "perpendicular_to": "mug.+up", "tol": "loose"}],
-                             _SUB_TRANS))
+    +-30 deg while the subgoal needs 90 deg. compile_stage itself now
+    rejects it (path must admit the subgoal attitude), slotted on the
+    path row, before the gate's joint sampling check would run."""
+    from manip_sim.compile_tsr import CompileError
     with pytest.raises(CompileError) as e:
-        check_pair_consistency(cs)
-    assert e.value.slot == "pour.path"
-    assert "roll = +90 deg outside [-30, +30]" in e.value.reason
-    assert "leave that direction free on the path" in e.value.reason
+        _compiled(_pour_doc([{"axis": "teapot.+front",
+                              "perpendicular_to": "mug.+up", "tol": "loose"}],
+                            _SUB_TRANS))
+    assert e.value.slot == "pour.path.rot[0]"
+    assert "0/64" in e.value.reason
+    assert "leave the path rotation free" in e.value.reason
 
 
 def test_pair_check_passes_the_invariant_path_row():
@@ -645,13 +721,13 @@ def test_pair_check_rejects_an_unsampleable_subgoal():
 
 
 def test_pair_check_is_deterministic():
-    from manip_sim.compile_tsr import CompileError, check_pair_consistency
-    cs = _compiled(_pour_doc([{"axis": "teapot.+front",
-                               "perpendicular_to": "mug.+up", "tol": "loose"}],
-                             _SUB_TRANS))
+    # the rotation probe is seeded: three compiles, one message
+    from manip_sim.compile_tsr import CompileError
     msgs = set()
     for _ in range(3):
         with pytest.raises(CompileError) as e:
-            check_pair_consistency(cs)
+            _compiled(_pour_doc([{"axis": "teapot.+front",
+                                  "perpendicular_to": "mug.+up", "tol": "loose"}],
+                                _SUB_TRANS))
         msgs.add(e.value.reason)
     assert len(msgs) == 1

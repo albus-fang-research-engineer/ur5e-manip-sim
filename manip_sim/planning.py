@@ -34,7 +34,7 @@ import mujoco
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from .tsr import TSR, make_pose
+from .tsr import START_PROJECTION_BUDGET_M, TSR, make_pose
 
 # --------------------------------------------------------------- kinematics
 
@@ -453,6 +453,16 @@ def plan_constrained(
     q_goal_p, ok_g = proj(q_goal)
     if not (ok_s and ok_g):
         return PlanResult(False, reason="start/goal projection failed")
+    # the start projection is an unplanned move of the object; refuse one
+    # larger than the budget the emit gate also enforces
+    start_nudge = float(np.linalg.norm(
+        attached.body_pose(kin.fk(q_start_p))[:3, 3]
+        - attached.body_pose(kin.fk(q_start))[:3, 3]))
+    if start_nudge > START_PROJECTION_BUDGET_M:
+        return PlanResult(False, reason=(
+            f"start projection moved the object {start_nudge:.3f} m "
+            f"(budget {START_PROJECTION_BUDGET_M} m): the path TSR excludes "
+            "the start pose; free that row on the path or split the stage"))
     for name, q in (("start", q_start_p), ("goal", q_goal_p)):
         if check_collision and kin.in_collision(q):
             return PlanResult(False, reason=f"{name} in collision after projection")
@@ -551,4 +561,5 @@ def plan_constrained(
     return PlanResult(ok=True, path=qs, solve_time=timeout - (t_end - _time.time()),
                       max_excess=max_exc,
                       stats={"n_waypoints": len(qs),
-                             "tree_sizes": [len(t["q"]) for t in trees]})
+                             "tree_sizes": [len(t["q"]) for t in trees],
+                             "start_nudge_m": start_nudge})
