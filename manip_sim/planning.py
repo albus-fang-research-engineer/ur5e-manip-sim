@@ -465,7 +465,11 @@ def plan_constrained(
             "the start pose; free that row on the path or split the stage"))
     for name, q in (("start", q_start_p), ("goal", q_goal_p)):
         if check_collision and kin.in_collision(q):
-            return PlanResult(False, reason=f"{name} in collision after projection")
+            nudge = (f" (the projection moved the object {start_nudge:.3f} m "
+                     "into the path TSR; the start pose itself was outside it)"
+                     if name == "start" and start_nudge > 1e-6 else "")
+            return PlanResult(False, reason=(
+                f"{name} in collision after projection{nudge}"))
 
     lo, hi = kin.joint_range[:, 0], kin.joint_range[:, 1]
     lo_s, hi_s = np.maximum(lo, -np.pi), np.minimum(hi, np.pi)

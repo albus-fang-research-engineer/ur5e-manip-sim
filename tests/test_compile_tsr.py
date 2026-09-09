@@ -506,6 +506,33 @@ def test_path_contains_both_ends_by_construction():
     assert not any("outside" in n for n in cs.notes)
 
 
+# ------------------------------------------------------- stage seam (planner)
+
+def test_stage_seam_rejects_pour_path_narrower_than_transport_goal():
+    # ablation-modality-v2 framed.1: transport subgoal above(medium, moderate)
+    # z in [0.03, 0.08]; pour path above(small, moderate) z in [0.01, 0.06].
+    # The planner may end transport at z = 0.07; the pour path excludes it.
+    from manip_sim.compile_tsr import check_stage_seam
+    em = emission(POUR)
+    cs = compile_pour()                 # POUR fixture's path is above(small)
+    with pytest.raises(CompileError) as e:
+        check_stage_seam(TRANSPORT_CS, cs, em)
+    assert e.value.slot == "pour.path.trans[0]"        # the above() term
+    assert "does not admit every transport goal" in e.value.reason
+    assert "z band" in e.value.reason and "0.02" in e.value.reason
+
+
+def test_stage_seam_passes_when_path_covers_the_previous_subgoal():
+    from manip_sim.compile_tsr import check_stage_seam
+    doc = _path(POUR, trans=[
+        {"term": "centered", "anchor": "mug.opening_center", "tol": "moderate"},
+        {"term": "above", "anchor": "mug.opening_center",
+         "clearance": "small", "slack": "loose"}])         # z in [0.01, 0.13]
+    cs = compile_pour(doc=doc)
+    notes = check_stage_seam(TRANSPORT_CS, cs, emission(doc))
+    assert notes and "admits every transport goal" in notes[0]
+
+
 def test_inconsistent_pair_slots_both_rows():
     doc = {**TRANSPORT, "subgoal_tsr": {"rot": INCONSISTENT, "trans": "free"}}
     err = _expect(doc, e_point=TIP)

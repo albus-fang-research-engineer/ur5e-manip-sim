@@ -529,21 +529,30 @@ def main() -> None:
             pp.subgoal.nominal() @ np.linalg.inv(attached.T_ee_body),
             [q] + seeds, iters=200)
         pour_ok = ok and not kin_att.in_collision(qp)
-        ranked2.append((not pour_ok, float(np.linalg.norm(q - q_lift)), q))
-    ranked2.sort(key=lambda r: r[:2])
+        # the pour PATH holds from its entry: an entry outside it is a
+        # start projection (unplanned, collision-checked only at its end)
+        in_path = pp.path.contains(T_ent, tol=1e-6)
+        ranked2.append((not pour_ok, not in_path,
+                        float(np.linalg.norm(q - q_lift)), q))
+    ranked2.sort(key=lambda r: r[:3])
     n_pourable = sum(1 for r in ranked2 if not r[0])
+    n_in_path = sum(1 for r in ranked2 if not r[0] and not r[1])
     print(f"[transport] pour lookahead: {n_pourable}/{len(ranked2)} goal "
-          f"entries admit the {args.tilt_deg:.0f} deg pour "
-          f"({time.time() - t0:.1f}s)")
+          f"entries admit the {args.tilt_deg:.0f} deg pour, {n_in_path} of "
+          f"those lie in the pour path ({time.time() - t0:.1f}s)")
     if n_pourable == 0:
         print("[transport] WARNING: no probed entry admits the pour — "
               "proceeding with nearest goal; expect stage 3 to fail "
               "(lower --tilt-deg or raise --n-goal-samples).")
+    elif n_in_path == 0:
+        print("[transport] WARNING: no pourable entry lies in the pour "
+              "path — stage 3 will start from a projection; the seam "
+              "check at the emit gate should have rejected this pair.")
     # walk the ranking (same funnel shape as stage 1's candidate walk):
     # a planning failure on one goal is attrition, not a verdict — the
     # next entry is usually at a different azimuth and connects fine
     res2, fails2 = None, []
-    for k, (_no_pour, _dist, q_goal2) in enumerate(ranked2):
+    for k, (_no_pour, _off_path, _dist, q_goal2) in enumerate(ranked2):
         r = plan_constrained(kin_att, attached, [pair.path], q_lift,
                              q_goal2, timeout=args.timeout)
         if r.ok:
@@ -579,6 +588,10 @@ def main() -> None:
     # actually ended (not where it was nominally aimed)
     T_entry = attached.body_pose(kin_att.fk(q2_end))
     ppair = frames.pour(T_entry, T0_mug, tilt_target)
+    ex_entry = ppair.path.excess(T_entry)
+    print(f"[pour] entry vs path excess (x y z r p y): "
+          f"{np.round(ex_entry[:3], 4).tolist()} m "
+          f"{np.round(np.degrees(ex_entry[3:]), 1).tolist()} deg")
     rep3, goals3, _ = _sample_funnel_escalating(
         ppair.subgoal, [ppair.path], args.n_goal_samples, rng,
         (ik_att, kin_att, attached, [q2_end] + seeds,

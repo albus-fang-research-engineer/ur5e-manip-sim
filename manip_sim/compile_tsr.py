@@ -836,6 +836,48 @@ def compile_stage(emission: StageEmission,
                          w_frame=w_frame, notes=tuple(notes))
 
 
+def check_stage_seam(prev: CompiledStage, cur: CompiledStage,
+                     cur_emission: StageEmission, n: int = _CONTAIN_SAMPLES
+                     ) -> list[str]:
+    """Emit-gate check across a stage boundary: the mover leaves stage
+    `prev` anywhere in prev.subgoal (the planner picks the sample that
+    survives IK, collision and lookahead), and cur.path must hold from
+    that entry. So prev.subgoal's translation box must nest inside
+    cur.path's — checked by n seeded samples of prev.subgoal through
+    cur.path.excess, translation rows only (cur's w is frozen at the
+    NOMINAL entry, so its rotation rows are not comparable across a
+    yaw-free prev.subgoal). No budget: at a seam between two emitted
+    stages the entry set is known exactly and the model can make the
+    boxes nest. Raises CompileError on cur's path term that set the
+    violated side; returns notes otherwise."""
+    rng = np.random.default_rng(0)
+    worst = np.zeros(3)
+    for _ in range(n):
+        ex = cur.path.excess(prev.subgoal.sample(rng))[:3]
+        worst = np.where(np.abs(ex) > np.abs(worst), ex, worst)
+    i = int(np.argmax(np.abs(worst)))
+    if abs(worst[i]) <= 1e-9:
+        return [f"{cur.name}.path admits every {prev.name} goal "
+                f"({n} sampled poses, translation)"]
+    terms = cur_emission.path_tsr.trans
+    idx = 0
+    if terms != "free":
+        vertical = {"above", "below"}
+        for j, t in enumerate(terms):
+            if (i == 2) == (t.term in vertical):
+                idx = j
+                break
+    p, sg = cur.path.Bw, prev.subgoal.Bw
+    raise CompileError(f"{cur.name}.path.trans[{idx}]", (
+        f"{cur.name}'s path does not admit every {prev.name} goal: a "
+        f"{prev.name} goal pose lies outside the path's {_AXIS[i]} band "
+        f"[{p[i, 0]:+.3f}, {p[i, 1]:+.3f}] by {abs(worst[i]):.3f} m "
+        f"({prev.name}'s subgoal {_AXIS[i]} band is "
+        f"[{sg[i, 0]:+.3f}, {sg[i, 1]:+.3f}]). The path holds from entry, "
+        f"so it must cover the whole {prev.name} subgoal band — widen this "
+        f"term or narrow {prev.name}'s subgoal"))
+
+
 def check_pair_consistency(cs: CompiledStage, rng=None, n: int = 8
                            ) -> None:
     """Emit-gate check: (1) every subgoal translation row is bounded

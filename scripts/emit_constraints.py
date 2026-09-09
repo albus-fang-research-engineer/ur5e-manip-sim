@@ -72,7 +72,7 @@ from pathlib import Path
 
 import numpy as np
 
-from manip_sim.compile_tsr import (CompileError, check_pair_consistency,
+from manip_sim.compile_tsr import (CompileError, check_pair_consistency, check_stage_seam,
                                    compile_stage)
 from manip_sim.frames import Symbols, load_symbols
 from manip_sim.vlm import Client, StageSpec, Vocabulary
@@ -189,6 +189,7 @@ def main() -> None:
     # at stage k's subgoal center, so chain it; once a stage fails the
     # gate there is no honest entry for the next, so stop there rather
     # than compile it against the spawn pose.
+    prev_cs, prev_active = None, None   # last grounded OBJECT-mover stage
     for stage, role in stages:
         sel = views = rec = None
         if manifest is not None:            # framed arm
@@ -207,6 +208,9 @@ def main() -> None:
                 cs = compile_stage(em, symbols, poses, w_point=w_point,
                                    e_point=e_point)
                 check_pair_consistency(cs)   # subgoal on the path manifold?
+                if prev_cs is not None and em.passive and em.active == prev_active:
+                    for n_ in check_stage_seam(prev_cs, cs, em):
+                        print(f"         {n_}")
             except CompileError as e:
                 rejections.append((client.logs[-1].raw, e.text()))
                 print(f"         compile rejected: {e.text()}")
@@ -222,6 +226,7 @@ def main() -> None:
             gate.append((em.name, True, rows, None, entry))
             if em.passive:                  # object mover: exits at the subgoal center
                 poses = {**poses, em.active: cs.subgoal.nominal()}
+                prev_cs, prev_active = cs, em.active
             break
         else:
             gate.append((em.name, False, None,
