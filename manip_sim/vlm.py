@@ -130,6 +130,7 @@ ROT_ROW_SYNTAX = "target"
 # attributable to the prompt it ran under. Append; never edit an entry.
 PROMPT_DELTAS: tuple[str, ...] = (
     "hinge-hold-2026-09-09",   # tilting axis is held where it is, never pointed
+    "goal-first-2026-09-10",   # 'goal' sentence before any row; entry line states anchor side + height
 )
 # The canonical object frame every object carries (frames.py): caller-
 # supplied up/front, lateral = up x front. The compiler roots each stage's
@@ -429,6 +430,7 @@ class StageEmission:
     path_tsr: TSRSpec
     subgoal_tsr: TSRSpec
     verify: str            # free-text predicate for the render check
+    goal: str = ""         # free-text intent, written BEFORE any row; recorded, never compiled
 
 
 def emission_from_json(d: dict) -> StageEmission:
@@ -440,7 +442,8 @@ def emission_from_json(d: dict) -> StageEmission:
                                    for x in t["trans"]))
     return StageEmission(stage=int(d["stage"]), name=d["name"], active=d["active"],
                          passive=d.get("passive"), path_tsr=spec(d["path_tsr"]),
-                         subgoal_tsr=spec(d["subgoal_tsr"]), verify=d.get("verify", ""))
+                         subgoal_tsr=spec(d["subgoal_tsr"]), verify=d.get("verify", ""),
+                         goal=d.get("goal", ""))
 
 
 def load_emissions(path) -> dict[str, StageEmission]:
@@ -928,9 +931,12 @@ def parse_emission(raw: str, vocab: Vocabulary) -> StageEmission:
     verify = doc.get("verify", "")
     if not isinstance(verify, str):
         raise ParseRejection("emission.verify must be a string")
+    goal_text = doc.get("goal", "")
+    if not isinstance(goal_text, str):
+        raise ParseRejection("emission.goal must be a string")
     return StageEmission(stage=stage, name=name, active=active,
                          passive=passive, path_tsr=path, subgoal_tsr=goal,
-                         verify=verify)
+                         verify=verify, goal=goal_text)
 
 
 def parse_critic(raw: str, vocab: Vocabulary) -> CriticVerdict:
@@ -1231,12 +1237,17 @@ def frames_legend(stage: StageSpec, frames: dict) -> str:
 
 
 def entry_line(active: str, T_body: np.ndarray, axes: dict,
-               chained: bool, tol_rad: float) -> str:
+               chained: bool, tol_rad: float,
+               anchor: tuple[str, np.ndarray] | None = None,
+               w_anchor: tuple[str, np.ndarray, np.ndarray] | None = None) -> str:
     """One factual line for the user turn: where each canonical direction
     of the active object points when the stage begins. `chained`: the
     entry is the previous stage's goal center (stated as such), else the
-    spawn pose. No advice in this line — it states the attitude the
-    compiler will freeze the goal on, nothing else."""
+    spawn pose. With `anchor` = (token, point in body coords) the line
+    also says which side of the object's center the anchor lies on, per
+    canonical direction; with `w_anchor` = (token, point in w-owner body
+    coords, w-owner world pose) its height relative to that point. No
+    advice in this line — facts the compiler will act on, nothing else."""
     R = np.asarray(T_body)[:3, :3]
     parts = []
     for tok, ax in _DIR_AXIS.items():
@@ -1254,7 +1265,28 @@ def entry_line(active: str, T_body: np.ndarray, axes: dict,
                          f"{np.degrees(np.arcsin(c)):+.0f} deg from level")
     where = ("the previous stage's goal center" if chained
              else "its spawn pose")
-    return (f"At entry ({active} at {where}): " + "; ".join(parts) + ".")
+    line = f"At entry ({active} at {where}): " + "; ".join(parts) + "."
+    if anchor is not None:
+        tok, p_body = anchor
+        p_body = np.asarray(p_body, float)
+        sides = []
+        for dtok, ax in _DIR_AXIS.items():
+            if ax not in axes:
+                continue
+            c = float(p_body @ np.asarray(axes[ax]))
+            if abs(c) > 0.01:                     # 1 cm: on a side, not on the line
+                sides.append(("+" if c > 0 else "-") + dtok)
+        if sides:
+            line += (f" {tok} lies on the {', '.join(sides)} side of "
+                     f"{active}'s center.")
+        if w_anchor is not None:
+            wtok, q_body, T_w_owner = w_anchor
+            p_world = (np.asarray(T_body) @ np.append(p_body, 1.0))[:3]
+            q_world = (np.asarray(T_w_owner) @ np.append(np.asarray(q_body, float), 1.0))[:3]
+            dz = float(p_world[2] - q_world[2])
+            line += (f" {tok} is {abs(dz):.3f} m "
+                     f"{'above' if dz >= 0 else 'below'} {wtok} in height.")
+    return line
 
 
 def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
@@ -1312,9 +1344,12 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
         ") | along(direction) | inside(anchor, slack) | expr(row in "
         + str(list(TRANS_ROWS)) + ", lo, hi as quantity arithmetic).\n\n"
         "Output schema: {\"stage\": int, \"name\": str, \"active\": obj, "
-        "\"passive\": obj|null, \"path_tsr\": {\"rot\": \"free\"|[rot row, ...], "
-        "\"trans\": \"free\"|[trans term, ...]}, \"subgoal_tsr\": "
-        "{...same...}, \"verify\": str}.\n"
+        "\"passive\": obj|null, \"goal\": str, \"path_tsr\": {\"rot\": "
+        "\"free\"|[rot row, ...], \"trans\": \"free\"|[trans term, ...]}, "
+        "\"subgoal_tsr\": {...same...}, \"verify\": str}. "
+        "\"goal\": one short plain sentence, written before any row, saying "
+        "where the stage must end — name the objects' points and directions "
+        "where you can.\n"
         + _ROT_ROW_SCHEMA[ROT_ROW_SYNTAX] +
         "trans term: {\"term\": \"free\"} | {\"term\": \"above\"|\"below\", "
         "\"anchor\": \"obj.point\", \"clearance\": str, \"slack\": str} | "

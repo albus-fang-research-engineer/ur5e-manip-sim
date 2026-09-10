@@ -167,6 +167,10 @@ def test_render_chained_renders_each_stage_after_the_previous_gate_at_its_nomina
     assert all(e[3] == 3 and e[4] for e in emits)
     assert "at its spawn pose" in emits[1][2]
     assert "at the previous stage's goal center" in emits[2][2]
+    # object-mover stages get the anchor facts; the grasp stage does not
+    assert "teapot.spout_tip lies on the" in emits[1][2]
+    assert "mug.opening_center in height" in emits[2][2]
+    assert "lies on the" not in emits[0][2]
     # ordering inside the stream: render precedes emit for each stage, and the
     # pour render comes after the transport emit
     order = [(e[0], e[1]) for e in events]

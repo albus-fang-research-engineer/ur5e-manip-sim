@@ -94,6 +94,15 @@ STAGES = (
                parts={"teapot": ("spout",), "mug": ("rim",)}), "pour"),
 )
 
+def _point_token(obj: str, symbols, xyz, tol: float = 1e-5) -> str | None:
+    """'obj.point' whose authored coords match xyz, else None (runtime
+    grounding has no authored point names)."""
+    for name, p in symbols[obj].points.items():
+        if np.allclose(p, xyz, atol=tol):
+            return f"{obj}.{name}"
+    return None
+
+
 def _spawn_poses(scene) -> dict[str, np.ndarray]:
     """Compile-gate poses: the manifest's spawn poses (upright, scene
     yaw). Attitude is what the rule-table gates ask about; the spawn
@@ -228,9 +237,16 @@ def main() -> None:
         # factual entry line, both arms: the attitude the compiler freezes
         # the goal on (spawn for the first stage, the chained goal center
         # after an object-mover stage)
+        anchor = w_anchor = None
+        if stage.passive and e_point is not None:
+            e_tok = _point_token(stage.active, symbols, e_point) or f"{stage.active}.anchor"
+            w_tok = _point_token(stage.passive, symbols, w_point) or f"{stage.passive}.anchor"
+            anchor = (e_tok, e_point)
+            w_anchor = (w_tok, w_point, poses[stage.passive])
         entry = entry_line(stage.active, poses[stage.active],
                            symbols[stage.active].axes,
-                           chained=stage.active in chained, tol_rad=ALIGN_TOL_RAD)
+                           chained=stage.active in chained, tol_rad=ALIGN_TOL_RAD,
+                           anchor=anchor, w_anchor=w_anchor)
         rejections: list[tuple[str, str]] = []   # (raw emission, reason)
         err: dict | None = None
         for attempt in range(1 + COMPILE_RETRIES):

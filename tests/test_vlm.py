@@ -743,3 +743,39 @@ def test_entry_line_is_factual_and_in_the_user_turn(vocab):
     assert sys0 == sys1
     assert line in m1[0]["content"][0]["text"]
     assert line not in m0[0]["content"][0]["text"]
+
+
+def test_goal_field_is_parsed_kept_and_asked_for_before_rows(vocab):
+    from manip_sim.vlm import PROMPT_DELTAS, build_emission_prompt, parse_emission
+    system, _ = build_emission_prompt(STAGE, vocab)
+    i_goal = system.index('"goal": str, "path_tsr"')
+    assert i_goal > system.index('"passive": obj|null')
+    assert "written before any row" in system
+    assert "goal-first-2026-09-10" in PROMPT_DELTAS
+    doc = {"stage": 3, "name": "pour", "active": "teapot", "passive": "mug",
+           "goal": "teapot.spout_tip below the opening, spout pointing down",
+           "path_tsr": {"rot": "free", "trans": "free"},
+           "subgoal_tsr": {"rot": "free", "trans": "free"}, "verify": ""}
+    em = parse_emission(json.dumps(doc), vocab)
+    assert em.goal == doc["goal"]
+    assert parse_emission(json.dumps({**doc, "goal": None} | {"goal": ""}), vocab).goal == ""
+    with pytest.raises(ParseRejection):
+        parse_emission(json.dumps({**doc, "goal": 3}), vocab)
+
+
+def test_entry_line_states_anchor_side_and_height_as_facts():
+    import numpy as np
+    from manip_sim.vlm import entry_line
+    axes = {"up_axis": np.array([0, 0, 1.0]), "front_axis": np.array([1.0, 0, 0]),
+            "lateral_axis": np.array([0, 1.0, 0])}
+    T = np.eye(4); T[:3, 3] = [0.0, 0.0, 0.50]
+    Tw = np.eye(4); Tw[:3, 3] = [0.3, 0.0, 0.40]
+    tip = np.array([0.09, 0.0, 0.04])            # +front, +up of center
+    opening = np.array([0.0, 0.0, 0.10])
+    line = entry_line("teapot", T, axes, chained=False, tol_rad=np.deg2rad(10),
+                      anchor=("teapot.spout_tip", tip),
+                      w_anchor=("mug.opening_center", opening, Tw))
+    assert "teapot.spout_tip lies on the +front, +up side of teapot's center." in line
+    assert "teapot.spout_tip is 0.040 m above mug.opening_center in height." in line
+    for word in ("should", "must", "hold", "keep"):
+        assert word not in line
