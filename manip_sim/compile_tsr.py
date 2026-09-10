@@ -210,6 +210,7 @@ class CompiledStage:
     subgoal: TSR
     w_frame: Frame                    # the composed w (body coords)
     notes: tuple[str, ...] = ()       # per-slot compilation provenance
+    x_source: str = ""                # what fixed w.x (passive front / mover lateral / world axis)
 
 
 # ------------------------------------------------------------ small math
@@ -833,7 +834,61 @@ def compile_stage(emission: StageEmission,
 
     return CompiledStage(stage=emission.stage, name=emission.name,
                          path=tsrs["path"], subgoal=tsrs["subgoal"],
-                         w_frame=w_frame, notes=tuple(notes))
+                         w_frame=w_frame, notes=tuple(notes), x_source=route)
+
+
+def stage_accounting(cs: CompiledStage, emission: StageEmission,
+                     symbols: dict[str, Symbols],
+                     body_poses: dict[str, np.ndarray]) -> dict:
+    """Ablation accounting for one grounded stage, from the compiled
+    result — so the table is a field, not a recompile. Object-mover
+    stages only (a gripper stage has no attitude to classify):
+      goal_dirs   world direction of each canonical mover axis at the
+                  subgoal center
+      goal_class  the same, as up/down/level/tilt(deg) per axis
+      sweep       entry->goal rotation: axis named as the mover direction
+                  it is closest to (or 'off-axis'), angle in degrees
+      x_source    what fixed w.x
+      free_rows   rotation rows left free on path / subgoal
+    All facts about the compiled TSRs; no judgment about the task."""
+    if not emission.passive:
+        return {"x_source": cs.x_source}
+    mover = emission.active
+    R_entry = np.asarray(body_poses[mover])[:3, :3]
+    R_goal = cs.subgoal.zero()[:3, :3]
+    axes = {tok: _unit(symbols[mover].axes[ax])
+            for tok, ax in (("+front", _FRONT), ("+left", _LATERAL), ("+up", _UP))
+            if ax in symbols[mover].axes}
+    z = np.array([0.0, 0.0, 1.0])
+
+    def klass(c: float) -> str:
+        if c >= np.cos(ALIGN_TOL_RAD):
+            return "up"
+        if c <= -np.cos(ALIGN_TOL_RAD):
+            return "down"
+        if abs(c) <= np.sin(ALIGN_TOL_RAD):
+            return "level"
+        return f"tilt({np.degrees(np.arcsin(c)):+.0f})"
+
+    goal_dirs = {t: np.round(R_goal @ a, 4).tolist() for t, a in axes.items()}
+    goal_class = {t: klass(float(R_goal @ a @ z)) for t, a in axes.items()}
+    Rd = R_goal @ R_entry.T
+    rv = R.from_matrix(Rd).as_rotvec()
+    th = float(np.linalg.norm(rv))
+    if th > 1e-6:
+        n_b = R_entry.T @ (rv / th)               # rotation axis in body coords
+        best = max(axes.items(), key=lambda kv: abs(float(n_b @ kv[1])))
+        c = float(n_b @ best[1])
+        axis = ((best[0] if c > 0 else "-" + best[0][1:])
+                if abs(c) >= np.cos(ALIGN_TOL_RAD) else "off-axis")
+    else:
+        axis = "none"
+    free = {k: [("roll", "pitch", "yaw")[i - 3] for i in range(3, 6)
+                if getattr(cs, k).Bw[i, 1] - getattr(cs, k).Bw[i, 0] >= 2 * np.pi - 1e-9]
+            for k in ("path", "subgoal")}
+    return {"goal_dirs": goal_dirs, "goal_class": goal_class,
+            "sweep": {"axis": axis, "angle_deg": round(np.degrees(th), 1)},
+            "x_source": cs.x_source, "free_rows": free}
 
 
 def check_stage_seam(prev: CompiledStage, cur: CompiledStage,

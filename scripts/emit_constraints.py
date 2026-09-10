@@ -73,7 +73,7 @@ from pathlib import Path
 import numpy as np
 
 from manip_sim.compile_tsr import (ALIGN_TOL_RAD, CompileError, check_pair_consistency, check_stage_seam,
-                                   compile_stage)
+                                   compile_stage, stage_accounting)
 from manip_sim.frames import Symbols, load_symbols
 from manip_sim.vlm import PROMPT_DELTAS, Client, StageSpec, Vocabulary, entry_line
 from manip_sim.scene import add_scene_arg, load_scene
@@ -231,7 +231,11 @@ def main() -> None:
             rows = {k: np.round(getattr(cs, k).Bw, 4).tolist()
                     for k in ("path", "subgoal")}
             entry = {n: np.round(T, 6).tolist() for n, T in poses.items()}
-            gate.append((em.name, True, rows, None, entry))
+            acct = {**stage_accounting(cs, em, symbols, poses),
+                    "attempts": attempt + 1,
+                    "rejection_slots": [r.split(":")[0] for _, r in rejections],
+                    "notes": list(cs.notes)}
+            gate.append((em.name, True, rows, None, entry, acct))
             if em.passive:                  # object mover: exits at the subgoal center
                 poses = {**poses, em.active: cs.subgoal.nominal()}
                 chained.add(em.active)
@@ -240,7 +244,9 @@ def main() -> None:
         else:
             gate.append((em.name, False, None,
                          {**err, "rejections": [r for _, r in rejections]},
-                         {n: np.round(T, 6).tolist() for n, T in poses.items()}))
+                         {n: np.round(T, 6).tolist() for n, T in poses.items()},
+                         {"attempts": 1 + COMPILE_RETRIES,
+                          "rejection_slots": [r.split(":")[0] for _, r in rejections]}))
         emissions.append(em)
         if not gate[-1][1]:
             remaining = [st.name for st, _ in stages[len(gate):]]
@@ -262,8 +268,8 @@ def main() -> None:
         "views": framed,
         "emissions": [asdict(e) for e in emissions],
         "compiled": [{"stage": n, "grounded": ok, "Bw": rows,
-                      "error": err, "entry_poses": entry}
-                     for n, ok, rows, err, entry in gate],
+                      "error": err, "entry_poses": entry, **acct}
+                     for n, ok, rows, err, entry, acct in gate],
         "stages_reached": len(gate),
         "stages_total": len(stages),
     }, indent=2) + "\n")
@@ -274,7 +280,7 @@ def main() -> None:
 
     print("\n[emit] compile gate:")
     failed = []
-    for name, ok, _, err, _ in gate:
+    for name, ok, _, err, _, _ in gate:
         if ok:
             print(f"  PASS  {name}: grounded to B^w")
         else:

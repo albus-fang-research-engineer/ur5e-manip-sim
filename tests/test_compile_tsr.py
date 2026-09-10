@@ -758,3 +758,31 @@ def test_pair_check_is_deterministic():
                                 _SUB_TRANS))
         msgs.add(e.value.reason)
     assert len(msgs) == 1
+
+
+# ------------------------------------------------------- accounting (step 10)
+
+def test_stage_accounting_classifies_the_pour_goal_and_sweep():
+    from manip_sim.compile_tsr import stage_accounting
+    cs = compile_pour()
+    a = stage_accounting(cs, emission(POUR), SYMBOLS, POUR_POSES)
+    assert a["goal_class"] == {"+front": "down", "+left": "level", "+up": "level"}
+    assert a["sweep"]["axis"] == "+left" and a["sweep"]["angle_deg"] == pytest.approx(90.0, abs=0.1)
+    assert a["x_source"] == "teapot lateral (up x front) at entry"
+    assert a["free_rows"] == {"path": ["yaw"], "subgoal": ["yaw"]}
+    np.testing.assert_allclose(a["goal_dirs"]["+front"], [0, 0, -1], atol=1e-3)
+
+
+def test_stage_accounting_transport_has_no_sweep_and_grasp_only_x_source():
+    from manip_sim.compile_tsr import stage_accounting
+    cs = TRANSPORT_CS
+    a = stage_accounting(cs, emission(TRANSPORT), SYMBOLS, POSES)
+    assert a["goal_class"]["+up"] == "up" and a["sweep"]["axis"] == "none"
+    grasp = {"stage": 1, "name": "grasp", "active": "teapot", "passive": None,
+             "path_tsr": {"rot": "free", "trans": "free"},
+             "subgoal_tsr": {"rot": "free", "trans": [
+                 {"term": "inside", "anchor": "teapot.handle_center", "slack": "snug"}]},
+             "verify": ""}
+    g = compile_stage(emission(grasp), SYMBOLS, POSES,
+                      w_point=SYMBOLS["teapot"].points["handle_center"])
+    assert stage_accounting(g, emission(grasp), SYMBOLS, POSES) == {"x_source": g.x_source}
