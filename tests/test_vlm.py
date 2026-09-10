@@ -705,3 +705,41 @@ def test_emission_prompt_states_ownership_and_fixed_w(vocab):
     text = msgs[0]["content"][0]["text"]
     assert "GRIPPER" in text and "cannot be grounded" in text
     assert f"anchor trans terms on {grasp.active} points" in text
+
+
+def test_hinge_hold_sentence_is_in_the_system_text_and_registered(vocab):
+    from manip_sim.vlm import PROMPT_DELTAS, build_emission_prompt
+    system, _ = build_emission_prompt(STAGE, vocab)
+    assert "does not move during the tilt" in system
+    assert "'perpendicular_to' a reference it is perpendicular to at entry" in system
+    assert "hinge-hold-2026-09-09" in PROMPT_DELTAS
+
+
+def test_entry_line_is_factual_and_in_the_user_turn(vocab):
+    """The entry line states where the active object's canonical
+    directions point at entry — nothing else — and goes in the user
+    turn of both arms (the system text is unchanged by it)."""
+    import numpy as np
+    from manip_sim.vlm import build_emission_prompt, entry_line
+    axes = {"up_axis": np.array([0, 0, 1.0]), "front_axis": np.array([1.0, 0, 0]),
+            "lateral_axis": np.array([0, 1.0, 0])}
+    upright = np.eye(4)
+    line = entry_line("teapot", upright, axes, chained=False, tol_rad=np.deg2rad(10))
+    assert line == ("At entry (teapot at its spawn pose): teapot.+front is level; "
+                    "teapot.+left is level; teapot.+up points up (vertical).")
+    # spout down: rotate -90 about the lateral (front -> -z, up -> +x)
+    c, s_ = 0.0, 1.0
+    R = np.array([[c, 0, -s_], [0, 1, 0], [s_, 0, c]])
+    R = R.T                                  # front (x) -> -z
+    T = np.eye(4); T[:3, :3] = R
+    line = entry_line("teapot", T, axes, chained=True, tol_rad=np.deg2rad(10))
+    assert line.startswith("At entry (teapot at the previous stage's goal center): ")
+    assert "teapot.+front points down (vertical)" in line
+    assert "teapot.+up is level" in line
+    for word in ("should", "must", "hold", "keep"):
+        assert word not in line
+    sys0, m0 = build_emission_prompt(STAGE, vocab)
+    sys1, m1 = build_emission_prompt(STAGE, vocab, entry=line)
+    assert sys0 == sys1
+    assert line in m1[0]["content"][0]["text"]
+    assert line not in m0[0]["content"][0]["text"]

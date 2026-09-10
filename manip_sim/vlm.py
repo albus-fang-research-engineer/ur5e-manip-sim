@@ -69,6 +69,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import numpy as np
+
 # ------------------------------------------------------------- constants
 
 API_URL = "https://api.anthropic.com/v1/messages"
@@ -121,6 +123,14 @@ WORLD_REFS = ("world.z", "world.+z", "world.-z")
 #               "reference", "tol"} — the model infers the adverb.
 # A constant, not a flag: the syntax ablation edits it under a --tag.
 ROT_ROW_SYNTAX = "target"
+
+# Prompt deltas: every change to the #3 SYSTEM text after
+# ablation-modality-v2 (commit 87804a1 + step 3) is registered here by id
+# and written into each emission artifact, so a run's numbers are
+# attributable to the prompt it ran under. Append; never edit an entry.
+PROMPT_DELTAS: tuple[str, ...] = (
+    "hinge-hold-2026-09-09",   # tilting axis is held where it is, never pointed
+)
 # The canonical object frame every object carries (frames.py): caller-
 # supplied up/front, lateral = up x front. The compiler roots each stage's
 # w on the passive object's; describe_symbols lists them apart from the
@@ -1140,7 +1150,15 @@ _ROT_ROW_TEXT = {
         "'perpendicular_to' a direction (pins one tilt, no heading). The "
         "sign is carried by the target token: {\"axis\": \"A.+front\", "
         "\"points\": \"B.-up\"} means A's +front ends up pointing the "
-        "way B's -up points. There is no 'antiparallel'."),
+        "way B's -up points. There is no 'antiparallel'. The direction "
+        "an object tilts about does not move during the tilt, so never "
+        "'point' it at a new target — that rotates the object about a "
+        "different axis. Hold it where it already is, with the relation "
+        "it already has: 'perpendicular_to' a reference it is "
+        "perpendicular to at entry (a level hinge stays level), or "
+        "'points' at a reference it already lies along (a vertical "
+        "hinge). Then 'point' the direction that must end up along the "
+        "target."),
     "relation": (
         "Rotation rows relate a direction of the ACTIVE (moving) object "
         "to a static reference — a passive-object direction or world.z. "
@@ -1212,10 +1230,38 @@ def frames_legend(stage: StageSpec, frames: dict) -> str:
     return "\n".join(lines)
 
 
+def entry_line(active: str, T_body: np.ndarray, axes: dict,
+               chained: bool, tol_rad: float) -> str:
+    """One factual line for the user turn: where each canonical direction
+    of the active object points when the stage begins. `chained`: the
+    entry is the previous stage's goal center (stated as such), else the
+    spawn pose. No advice in this line — it states the attitude the
+    compiler will freeze the goal on, nothing else."""
+    R = np.asarray(T_body)[:3, :3]
+    parts = []
+    for tok, ax in _DIR_AXIS.items():
+        if ax not in axes:
+            continue
+        c = float(R @ np.asarray(axes[ax]) @ np.array([0.0, 0.0, 1.0]))
+        if c >= np.cos(tol_rad):
+            parts.append(f"{active}.+{tok} points up (vertical)")
+        elif c <= -np.cos(tol_rad):
+            parts.append(f"{active}.+{tok} points down (vertical)")
+        elif abs(c) <= np.sin(tol_rad):
+            parts.append(f"{active}.+{tok} is level")
+        else:
+            parts.append(f"{active}.+{tok} is tilted "
+                         f"{np.degrees(np.arcsin(c)):+.0f} deg from level")
+    where = ("the previous stage's goal center" if chained
+             else "its spawn pose")
+    return (f"At entry ({active} at {where}): " + "; ".join(parts) + ".")
+
+
 def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
                           selection: PointAxisSelection | None = None,
                           view_paths: list[Path] | None = None,
-                          frames: dict | None = None
+                          frames: dict | None = None,
+                          entry: str | None = None
                           ) -> tuple[str, list]:
     """#3 prompt in the six-direction alphabet. The schema-only (text)
     arm and the image-conditioned (framed) arm share the SYSTEM text
@@ -1294,6 +1340,8 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
     if selection:
         text += (f" Selected interaction point candidate "
                  f"{selection.candidate_id}.")
+    if entry:
+        text += "\n\n" + entry
     if frames is not None:
         text += "\n\n" + frames_legend(stage, frames)
     parts: list[dict] = [_text(text)]
@@ -1389,6 +1437,7 @@ class CallLog:
     raw: str = ""          # accepted (parsed) response text, for replay
     views: int = 0         # image blocks attached (modality evidence)
     legend: bool = False   # frames_legend in the user turn
+    entry: bool = False    # entry_line in the user turn
 
 
 class Client:
@@ -1490,7 +1539,8 @@ class Client:
                          selection: PointAxisSelection | None = None,
                          view_paths: list[Path] | None = None,
                          rejections: list[tuple[str, str]] | None = None,
-                         frames: dict | None = None
+                         frames: dict | None = None,
+                         entry: str | None = None
                          ) -> StageEmission:
         """`rejections`: (raw_emission, slot-named CompileError text) pairs
         from earlier attempts at this stage, replayed as assistant/user
@@ -1500,7 +1550,7 @@ class Client:
         it exists: the compiler's typed failure is what the model sees,
         nothing else."""
         system, messages = build_emission_prompt(stage, vocab, selection,
-                                                 view_paths, frames)
+                                                 view_paths, frames, entry)
         for raw, r in rejections or []:
             messages = messages + [
                 {"role": "assistant", "content": [_text(raw)]},
@@ -1514,6 +1564,7 @@ class Client:
         log = self.logs[-1]
         log.views = len(view_paths or [])
         log.legend = frames is not None
+        log.entry = entry is not None
         for spec in (emission.path_tsr, emission.subgoal_tsr):
             for t in spec.trans:
                 log.flags.extend(t.flags)

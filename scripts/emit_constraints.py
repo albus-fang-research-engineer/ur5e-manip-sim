@@ -72,10 +72,10 @@ from pathlib import Path
 
 import numpy as np
 
-from manip_sim.compile_tsr import (CompileError, check_pair_consistency, check_stage_seam,
+from manip_sim.compile_tsr import (ALIGN_TOL_RAD, CompileError, check_pair_consistency, check_stage_seam,
                                    compile_stage)
 from manip_sim.frames import Symbols, load_symbols
-from manip_sim.vlm import Client, StageSpec, Vocabulary
+from manip_sim.vlm import PROMPT_DELTAS, Client, StageSpec, Vocabulary, entry_line
 from manip_sim.scene import add_scene_arg, load_scene
 
 COMPILE_RETRIES = 2      # re-emissions per stage on a CompileError (stopgap
@@ -190,6 +190,7 @@ def main() -> None:
     # gate there is no honest entry for the next, so stop there rather
     # than compile it against the spawn pose.
     prev_cs, prev_active = None, None   # last grounded OBJECT-mover stage
+    chained: set[str] = set()           # objects whose pose is a chained goal center
     for stage, role in stages:
         sel = views = rec = None
         if manifest is not None:            # framed arm
@@ -197,12 +198,19 @@ def main() -> None:
             sel = sels[role]
             framed[role] = [str(v) for v in views]
         w_point, e_point = points[role]     # keyed by ROLE: stage names are free text
+        # factual entry line, both arms: the attitude the compiler freezes
+        # the goal on (spawn for the first stage, the chained goal center
+        # after an object-mover stage)
+        entry = entry_line(stage.active, poses[stage.active],
+                           symbols[stage.active].axes,
+                           chained=stage.active in chained, tol_rad=ALIGN_TOL_RAD)
         rejections: list[tuple[str, str]] = []   # (raw emission, reason)
         err: dict | None = None
         for attempt in range(1 + COMPILE_RETRIES):
             em = client.emit_constraints(stage, vocab, selection=sel,
                                          view_paths=views,
-                                         rejections=rejections, frames=rec)
+                                         rejections=rejections, frames=rec,
+                                         entry=entry)
             print(f"[emit] stage {em.stage} ({em.name}) attempt {attempt}")
             try:
                 cs = compile_stage(em, symbols, poses, w_point=w_point,
@@ -226,6 +234,7 @@ def main() -> None:
             gate.append((em.name, True, rows, None, entry))
             if em.passive:                  # object mover: exits at the subgoal center
                 poses = {**poses, em.active: cs.subgoal.nominal()}
+                chained.add(em.active)
                 prev_cs, prev_active = cs, em.active
             break
         else:
@@ -249,6 +258,7 @@ def main() -> None:
         "frames": args.frames,
         "roles": [r for _, r in stages],
         "arm": "framed" if args.frames else "schema-only",
+        "prompt_deltas": list(PROMPT_DELTAS),
         "views": framed,
         "emissions": [asdict(e) for e in emissions],
         "compiled": [{"stage": n, "grounded": ok, "Bw": rows,
