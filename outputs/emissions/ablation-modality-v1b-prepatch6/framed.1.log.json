@@ -1,0 +1,65 @@
+[
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "{\"stage\": 1, \"name\": \"grasp\", \"active\": \"teapot\", \"passive\": null, \"path_tsr\": {\"rot\": \"free\", \"trans\": [{\"term\": \"inside\", \"anchor\": \"teapot.handle_center\", \"slack\": \"snug\"}]}, \"subgoal_tsr\": {\"rot\": \"free\", \"trans\": [{\"term\": \"inside\", \"anchor\": \"teapot.handle_center\", \"slack\": \"snug\"}]}, \"verify\": \"Gripper is closed around teapot handle at handle_center with no prescribed orientation; teapot pose unchanged from scene entry.\"}",
+    "views": 3,
+    "legend": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "```json\n{\n  \"stage\": 2,\n  \"name\": \"transport\",\n  \"active\": \"teapot\",\n  \"passive\": \"mug\",\n  \"path_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": [\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"large\", \"slack\": \"loose\"}\n    ]\n  },\n  \"subgoal_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"},\n      {\"axis\": \"teapot.+front\", \"points\": \"mug.-up\", \"tol\": \"loose\"}\n    ],\n    \"trans\": [\n      {\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"},\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"snug\"}\n    ]\n  },\n  \"verify\": \"teapot.+up aligned with world.z (teapot level), spout_tip positioned above mug.opening_center with teapot tilted toward mug ready for pour\"\n}\n```",
+    "views": 3,
+    "legend": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "```json\n{\n  \"stage\": 2,\n  \"name\": \"transport\",\n  \"active\": \"teapot\",\n  \"passive\": \"mug\",\n  \"path_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": [\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"large\", \"slack\": \"loose\"}\n    ]\n  },\n  \"subgoal_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": [\n      {\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"},\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"snug\"}\n    ]\n  },\n  \"verify\": \"teapot.+up aligned with world.z (teapot level and upright), spout_tip positioned above mug.opening_center within horizontal tolerance\"\n}\n```",
+    "views": 3,
+    "legend": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "```json\n{\n  \"stage\": 2,\n  \"name\": \"transport\",\n  \"active\": \"teapot\",\n  \"passive\": \"mug\",\n  \"path_tsr\": {\n    \"rot\": \"free\",\n    \"trans\": [\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"large\", \"slack\": \"loose\"}\n    ]\n  },\n  \"subgoal_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": [\n      {\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"},\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"snug\"}\n    ]\n  },\n  \"verify\": \"teapot.+up aligned with world.z (teapot level and upright), spout_tip positioned above mug.opening_center within horizontal tolerance\"\n}\n```",
+    "views": 3,
+    "legend": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "{\"stage\":3,\"name\":\"pour\",\"active\":\"teapot\",\"passive\":\"mug\",\"path_tsr\":{\"rot\":[{\"axis\":\"teapot.+left\",\"points\":\"mug.+up\",\"tol\":\"moderate\"}],\"trans\":[{\"term\":\"centered\",\"anchor\":\"mug.opening_center\",\"tol\":\"moderate\"},{\"term\":\"above\",\"anchor\":\"mug.opening_center\",\"clearance\":\"small\",\"slack\":\"moderate\"}]},\"subgoal_tsr\":{\"rot\":[{\"axis\":\"teapot.+left\",\"points\":\"mug.+up\",\"tol\":\"moderate\"},{\"axis\":\"teapot.+up\",\"points\":\"mug.-up\",\"tol\":\"loose\"}],\"trans\":[{\"term\":\"centered\",\"anchor\":\"mug.opening_center\",\"tol\":\"moderate\"},{\"term\":\"above\",\"anchor\":\"mug.opening_center\",\"clearance\":\"small\",\"slack\":\"moderate\"}]},\"verify\":\"teapot.+left aligned with mug.+up (spout axis horizontal over mug), teapot tilted so teapot.+up points toward mug.-up (poured ~180deg about left axis), spout_tip centered above mug.opening_center at small clearance\"}",
+    "views": 3,
+    "legend": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "{\"stage\":3,\"name\":\"pour\",\"active\":\"teapot\",\"passive\":\"mug\",\"path_tsr\":{\"rot\":[{\"axis\":\"teapot.+left\",\"points\":\"mug.+up\",\"tol\":\"moderate\"}],\"trans\":[{\"term\":\"centered\",\"anchor\":\"mug.opening_center\",\"tol\":\"moderate\"},{\"term\":\"above\",\"anchor\":\"mug.opening_center\",\"clearance\":\"small\",\"slack\":\"moderate\"}]},\"subgoal_tsr\":{\"rot\":[{\"axis\":\"teapot.+left\",\"points\":\"mug.+up\",\"tol\":\"moderate\"},{\"axis\":\"teapot.+up\",\"points\":\"mug.+up\",\"tol\":\"loose\"}],\"trans\":[{\"term\":\"centered\",\"anchor\":\"mug.opening_center\",\"tol\":\"moderate\"},{\"term\":\"above\",\"anchor\":\"mug.opening_center\",\"clearance\":\"small\",\"slack\":\"moderate\"}]},\"verify\":\"teapot.+left aligned with mug.+up (spout axis horizontal over mug), teapot tilted so teapot.+up also points toward mug.+up (consistent with ~90deg tilt about left axis), spout_tip centered above mug.opening_center at small clearance\"}",
+    "views": 3,
+    "legend": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "{\"stage\":3,\"name\":\"pour\",\"active\":\"teapot\",\"passive\":\"mug\",\"path_tsr\":{\"rot\":[{\"axis\":\"teapot.+left\",\"points\":\"mug.+up\",\"tol\":\"moderate\"}],\"trans\":[{\"term\":\"centered\",\"anchor\":\"mug.opening_center\",\"tol\":\"moderate\"},{\"term\":\"above\",\"anchor\":\"mug.opening_center\",\"clearance\":\"small\",\"slack\":\"moderate\"}]},\"subgoal_tsr\":{\"rot\":[{\"axis\":\"teapot.+left\",\"points\":\"mug.+up\",\"tol\":\"moderate\"}],\"trans\":[{\"term\":\"centered\",\"anchor\":\"mug.opening_center\",\"tol\":\"moderate\"},{\"term\":\"above\",\"anchor\":\"mug.opening_center\",\"clearance\":\"small\",\"slack\":\"moderate\"}]},\"verify\":\"teapot.+left aligned with mug.+up (spout axis horizontal over mug), teapot tilted to pour position, spout_tip centered above mug.opening_center at small clearance\"}",
+    "views": 3,
+    "legend": true
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "```json\n{\n  \"stage\": 1,\n  \"name\": \"grasp\",\n  \"active\": \"teapot\",\n  \"passive\": null,\n  \"path_tsr\": {\n    \"rot\": \"free\",\n    \"trans\": \"free\"\n  },\n  \"subgoal_tsr\": {\n    \"rot\": \"free\",\n    \"trans\": [\n      {\"term\": \"inside\", \"anchor\": \"teapot.handle_center\", \"slack\": \"snug\"}\n    ]\n  },\n  \"verify\": \"Gripper is closed around teapot handle with no gross misalignment; teapot pose unchanged from spawn.\"\n}\n```",
+    "views": 0,
+    "legend": false,
+    "entry": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "```json\n{\n  \"stage\": 2,\n  \"name\": \"transport\",\n  \"active\": \"teapot\",\n  \"passive\": \"mug\",\n  \"path_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": [\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"loose\"}\n    ]\n  },\n  \"subgoal_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": [\n      {\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"},\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"snug\"}\n    ]\n  },\n  \"verify\": \"teapot.+up aligned with world.z (upright, no spilling); spout_tip positioned above mug.opening_center within moderate lateral tolerance and medium clearance above rim.\"\n}\n```",
+    "views": 0,
+    "legend": false,
+    "entry": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "```json\n{\n  \"stage\": 2,\n  \"name\": \"transport\",\n  \"active\": \"teapot\",\n  \"passive\": \"mug\",\n  \"path_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": \"free\"\n  },\n  \"subgoal_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": [\n      {\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"},\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"snug\"}\n    ]\n  },\n  \"verify\": \"teapot.+up aligned with world.z (upright, no spilling); spout_tip positioned above mug.opening_center within moderate lateral tolerance and medium clearance above rim.\"\n}\n```",
+    "views": 0,
+    "legend": false,
+    "entry": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "```json\n{\n  \"stage\": 3,\n  \"name\": \"pour\",\n  \"active\": \"teapot\",\n  \"passive\": \"mug\",\n  \"path_tsr\": {\n    \"rot\": [\n      {\n        \"axis\": \"teapot.+left\",\n        \"points\": \"world.z\",\n        \"tol\": \"moderate\"\n      }\n    ],\n    \"trans\": [\n      {\n        \"term\": \"centered\",\n        \"anchor\": \"mug.opening_center\",\n        \"tol\": \"moderate\"\n      },\n      {\n        \"term\": \"above\",\n        \"anchor\": \"mug.opening_center\",\n        \"clearance\": \"small\",\n        \"slack\": \"moderate\"\n      }\n    ]\n  },\n  \"subgoal_tsr\": {\n    \"rot\": [\n      {\n        \"axis\": \"teapot.+left\",\n        \"points\": \"world.z\",\n        \"tol\": \"moderate\"\n      },\n      {\n        \"axis\": \"teapot.+up\",\n        \"points\": \"mug.-up\",\n        \"tol\": \"moderate\"\n      }\n    ],\n    \"trans\": [\n      {\n        \"term\": \"centered\",\n        \"anchor\": \"mug.opening_center\",\n        \"tol\": \"moderate\"\n      },\n      {\n        \"term\": \"above\",\n        \"anchor\": \"mug.opening_center\",\n        \"clearance\": \"small\",\n        \"slack\": \"snug\"\n      }\n    ]\n  },\n  \"verify\": \"teapot spout_tip is positioned above mug opening_center with teapot tilted so teapot.+up points toward mug.-up (roughly inverted about the left axis), enabling liquid to flow from spout into mug\"\n}\n```",
+    "views": 0,
+    "legend": false,
+    "entry": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "```json\n{\n  \"stage\": 3,\n  \"name\": \"pour\",\n  \"active\": \"teapot\",\n  \"passive\": \"mug\",\n  \"path_tsr\": {\n    \"rot\": [\n      {\n        \"axis\": \"teapot.+left\",\n        \"points\": \"world.z\",\n        \"tol\": \"moderate\"\n      }\n    ],\n    \"trans\": [\n      {\n        \"term\": \"centered\",\n        \"anchor\": \"mug.opening_center\",\n        \"tol\": \"moderate\"\n      },\n      {\n        \"term\": \"above\",\n        \"anchor\": \"mug.opening_center\",\n        \"clearance\": \"small\",\n        \"slack\": \"moderate\"\n      }\n    ]\n  },\n  \"subgoal_tsr\": {\n    \"rot\": [\n      {\n        \"axis\": \"teapot.+up\",\n        \"points\": \"mug.-up\",\n        \"tol\": \"moderate\"\n      }\n    ],\n    \"trans\": [\n      {\n        \"term\": \"centered\",\n        \"anchor\": \"mug.opening_center\",\n        \"tol\": \"moderate\"\n      },\n      {\n        \"term\": \"above\",\n        \"anchor\": \"mug.opening_center\",\n        \"clearance\": \"small\",\n        \"slack\": \"snug\"\n      }\n    ]\n  },\n  \"verify\": \"teapot spout_tip is positioned above mug opening_center with teapot tilted so teapot.+up points toward mug.-up (roughly inverted), enabling liquid to flow from spout into mug\"\n}\n```",
+    "views": 0,
+    "legend": false,
+    "entry": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "```json\n{\n  \"stage\": 3,\n  \"name\": \"pour\",\n  \"active\": \"teapot\",\n  \"passive\": \"mug\",\n  \"path_tsr\": {\n    \"rot\": [\n      {\n        \"axis\": \"teapot.+left\",\n        \"points\": \"world.z\",\n        \"tol\": \"moderate\"\n      }\n    ],\n    \"trans\": [\n      {\n        \"term\": \"centered\",\n        \"anchor\": \"mug.opening_center\",\n        \"tol\": \"moderate\"\n      },\n      {\n        \"term\": \"above\",\n        \"anchor\": \"mug.opening_center\",\n        \"clearance\": \"small\",\n        \"slack\": \"moderate\"\n      }\n    ]\n  },\n  \"subgoal_tsr\": {\n    \"rot\": [\n      {\n        \"axis\": \"teapot.+front\",\n        \"points\": \"mug.-up\",\n        \"tol\": \"moderate\"\n      }\n    ],\n    \"trans\": [\n      {\n        \"term\": \"centered\",\n        \"anchor\": \"mug.opening_center\",\n        \"tol\": \"moderate\"\n      },\n      {\n        \"term\": \"above\",\n        \"anchor\": \"mug.opening_center\",\n        \"clearance\": \"small\",\n        \"slack\": \"snug\"\n      }\n    ]\n  },\n  \"verify\": \"teapot is tilted so teapot.+front points downward toward mug.-up, bringing the spout over the mug opening so liquid flows into the mug\"\n}\n```",
+    "views": 0,
+    "legend": false,
+    "entry": true
+  }
+]

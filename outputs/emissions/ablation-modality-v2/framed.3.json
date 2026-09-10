@@ -1,0 +1,618 @@
+{
+  "task": "pour tea from the teapot into the mug",
+  "stage_plan": null,
+  "selections": "outputs/selections/pour_tea.json",
+  "frames": "outputs/frames/manifest.json",
+  "roles": [
+    "grasp",
+    "transport_active",
+    "pour"
+  ],
+  "arm": "framed",
+  "views": {
+    "grasp": [
+      "outputs/frames/grasp/iso.png",
+      "outputs/frames/grasp/iso-opp.png",
+      "outputs/frames/grasp/top.png"
+    ],
+    "transport_active": [
+      "outputs/frames/transport_active/iso.png",
+      "outputs/frames/transport_active/iso-opp.png",
+      "outputs/frames/transport_active/top.png"
+    ],
+    "pour": [
+      "outputs/frames/pour/iso.png",
+      "outputs/frames/pour/iso-opp.png",
+      "outputs/frames/pour/top.png"
+    ]
+  },
+  "emissions": [
+    {
+      "stage": 1,
+      "name": "grasp",
+      "active": "teapot",
+      "passive": null,
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "roll"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "pitch"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "yaw"
+          }
+        ],
+        "trans": [
+          {
+            "term": "inside",
+            "anchor": "teapot.handle_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": "snug",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "roll"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "pitch"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "yaw"
+          }
+        ],
+        "trans": [
+          {
+            "term": "inside",
+            "anchor": "teapot.handle_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": "snug",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "verify": "Gripper is closed around teapot handle at handle_center with no rotation constraint; teapot pose unchanged from scene entry."
+    },
+    {
+      "stage": 2,
+      "name": "transport",
+      "active": "teapot",
+      "passive": "mug",
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.up_axis",
+            "relation": "parallel",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "free",
+            "anchor": null,
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.up_axis",
+            "relation": "parallel",
+            "reference": "world.z",
+            "tol": "moderate",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "centered",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": "moderate",
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "above",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "medium",
+            "slack": "moderate",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "verify": "teapot.+up aligned with world.z within moderate tolerance; spout_tip horizontally centered over mug.opening_center within moderate tolerance and held at medium clearance above it"
+    },
+    {
+      "stage": 3,
+      "name": "pour",
+      "active": "teapot",
+      "passive": "mug",
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.lateral_axis",
+            "relation": "perpendicular",
+            "reference": "mug.up_axis",
+            "tol": "moderate",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "above",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "small",
+            "slack": "moderate",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "centered",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": "moderate",
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": "teapot.front_axis",
+            "relation": "antiparallel",
+            "reference": "mug.up_axis",
+            "tol": "moderate",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "above",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "contact",
+            "slack": "snug",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "centered",
+            "anchor": "mug.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": "snug",
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "verify": "teapot spout_tip is positioned above mug opening_center with the teapot tilted so teapot.+front points downward toward mug.-up directing liquid flow into the mug"
+    }
+  ],
+  "compiled": [
+    {
+      "stage": "grasp",
+      "grounded": true,
+      "Bw": {
+        "path": [
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ],
+        "subgoal": [
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ]
+      },
+      "error": null,
+      "entry_poses": {
+        "teapot": [
+          [
+            0.689493,
+            0.724292,
+            0.0,
+            0.0
+          ],
+          [
+            -0.724292,
+            0.689493,
+            -0.0,
+            -0.25
+          ],
+          [
+            -0.0,
+            0.0,
+            1.0,
+            0.86
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "mug": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.25
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.86
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      }
+    },
+    {
+      "stage": "transport",
+      "grounded": true,
+      "Bw": {
+        "path": [
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ],
+        "subgoal": [
+          [
+            -0.02,
+            0.02
+          ],
+          [
+            -0.02,
+            0.02
+          ],
+          [
+            0.03,
+            0.08
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ]
+      },
+      "error": null,
+      "entry_poses": {
+        "teapot": [
+          [
+            0.689493,
+            0.724292,
+            0.0,
+            0.0
+          ],
+          [
+            -0.724292,
+            0.689493,
+            -0.0,
+            -0.25
+          ],
+          [
+            -0.0,
+            0.0,
+            1.0,
+            0.86
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "mug": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.25
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.86
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      }
+    },
+    {
+      "stage": "pour",
+      "grounded": true,
+      "Bw": {
+        "path": [
+          [
+            -0.02,
+            0.02
+          ],
+          [
+            -0.02,
+            0.02
+          ],
+          [
+            0.01,
+            0.06
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ],
+        "subgoal": [
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            0.0,
+            0.02
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ]
+      },
+      "error": null,
+      "entry_poses": {
+        "teapot": [
+          [
+            0.689493,
+            0.724292,
+            0.0,
+            -0.013855
+          ],
+          [
+            -0.724292,
+            0.689493,
+            0.0,
+            0.129169
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.9172
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "mug": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.25
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.86
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      }
+    }
+  ],
+  "stages_reached": 3,
+  "stages_total": 3
+}

@@ -1,0 +1,253 @@
+{
+  "plan": "outputs/plans/v3-framed.3.json.npz",
+  "ablation_arm": "vlm",
+  "selections": "outputs/selections/pour_tea.json",
+  "meshfree": false,
+  "emissions": "outputs/emissions/ablation-modality-v3/framed.3.json",
+  "stage1_track": {
+    "n_targets": 174,
+    "n_env_steps": 525,
+    "max_track_err": 0.010630854017363411,
+    "mean_track_err": 0.00856447243819669,
+    "stalled": false
+  },
+  "grasp_contacts": 6,
+  "T_ee_body_delta_mm": 10.020486551951826,
+  "lift_slip_profile": {
+    "reached_90pct_at_frac": 1.0,
+    "final_mm": 0.64,
+    "final_deg": 0.38,
+    "trace_mm_deg": [
+      [
+        0.1,
+        0.01
+      ],
+      [
+        0.3,
+        0.08
+      ],
+      [
+        0.43,
+        0.14
+      ],
+      [
+        0.43,
+        0.14
+      ],
+      [
+        0.38,
+        0.12
+      ],
+      [
+        0.32,
+        0.09
+      ],
+      [
+        0.26,
+        0.08
+      ],
+      [
+        0.23,
+        0.09
+      ],
+      [
+        0.25,
+        0.14
+      ],
+      [
+        0.34,
+        0.21
+      ],
+      [
+        0.48,
+        0.29
+      ],
+      [
+        0.64,
+        0.38
+      ]
+    ]
+  },
+  "lift_track": {
+    "n_targets": 12,
+    "n_env_steps": 22,
+    "max_track_err": 0.01214607597901618,
+    "mean_track_err": 0.009869862447204633,
+    "stalled": false
+  },
+  "lift_measured_excess": 0.0,
+  "boundary_1_2": {
+    "delta_mm": 10.020486551951826,
+    "delta_deg": 3.667741429295474,
+    "tol_mm": 10.000000000000002,
+    "tol_deg": 14.999999999999998,
+    "fired": true
+  },
+  "reanchor_1_2": {
+    "fired": true,
+    "ok": false,
+    "stage": 2,
+    "reason": "transport planning failed: no path in 20.0s"
+  },
+  "transport_slip_profile": {
+    "reached_90pct_at_frac": 0.886,
+    "final_mm": 3.74,
+    "final_deg": 2.84,
+    "trace_mm_deg": [
+      [
+        0.74,
+        0.43
+      ],
+      [
+        1.45,
+        0.67
+      ],
+      [
+        1.67,
+        0.68
+      ],
+      [
+        1.66,
+        0.85
+      ],
+      [
+        1.97,
+        1.1
+      ],
+      [
+        2.4,
+        1.38
+      ],
+      [
+        2.99,
+        1.62
+      ],
+      [
+        3.54,
+        1.88
+      ],
+      [
+        4.07,
+        2.13
+      ],
+      [
+        4.0,
+        2.37
+      ],
+      [
+        3.93,
+        2.61
+      ],
+      [
+        3.74,
+        2.84
+      ]
+    ]
+  },
+  "transport_track": {
+    "n_targets": 128,
+    "n_env_steps": 431,
+    "max_track_err": 0.011393692921342069,
+    "mean_track_err": 0.009397082118489011,
+    "stalled": false
+  },
+  "transport_measured_excess": 0.0053563084332464705,
+  "transport_end": {
+    "tip_lateral_mm": 23.364281837860062,
+    "tip_standoff_mm": 41.78776594983335,
+    "tip_to_opening_mm": 47.87595480903759,
+    "tip_over_rim": true,
+    "spout_declination_deg": 165.59504175800421,
+    "rim_radius_mm": 44.1,
+    "stream_lands_in_mug": false,
+    "stream_lateral_mm": null
+  },
+  "boundary_standing_slip": [
+    3.741925807489156,
+    2.8402571103318226
+  ],
+  "boundary_tolerance": [
+    9.999999999999998,
+    14.999999999999998
+  ],
+  "boundary_tip_placed": true,
+  "reanchor": {
+    "fired": false
+  },
+  "pour_slip_profile": {
+    "reached_90pct_at_frac": 0.73,
+    "final_mm": 28.11,
+    "final_deg": 17.46,
+    "trace_mm_deg": [
+      [
+        3.74,
+        2.85
+      ],
+      [
+        3.95,
+        2.94
+      ],
+      [
+        4.31,
+        2.98
+      ],
+      [
+        4.15,
+        3.1
+      ],
+      [
+        3.63,
+        3.46
+      ],
+      [
+        3.72,
+        4.34
+      ],
+      [
+        4.06,
+        4.78
+      ],
+      [
+        4.28,
+        5.03
+      ],
+      [
+        11.46,
+        8.75
+      ],
+      [
+        28.19,
+        17.41
+      ],
+      [
+        28.15,
+        17.43
+      ],
+      [
+        28.11,
+        17.46
+      ]
+    ]
+  },
+  "pour_track": {
+    "n_targets": 145,
+    "n_env_steps": 368,
+    "max_track_err": 0.011978267260373654,
+    "mean_track_err": 0.0090422577393186,
+    "stalled": false
+  },
+  "pour_measured_excess": 0.043367784296180906,
+  "tilt_measured_deg": -4.63744336394658,
+  "tilt_target_deg": 95.0,
+  "slip_max_mm": 28.215627860234296,
+  "slip_max_deg": 17.45981226410693,
+  "grasp_retained": true,
+  "tip_lateral_mm": 65.04184680834251,
+  "tip_standoff_mm": 11.371157865907241,
+  "tip_to_opening_mm": 66.02836562759433,
+  "tip_over_rim": false,
+  "spout_declination_deg": 94.6352041145748,
+  "rim_radius_mm": 44.1,
+  "stream_lands_in_mug": false,
+  "stream_lateral_mm": null
+}
