@@ -738,6 +738,12 @@ def compile_stage(emission: StageEmission,
                 n_w = rv / th
                 k = int(np.argmax(np.abs(n_w)))
                 aligned = np.arccos(min(abs(float(n_w[k])), 1.0)) <= ALIGN_TOL_RAD
+                # A corridor is a sweep about w.x (roll) or w.z (yaw) that
+                # the path's other fixed rows admit. Anything else — a
+                # sweep about w.y (pitch, the middle xyz-Euler angle), an
+                # off-basis axis, or a conflict with a row the path
+                # already fixes — is a typed rejection on the path row,
+                # never a silent "rotation rows free".
                 if (aligned and k in (0, 2)
                         and all(ok for j, ok in fits.items() if j != k)):
                     h = half[k][0] if k in half else max(
@@ -749,12 +755,19 @@ def compile_stage(emission: StageEmission,
                                  f"{('roll', 'pitch', 'yaw')[k]} from entry "
                                  f"({np.degrees(ent):.0f} deg) to goal")
                 else:
-                    rows = {}
-                    notes.append(f"{emission.name}.path: entry->goal "
-                                 f"rotation (axis in w {np.round(n_w, 2).tolist()}) "
-                                 "is not a single corridor about w.x or w.z "
-                                 "— rotation rows free, translation carries "
-                                 "the path")
+                    why = ("is not about a single w axis" if not aligned
+                           else "is about w.y (pitch), which the path box "
+                                "does not hold as a corridor" if k == 1
+                           else "conflicts with another row this path "
+                                "already fixes")
+                    raise CompileError(rel[0][0], (
+                        f"this path row asks for a {np.degrees(th):.0f} deg "
+                        f"rotation from the entry attitude (axis in w "
+                        f"{np.round(n_w, 2).tolist()}) that {why}; the path "
+                        "box cannot hold it. Restate the row as a hold — "
+                        "'perpendicular_to' or 'points' with the relation "
+                        "already true at entry — or leave the path rotation "
+                        "free"))
         for k, (lo, hi, slot) in rows.items():
             box.narrow(3 + k, lo, hi, slot)
 

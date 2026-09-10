@@ -248,10 +248,10 @@ def test_pour_goal_follows_entry_heading():
     np.testing.assert_allclose(rv / np.linalg.norm(rv), lat, atol=1e-9)
 
 
-def test_pour_corridor_off_basis_frees_path_rotation():
+def test_pour_corridor_off_basis_is_a_typed_rejection():
     # give the mug a confident front that is NOT the teapot's lateral:
     # the tilt axis lands between w.x and w.y, the corridor is not a
-    # single row, and translation carries the path
+    # single row: a typed error on the path row, never a silent free
     mg = SYMBOLS["mug"]
     front = np.array([1.0, 0.0, 0.0])
     fronted = Symbols("mug", mg.points, {**mg.axes, "front_axis": front,
@@ -259,26 +259,44 @@ def test_pour_corridor_off_basis_frees_path_rotation():
                       mg.quantities)
     cs = compile_pour(doc=POUR)  # baseline: corridor exists
     assert any("corridor" in n for n in cs.notes)
-    cs = compile_stage(emission(POUR), {**SYMBOLS, "mug": fronted}, POUR_POSES,
-                       w_point=OPENING, e_point=TIP)
-    assert all(_is_free(cs.path.Bw[i]) for i in (3, 4, 5))
-    assert any("translation carries the path" in n for n in cs.notes)
+    with pytest.raises(CompileError) as e:
+        compile_stage(emission(POUR), {**SYMBOLS, "mug": fronted}, POUR_POSES,
+                      w_point=OPENING, e_point=TIP)
+    assert e.value.slot == "pour.path.rot[0]"
+    assert "not about a single w axis" in e.value.reason
+    assert "leave the path rotation free" in e.value.reason
     t = ROT_TOL_RAD["tight"]                    # subgoal unaffected
     np.testing.assert_allclose(cs.subgoal.Bw[3], (-t, t))
     np.testing.assert_allclose(cs.subgoal.Bw[4], (-t, t))
 
 
-def test_corridor_never_on_pitch():
+def test_corridor_never_on_pitch_and_says_so():
     # a passive front aligned with the teapot's front puts the tilt axis
-    # on w.y: pitch is the middle Euler angle, so no corridor
+    # on w.y: pitch is the middle Euler angle, so no corridor — and that
+    # is a typed error on the path row, not a silently freed rotation
     mg = SYMBOLS["mug"]
     front = SYMBOLS["teapot"].axes["front_axis"]
     fronted = Symbols("mug", mg.points, {**mg.axes, "front_axis": front,
                                          "lateral_axis": np.cross([0, 0, 1.0], front)},
                       mg.quantities)
-    cs = compile_stage(emission(POUR), {**SYMBOLS, "mug": fronted}, POUR_POSES,
-                       w_point=OPENING, e_point=TIP)
-    assert all(_is_free(cs.path.Bw[i]) for i in (3, 4, 5))
+    with pytest.raises(CompileError) as e:
+        compile_stage(emission(POUR), {**SYMBOLS, "mug": fronted}, POUR_POSES,
+                      w_point=OPENING, e_point=TIP)
+    assert e.value.slot == "pour.path.rot[0]"
+    assert "about w.y (pitch)" in e.value.reason
+
+
+def test_v3_schema_only_spout_roll_path_row_now_rejected():
+    # ablation-modality-v3 schema_only.1/.2: path "lateral points world.z"
+    # is a 90 deg roll about the spout — axis w.y. Before: silently freed,
+    # PASS with a note. Now: typed rejection on the path row.
+    doc = {**POUR, "path_tsr": {"rot": [
+        {"axis": "teapot.+left", "relation": "parallel",
+         "reference": "world.z", "tol": "moderate"}], "trans": POUR["path_tsr"]["trans"]}}
+    with pytest.raises(CompileError) as e:
+        compile_pour(doc=doc)
+    assert e.value.slot == "pour.path.rot[0]"
+    assert "about w.y (pitch)" in e.value.reason
 
 
 # ------------------------------------------------------- rule-table cases
@@ -437,8 +455,9 @@ def test_perpendicular_row_not_implied_still_rejected():
     syms = {**SYMBOLS, "mug": fronted}
     em = parse_emission(json.dumps(doc), Vocabulary.from_symbols(syms))
     with pytest.raises(CompileError) as e:
-        compile_stage(em, syms, POSES, w_point=OPENING, e_point=TIP)
-    assert "outside the rule table" in e.value.reason
+        compile_stage(em, syms, POUR_POSES, w_point=OPENING, e_point=TIP)
+    # the path row is also off-basis for this fronted mug; both slots carry
+    assert any("outside the rule table" in x.reason for x in e.value.all())
 
 
 # ------------------------------------------------- path containment (step 3)
