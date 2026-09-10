@@ -133,6 +133,12 @@ def main() -> None:
                          "the framed (image-conditioned) arm: the stage's "
                          "views + legend + #2 candidate id in the prompt. "
                          "Requires --selections")
+    ap.add_argument("--render-chained", default=None, metavar="DIR",
+                    help="framed arm, rendered per stage at the CHAINED entry "
+                         "pose (the mover at the previous stage's subgoal "
+                         "center) instead of a pre-rendered spawn manifest; "
+                         "views + legend written under DIR/<role>/. "
+                         "Requires --selections; exclusive with --frames")
     ap.add_argument("--out", default=str(OUT), metavar="JSON")
     ap.add_argument("--stage-plan", default=None, metavar="JSON",
                     help="plan_stages.py artifact; the stages bound to the "
@@ -142,6 +148,9 @@ def main() -> None:
     if args.frames and not args.selections:
         raise SystemExit("[emit] --frames needs --selections (the frames "
                          "were rendered at those points)")
+    if args.render_chained and (args.frames or not args.selections):
+        raise SystemExit("[emit] --render-chained needs --selections and "
+                         "excludes --frames")
     scene = load_scene(args.scene, getattr(args, "grounding", None))
     asset_dirs = scene.asset_dirs
     poses = _spawn_poses(scene)
@@ -181,6 +190,10 @@ def main() -> None:
                   "transport_active": (mg["opening_center"], tp["spout_tip"]),
                   "pour": (mg["opening_center"], tp["spout_tip"])}
     manifest = json.loads(Path(args.frames).read_text()) if args.frames else None
+    if args.render_chained:
+        from scripts.render_stage_frames import (compute_stage_frames,
+                                                 render_role, scene_extent)
+        render_dir = Path(args.render_chained)
     client = Client()
 
     emissions, gate, framed = [], [], {}
@@ -191,10 +204,24 @@ def main() -> None:
     # than compile it against the spawn pose.
     prev_cs, prev_active = None, None   # last grounded OBJECT-mover stage
     chained: set[str] = set()           # objects whose pose is a chained goal center
+    entry_from = "spawn"                # what produced the current poses
     for stage, role in stages:
         sel = views = rec = None
-        if manifest is not None:            # framed arm
+        if manifest is not None:            # framed arm (pre-rendered at spawn)
             views, rec = _framed_inputs(role, manifest)
+            sel = sels[role]
+            framed[role] = [str(v) for v in views]
+        elif args.render_chained:           # framed-chained arm
+            # render THIS stage at the poses chained so far: stage k+1's
+            # mover sits at stage k's subgoal center. The ordering is the
+            # point of interleaving: this runs only after stage k's gate
+            # passed and `poses` / `entry_from` were updated below.
+            _, radius = scene_extent(scene, poses)
+            sf = compute_stage_frames(((stage, role),), sels, objects,
+                                      role_index, asset_dirs, symbols,
+                                      poses, radius)[role]
+            rec = render_role(scene, role, sf, poses, render_dir, entry_from)
+            views = [Path(rec["views"][v]) for v in rec["views"]]
             sel = sels[role]
             framed[role] = [str(v) for v in views]
         w_point, e_point = points[role]     # keyed by ROLE: stage names are free text
@@ -239,6 +266,7 @@ def main() -> None:
             if em.passive:                  # object mover: exits at the subgoal center
                 poses = {**poses, em.active: cs.subgoal.nominal()}
                 chained.add(em.active)
+                entry_from = f"{em.name}.subgoal.nominal"
                 prev_cs, prev_active = cs, em.active
             break
         else:
@@ -263,7 +291,9 @@ def main() -> None:
         "selections": args.selections,
         "frames": args.frames,
         "roles": [r for _, r in stages],
-        "arm": "framed" if args.frames else "schema-only",
+        "arm": ("framed-chained" if args.render_chained
+                else "framed" if args.frames else "schema-only"),
+        "render_dir": str(render_dir) if args.render_chained else None,
         "prompt_deltas": list(PROMPT_DELTAS),
         "views": framed,
         "emissions": [asdict(e) for e in emissions],

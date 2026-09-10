@@ -485,14 +485,27 @@ def test_entry_outside_path_beyond_budget_rejected():
 
 
 def test_entry_outside_path_within_budget_is_a_note():
-    # pour entry tip is 0.055 m above the opening; above(medium, snug) is
-    # [0.03, 0.05]: 0.005 m outside, inside the budget -> note, and the
-    # band still meets the subgoal's [0.01, 0.03] at 0.03
+    # pour entry tip is 0.055 m above the opening; above(contact, moderate)
+    # is [0.00, 0.05]: 0.005 m outside, inside the budget -> note, and the
+    # band overlaps the subgoal's [0.01, 0.03] with positive measure
     cs = compile_pour(doc=_path(POUR, trans=[
         {"term": "above", "anchor": "mug.opening_center",
-         "clearance": "medium", "slack": "snug"},
+         "clearance": "contact", "slack": "moderate"},
         {"term": "centered", "anchor": "mug.opening_center", "tol": "moderate"}]))
     assert any("within the start-projection budget" in n for n in cs.notes)
+
+
+def test_touching_translation_bands_are_empty_for_the_planner():
+    # path above(medium, moderate) = [0.03, 0.08] vs subgoal above(small,
+    # snug) = [0.01, 0.03]: they touch at one point. The planner samples
+    # the intersection, so this never yields a goal -> typed rejection
+    err = _expect(_path(POUR, trans=[
+        {"term": "above", "anchor": "mug.opening_center",
+         "clearance": "medium", "slack": "moderate"},
+        {"term": "centered", "anchor": "mug.opening_center", "tol": "moderate"}]),
+        poses=POUR_POSES, e_point=TIP)
+    assert err.slot == "pour.path.trans[0]"
+    assert "does not meet the subgoal" in err.reason
 
 
 def test_path_translation_missing_subgoal_rejected():

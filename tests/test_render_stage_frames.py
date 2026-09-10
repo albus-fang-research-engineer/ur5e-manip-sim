@@ -256,7 +256,7 @@ def test_render_writes_three_views_per_stage_and_a_manifest(tmp_path):
     sels, objects, role_index, _ = _pour_tea_selections()
     frames = compute_stage_frames(STAGES, sels, objects, role_index,
                                   scene.asset_dirs, symbols, poses, radius)
-    manifest = render(scene, frames, tmp_path, center, radius)
+    manifest = render(scene, frames, tmp_path, poses)
     assert manifest["views"] == list(VIEWS) and len(VIEWS) == 3
     on_disk = json.loads((tmp_path / "manifest.json").read_text())
     assert on_disk == manifest
@@ -268,6 +268,8 @@ def test_render_writes_three_views_per_stage_and_a_manifest(tmp_path):
         assert set(rec["w"]) == {"object", "point", "point_body",
                                  "candidate_id", "x_route", "fallback",
                                  "merged"}
+        assert rec["entry_from"] == "spawn"
+        assert set(rec["poses"]) == set(poses)
     assert manifest["roles"]["pour"]["w"]["point"] == "mug.opening_center"
     assert manifest["roles"]["pour"]["w"]["candidate_id"] == 2
     assert manifest["roles"]["pour"]["w"]["fallback"] is True
@@ -305,3 +307,21 @@ def test_no_label_overlaps_in_any_rendered_view():
                 for b in boxes[i + 1:]:
                     assert _area(a, b) == 0.0, (role, vname, a, b)
     r.close()
+
+
+def test_build_scene_model_places_bodies_at_the_given_poses():
+    # GL-free: the MJCF body pose is read straight off the model
+    from manip_sim.tsr import pose_from_pos_quat_wxyz
+    from scripts.render_stage_frames import build_scene_model
+    if not _HAVE_MESHES:
+        pytest.skip("needs converted visual meshes")
+    scene, symbols, poses, _ = _setup()
+    moved = {**poses, "teapot": poses["teapot"] @ pose_from_pos_quat_wxyz(
+        np.array([0.05, 0.25, 0.04]), np.array([1.0, 0, 0, 0]))}
+    m0 = build_scene_model(scene, {}, poses=None)
+    m1 = build_scene_model(scene, {}, poses=moved)
+    import mujoco
+    b0 = m0.body("teapot"); b1 = m1.body("teapot")
+    np.testing.assert_allclose(b0.pos, poses["teapot"][:3, 3], atol=1e-6)
+    np.testing.assert_allclose(b1.pos, moved["teapot"][:3, 3], atol=1e-6)
+    np.testing.assert_allclose(m1.body("mug").pos, m0.body("mug").pos)

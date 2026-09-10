@@ -537,8 +537,10 @@ def _check_path_containment(name: str, path: TSR, subgoal: TSR, pbox: _Box,
                     "on the path or split the stage")))
     for i in range(3):
         lo, hi = max(p[i, 0], sg[i, 0]), min(p[i, 1], sg[i, 1])
-        if hi < lo:
-            side = -1.0 if p[i, 0] > sg[i, 1] else 1.0
+        # the planner SAMPLES the intersection: a touching pair (hi == lo)
+        # has measure zero and never yields a goal, so it is empty here
+        if hi <= lo + 1e-9:
+            side = -1.0 if p[i, 0] >= sg[i, 1] else 1.0
             errs.append(CompileError(blame(i, side), (
                 f"the path's {_AXIS[i]} band [{p[i, 0]:+.3f}, {p[i, 1]:+.3f}] "
                 f"does not meet the subgoal's [{sg[i, 0]:+.3f}, {sg[i, 1]:+.3f}]"

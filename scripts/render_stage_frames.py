@@ -514,13 +514,16 @@ def compose_view(base: np.ndarray, cam: dict, sf: StageFrames,
 
 # ------------------------------------------------------------------ scene
 
-def build_scene_model(scene, cams: dict[str, dict], px: int = PX):
-    """One MJCF with every scene object's VISUAL mesh at its spawn pose,
-    a table-top slab for a ground cue, headlight, and the cameras.
-    Collision hulls are dropped; mesh paths are made absolute so a
-    single model spans per-object mesh dirs; body names are prefixed so
-    the objects' identical 'object' bodies do not collide."""
+def build_scene_model(scene, cams: dict[str, dict], px: int = PX,
+                      poses: dict[str, np.ndarray] | None = None):
+    """One MJCF with every scene object's VISUAL mesh at `poses[name]`
+    (4x4 world pose; default: the spawn pose), a table-top slab for a
+    ground cue, headlight, and the cameras. Collision hulls are dropped;
+    mesh paths are made absolute so a single model spans per-object mesh
+    dirs; body names are prefixed so the objects' identical 'object'
+    bodies do not collide."""
     import mujoco
+    from scipy.spatial.transform import Rotation as R
     root = ET.Element("mujoco", model="stage_frames")
     ET.SubElement(root, "compiler", angle="radian")
     vis = ET.SubElement(root, "visual")
@@ -547,7 +550,13 @@ def build_scene_model(scene, cams: dict[str, dict], px: int = PX):
             f = Path(m.get("file"))
             m.set("file", str((obj.asset / f).resolve()))
             asset.append(m)
-        pos, quat = scene.fixed_poses()[name]
+        if poses is not None and name in poses:
+            T = np.asarray(poses[name], float)
+            pos = T[:3, 3]
+            q = R.from_matrix(T[:3, :3]).as_quat()          # xyzw
+            quat = np.array([q[3], q[0], q[1], q[2]])        # wxyz
+        else:
+            pos, quat = scene.fixed_poses()[name]
         body = ET.SubElement(wb, "body", name=name,
                              pos=" ".join(f"{v:.6f}" for v in pos),
                              quat=" ".join(f"{v:.6f}" for v in quat))
@@ -574,14 +583,15 @@ def scene_extent(scene, poses) -> tuple[np.ndarray, float]:
     return center, float(np.linalg.norm(P - center, axis=1).max())
 
 
-def render(scene, frames: dict[str, StageFrames], out_dir: Path,
-           center: np.ndarray, radius: float) -> dict:
+def render_base(scene, poses: dict[str, np.ndarray]) -> tuple[dict, dict]:
+    """Three base views of the scene with every object at `poses`
+    (cameras from this pose set's extent). Returns (cams, base images)."""
     import mujoco
-    from PIL import Image, ImageDraw
+    center, radius = scene_extent(scene, poses)
     cams = {k: v for k, v in
             canonical_cameras(center, CAM_RADIUS_FRAC * radius).items()
             if k in VIEWS}
-    model = build_scene_model(scene, cams)
+    model = build_scene_model(scene, cams, poses=poses)
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)
     vopt = mujoco.MjvOption()
@@ -593,30 +603,54 @@ def render(scene, frames: dict[str, StageFrames], out_dir: Path,
         renderer.update_scene(data, camera=vname, scene_option=vopt)
         base[vname] = renderer.render().copy()
     renderer.close()
+    return cams, base
 
-    manifest_roles = {}
-    for role, sf in frames.items():
-        rdir = out_dir / role
-        rdir.mkdir(parents=True, exist_ok=True)
-        views, end_on = {}, {}
-        for vname in VIEWS:
-            img, info = compose_view(base[vname], cams[vname], sf, vname)
-            path = rdir / f"{vname}.png"
-            img.save(path)
-            views[vname] = str(path)
-            end_on[vname] = info["end_on"]
-        manifest_roles[role] = {
-            "stage": sf.stage, "name": sf.name, "active": sf.active,
-            "passive": sf.passive,
-            "w": {"object": sf.w_object, "point_body": sf.w_point_body,
-                  "point": next(t["point"] for t in sf.triads
-                                if t["role_in_stage"] == "w_owner"),
-                  "candidate_id": sf.w_candidate_id, "x_route": sf.w_x_route,
-                  "fallback": sf.w_fallback, "merged": sf.merged},
-            "triads": sf.triads,
-            "end_on": end_on,
-            "views": views,
-        }
+
+def render_role(scene, role: str, sf: StageFrames, poses: dict[str, np.ndarray],
+                out_dir: Path, entry_from: str,
+                cams: dict | None = None, base: dict | None = None) -> dict:
+    """Render one role's views with the scene at `poses` and return its
+    manifest record. `entry_from` names what produced these poses —
+    "spawn", or "<stage>.subgoal.nominal" when the mover sits at the
+    previous stage's goal center (the same fact as the entry line's
+    parenthetical, as a field). `cams`/`base` may be passed to reuse a
+    base render across roles that share poses."""
+    if cams is None or base is None:
+        cams, base = render_base(scene, poses)
+    rdir = out_dir / role
+    rdir.mkdir(parents=True, exist_ok=True)
+    views, end_on = {}, {}
+    for vname in VIEWS:
+        img, info = compose_view(base[vname], cams[vname], sf, vname)
+        path = rdir / f"{vname}.png"
+        img.save(path)
+        views[vname] = str(path)
+        end_on[vname] = info["end_on"]
+    return {
+        "stage": sf.stage, "name": sf.name, "active": sf.active,
+        "passive": sf.passive,
+        "w": {"object": sf.w_object, "point_body": sf.w_point_body,
+              "point": next(t["point"] for t in sf.triads
+                            if t["role_in_stage"] == "w_owner"),
+              "candidate_id": sf.w_candidate_id, "x_route": sf.w_x_route,
+              "fallback": sf.w_fallback, "merged": sf.merged},
+        "triads": sf.triads,
+        "end_on": end_on,
+        "views": views,
+        "poses": {n: np.round(np.asarray(T, float), 6).tolist()
+                  for n, T in poses.items()},
+        "entry_from": entry_from,
+    }
+
+
+def render(scene, frames: dict[str, StageFrames], out_dir: Path,
+           poses: dict[str, np.ndarray]) -> dict:
+    """Standalone render: every role at the same `poses` (the CLI passes
+    spawn), one base render shared across roles."""
+    cams, base = render_base(scene, poses)
+    manifest_roles = {role: render_role(scene, role, sf, poses, out_dir,
+                                        "spawn", cams, base)
+                      for role, sf in frames.items()}
     manifest = {"scene": str(scene.path), "poses": "spawn",
                 "views": list(VIEWS), "px": PX, "roles": manifest_roles}
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -667,7 +701,7 @@ def main() -> None:
               + ", ".join(f"{t['object']}[{','.join(t['directions'])}]"
                           for t in sf.triads))
     out_dir = Path(args.out_dir)
-    render(scene, frames, out_dir, center, radius)
+    render(scene, frames, out_dir, poses)
     print(f"[frames] wrote {out_dir}/<role>/<view>.png + "
           f"{out_dir / 'manifest.json'}")
 
