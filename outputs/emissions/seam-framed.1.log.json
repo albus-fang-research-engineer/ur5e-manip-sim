@@ -1,0 +1,56 @@
+[
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "{\"stage\": 1, \"name\": \"grasp\", \"active\": \"teapot\", \"passive\": null, \"path_tsr\": {\"rot\": \"free\", \"trans\": [{\"term\": \"inside\", \"anchor\": \"teapot.handle_center\", \"slack\": \"moderate\"}]}, \"subgoal_tsr\": {\"rot\": \"free\", \"trans\": [{\"term\": \"inside\", \"anchor\": \"teapot.handle_center\", \"slack\": \"snug\"}]}, \"verify\": \"Gripper is closed around teapot handle at handle_center with no orientation constraint imposed; teapot remains upright on table and grasp is secure.\"}",
+    "views": 3,
+    "legend": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "```json\n{\n  \"stage\": 2,\n  \"name\": \"transport\",\n  \"active\": \"teapot\",\n  \"passive\": \"mug\",\n  \"path_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": [\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"loose\"}\n    ]\n  },\n  \"subgoal_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": [\n      {\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"},\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"snug\"}\n    ]\n  },\n  \"verify\": \"teapot.+up aligned with world.z (teapot upright); teapot.spout_tip horizontally centered over mug.opening_center at a medium clearance height, ready for the pour stage.\"\n}\n```",
+    "views": 3,
+    "legend": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "```json\n{\n  \"stage\": 2,\n  \"name\": \"transport\",\n  \"active\": \"teapot\",\n  \"passive\": \"mug\",\n  \"path_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": \"free\"\n  },\n  \"subgoal_tsr\": {\n    \"rot\": [\n      {\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}\n    ],\n    \"trans\": [\n      {\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"},\n      {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"snug\"}\n    ]\n  },\n  \"verify\": \"teapot.+up aligned with world.z (teapot upright) throughout transport; at subgoal teapot.spout_tip is horizontally centered over mug.opening_center at medium clearance height, ready for the pour stage.\"\n}\n```",
+    "views": 3,
+    "legend": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "{\"stage\": 3, \"name\": \"pour\", \"active\": \"teapot\", \"passive\": \"mug\", \"path_tsr\": {\"rot\": [{\"axis\": \"teapot.+left\", \"points\": \"world.z\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"}, {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"small\", \"slack\": \"moderate\"}]}, \"subgoal_tsr\": {\"rot\": [{\"axis\": \"teapot.+left\", \"points\": \"world.z\", \"tol\": \"moderate\"}, {\"axis\": \"teapot.+up\", \"points\": \"mug.-up\", \"tol\": \"loose\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"}, {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"small\", \"slack\": \"snug\"}]}, \"verify\": \"teapot.+left remains horizontal (perpendicular to gravity) throughout; at subgoal teapot.+up points downward (mug.-up direction) indicating full tilt for pouring, with spout_tip centered over and just above mug.opening_center\"}",
+    "views": 3,
+    "legend": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "{\"stage\": 3, \"name\": \"pour\", \"active\": \"teapot\", \"passive\": \"mug\", \"path_tsr\": {\"rot\": [{\"axis\": \"teapot.+left\", \"points\": \"world.z\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"}, {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"small\", \"slack\": \"moderate\"}]}, \"subgoal_tsr\": {\"rot\": [{\"axis\": \"teapot.+up\", \"points\": \"mug.-up\", \"tol\": \"loose\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"}, {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"small\", \"slack\": \"snug\"}]}, \"verify\": \"at subgoal teapot.+up points downward (mug.-up direction) indicating full tilt for pouring, with spout_tip centered over and just above mug.opening_center\"}",
+    "views": 3,
+    "legend": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "{\"stage\": 3, \"name\": \"pour\", \"active\": \"teapot\", \"passive\": \"mug\", \"path_tsr\": {\"rot\": [{\"axis\": \"teapot.+left\", \"points\": \"world.z\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"}, {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"small\", \"slack\": \"moderate\"}]}, \"subgoal_tsr\": {\"rot\": [{\"axis\": \"teapot.+front\", \"points\": \"mug.-up\", \"tol\": \"loose\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"}, {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"small\", \"slack\": \"snug\"}]}, \"verify\": \"at subgoal teapot.+front points downward (mug.-up direction) indicating full tilt for pouring, with spout_tip centered over and just above mug.opening_center\"}",
+    "views": 3,
+    "legend": true
+  }
+]
