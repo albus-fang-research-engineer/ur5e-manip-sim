@@ -1,0 +1,12 @@
+{
+  "name": "insert_marker",
+  "task": "insert the marker into the cup",
+  "table": {"size": [1.2, 1.2, 0.05], "top_z": 0.8},
+  "drop_height": 0.06,
+  "settle_steps": 20,
+  "objects": {
+    "marker": {"asset": "assets/objects/marker",
+               "placement": {"xy": [0.0, -0.25], "yaw": {"face": "cup", "along": "shaft_axis"}}},
+    "cup":    {"asset": "assets/objects/cup", "placement": {"xy": [0.0, 0.25], "yaw": 0.0}}
+  }
+}

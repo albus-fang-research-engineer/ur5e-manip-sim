@@ -1,0 +1,11 @@
+{
+  "name": "insert_marker",
+  "required_tags": {"marker": ["tip", "body|barrel|shaft"], "cup": ["rim|opening|lip"]},
+  "roles": {
+    "grasp":             {"active": "marker", "passive": null,  "tags": {"marker": ["body|barrel|shaft"]}},
+    "transport_active":  {"active": "marker", "passive": "cup", "tags": {"marker": ["tip"]}},
+    "insert":            {"active": "marker", "passive": "cup", "tags": {"marker": ["tip"]}, "after": "transport_active"},
+    "transport_passive": {"active": "*",      "passive": "*",   "tags": {"cup": ["rim|opening|lip"]}}
+  },
+  "ordering": [{"before": "grasp", "after": ["transport_active", "insert"]}]
+}

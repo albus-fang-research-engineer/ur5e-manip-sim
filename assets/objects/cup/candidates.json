@@ -1,0 +1,409 @@
+{
+  "object": "cup",
+  "units": "meters",
+  "coordinates": "body frame of mjcf body 'object' (same convention as frames.json / PoseReader)",
+  "schema": "interaction point candidate POOL for the 3D-propose / 2D-select grounding stage; union of fps + curvature + part + constructed classes, priority-NMS deduplicated. Marked-render generation and per-view legibility live downstream.",
+  "params": {
+    "dense_samples": 20000,
+    "fps_quota": 16,
+    "curvature_quota": 12,
+    "part_quota_each": 8,
+    "curvature_quantile": 0.9,
+    "pool_budget": 48,
+    "nms_radius_m": 0.01,
+    "seed": 0
+  },
+  "class_counts": {
+    "raw": {
+      "constructed": 1,
+      "part": 16,
+      "curvature": 12,
+      "fps": 16
+    },
+    "kept": {
+      "constructed": 1,
+      "part": 16,
+      "curvature": 8,
+      "fps": 10
+    }
+  },
+  "coverage_readmitted_parts": [],
+  "candidates": [
+    {
+      "xyz": [
+        -0.0,
+        0.0001,
+        0.0374
+      ],
+      "source": "constructed",
+      "symbol": "opening_center",
+      "part": "rim",
+      "on_surface": false,
+      "id": 0
+    },
+    {
+      "xyz": [
+        -0.0012,
+        0.0353,
+        -0.0368
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 1
+    },
+    {
+      "xyz": [
+        0.0,
+        -0.0356,
+        -0.0358
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 2
+    },
+    {
+      "xyz": [
+        0.0351,
+        -0.0003,
+        -0.0369
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 3
+    },
+    {
+      "xyz": [
+        -0.0357,
+        0.0006,
+        -0.0361
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 4
+    },
+    {
+      "xyz": [
+        -0.0249,
+        -0.0245,
+        -0.0372
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 5
+    },
+    {
+      "xyz": [
+        0.0233,
+        0.0254,
+        -0.0374
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 6
+    },
+    {
+      "xyz": [
+        -0.0252,
+        0.0245,
+        -0.037
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 7
+    },
+    {
+      "xyz": [
+        0.0247,
+        -0.0238,
+        -0.0374
+      ],
+      "source": "part",
+      "part": "base",
+      "on_surface": true,
+      "id": 8
+    },
+    {
+      "xyz": [
+        0.0389,
+        0.0155,
+        0.0372
+      ],
+      "source": "part",
+      "part": "top",
+      "on_surface": true,
+      "id": 9
+    },
+    {
+      "xyz": [
+        -0.0416,
+        -0.0133,
+        0.0371
+      ],
+      "source": "part",
+      "part": "top",
+      "on_surface": true,
+      "id": 10
+    },
+    {
+      "xyz": [
+        0.0133,
+        -0.0405,
+        0.0372
+      ],
+      "source": "part",
+      "part": "top",
+      "on_surface": true,
+      "id": 11
+    },
+    {
+      "xyz": [
+        -0.0149,
+        0.0408,
+        0.0373
+      ],
+      "source": "part",
+      "part": "top",
+      "on_surface": true,
+      "id": 12
+    },
+    {
+      "xyz": [
+        0.0396,
+        -0.0189,
+        0.037
+      ],
+      "source": "part",
+      "part": "top",
+      "on_surface": true,
+      "id": 13
+    },
+    {
+      "xyz": [
+        -0.0203,
+        -0.0385,
+        0.0371
+      ],
+      "source": "part",
+      "part": "top",
+      "on_surface": true,
+      "id": 14
+    },
+    {
+      "xyz": [
+        0.0174,
+        0.039,
+        0.0374
+      ],
+      "source": "part",
+      "part": "top",
+      "on_surface": true,
+      "id": 15
+    },
+    {
+      "xyz": [
+        -0.0386,
+        0.0182,
+        0.0374
+      ],
+      "source": "part",
+      "part": "top",
+      "on_surface": true,
+      "id": 16
+    },
+    {
+      "xyz": [
+        -0.0122,
+        0.0376,
+        -0.0059
+      ],
+      "source": "curvature",
+      "saliency": 251319.278,
+      "on_surface": true,
+      "id": 17
+    },
+    {
+      "xyz": [
+        0.0059,
+        0.0375,
+        0.0318
+      ],
+      "source": "curvature",
+      "saliency": 112290.642,
+      "on_surface": true,
+      "id": 18
+    },
+    {
+      "xyz": [
+        -0.0126,
+        -0.0432,
+        0.0324
+      ],
+      "source": "curvature",
+      "saliency": 30729.9769,
+      "on_surface": true,
+      "id": 19
+    },
+    {
+      "xyz": [
+        -0.0307,
+        -0.0217,
+        -0.0058
+      ],
+      "source": "curvature",
+      "saliency": 29363.9148,
+      "on_surface": true,
+      "id": 20
+    },
+    {
+      "xyz": [
+        0.0375,
+        0.0007,
+        -0.006
+      ],
+      "source": "curvature",
+      "saliency": 19711.6699,
+      "on_surface": true,
+      "id": 21
+    },
+    {
+      "xyz": [
+        -0.0351,
+        0.0288,
+        0.0328
+      ],
+      "source": "curvature",
+      "saliency": 15347.4602,
+      "on_surface": true,
+      "id": 22
+    },
+    {
+      "xyz": [
+        0.0274,
+        -0.0368,
+        0.034
+      ],
+      "source": "curvature",
+      "saliency": 12206.2087,
+      "on_surface": true,
+      "id": 23
+    },
+    {
+      "xyz": [
+        -0.0343,
+        0.0117,
+        -0.0294
+      ],
+      "source": "curvature",
+      "saliency": 11666.4877,
+      "on_surface": true,
+      "id": 24
+    },
+    {
+      "xyz": [
+        -0.0353,
+        -0.0249,
+        0.0325
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 25
+    },
+    {
+      "xyz": [
+        0.0441,
+        -0.0099,
+        0.0358
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 26
+    },
+    {
+      "xyz": [
+        -0.0069,
+        0.0451,
+        0.0331
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 27
+    },
+    {
+      "xyz": [
+        0.0254,
+        -0.0302,
+        -0.0147
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 28
+    },
+    {
+      "xyz": [
+        -0.0249,
+        0.0305,
+        -0.018
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 29
+    },
+    {
+      "xyz": [
+        0.0293,
+        0.0266,
+        0.0103
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 30
+    },
+    {
+      "xyz": [
+        -0.0126,
+        -0.0376,
+        -0.0006
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 31
+    },
+    {
+      "xyz": [
+        -0.0393,
+        -0.005,
+        -0.0029
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 32
+    },
+    {
+      "xyz": [
+        -0.0015,
+        0.0015,
+        -0.0296
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 33
+    },
+    {
+      "xyz": [
+        0.0066,
+        0.0388,
+        -0.011
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 34
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "object": "marker",
+  "units": "meters",
+  "coordinates": "body frame of mjcf body 'object' (what PoseReader returns)",
+  "points": {
+    "tip": {
+      "xyz": [
+        0.0,
+        0.0605,
+        -0.0001
+      ],
+      "status": "calibrated",
+      "comment": "calibrated from converted mesh"
+    },
+    "tail_center": {
+      "xyz": [
+        0.0,
+        -0.0605,
+        -0.0001
+      ],
+      "status": "calibrated",
+      "comment": "calibrated from converted mesh"
+    },
+    "grip_center": {
+      "xyz": [
+        0.0,
+        -0.02,
+        0.0039
+      ],
+      "status": "calibrated",
+      "comment": "calibrated from converted mesh"
+    }
+  },
+  "axes": {
+    "shaft_axis": {
+      "xyz": [
+        0,
+        1,
+        0
+      ],
+      "status": "calibrated",
+      "comment": "along the barrel, toward the tip"
+    },
+    "up_axis": {
+      "xyz": [
+        0,
+        0,
+        1
+      ],
+      "status": "calibrated",
+      "comment": "rest up (lying on its side)"
+    }
+  },
+  "quantities": {
+    "shaft_radius": {
+      "value": 0.0087,
+      "status": "calibrated",
+      "comment": "calibrated from converted mesh"
+    },
+    "length": {
+      "value": 0.121,
+      "status": "calibrated",
+      "comment": "calibrated from converted mesh"
+    }
+  }
+}

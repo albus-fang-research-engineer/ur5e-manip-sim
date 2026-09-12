@@ -1,0 +1,33 @@
+<mujoco model="marker">
+  <asset>
+    <mesh file="meshes/marker_visual.obj" name="marker_visual_mesh" />
+    <mesh file="meshes/marker_col_0.obj" name="marker_col_mesh_0" />
+    <mesh file="meshes/marker_col_1.obj" name="marker_col_mesh_1" />
+    <mesh file="meshes/marker_col_2.obj" name="marker_col_mesh_2" />
+    <mesh file="meshes/marker_col_3.obj" name="marker_col_mesh_3" />
+    <mesh file="meshes/marker_col_4.obj" name="marker_col_mesh_4" />
+    <mesh file="meshes/marker_col_5.obj" name="marker_col_mesh_5" />
+    <mesh file="meshes/marker_col_6.obj" name="marker_col_mesh_6" />
+    <mesh file="meshes/marker_col_7.obj" name="marker_col_mesh_7" />
+    <mesh file="meshes/marker_col_8.obj" name="marker_col_mesh_8" />
+  </asset>
+  <worldbody>
+    <body>
+      <body name="object">
+        <geom type="mesh" mesh="marker_visual_mesh" group="1" conaffinity="0" contype="0" rgba="0.8 0.8 0.85 1" mass="0.0001" />
+        <geom type="mesh" mesh="marker_col_mesh_0" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.000137282" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="marker_col_mesh_1" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00230782" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="marker_col_mesh_2" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00793866" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="marker_col_mesh_3" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00029975" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="marker_col_mesh_4" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00029356" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="marker_col_mesh_5" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.000252183" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="marker_col_mesh_6" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.000328669" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="marker_col_mesh_7" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.000190967" friction="0.95 0.3 0.1" condim="4" />
+        <geom type="mesh" mesh="marker_col_mesh_8" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.000251112" friction="0.95 0.3 0.1" condim="4" />
+      </body>
+      <site name="bottom_site" pos="0 0 -0.00945" rgba="0 0 0 0" size="0.005" />
+      <site name="top_site" pos="0 0 0.00945" rgba="0 0 0 0" size="0.005" />
+      <site name="horizontal_radius_site" pos="0.01051 0.06048 0" rgba="0 0 0 0" size="0.005" />
+    </body>
+  </worldbody>
+</mujoco>
