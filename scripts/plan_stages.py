@@ -77,6 +77,15 @@ pipeline the verifier runs:
                     authored pool first would reject every part name
                     outside the authored band vocabulary ("body",
                     "interior") before the step that grounds them runs.
+                    For the same reason coverage[] and role[] match
+                    their tags against the ATTRIBUTED PART NAMES under
+                    --defer-grounding (did the plan put a `tip` on the
+                    insertion stage?) rather than against the pool; the
+                    pool-grounded matching runs at --replay --grounding.
+                    On authored pools whose band labels carry the tags
+                    (teapot, mug) the two agree; on an object whose
+                    authored pool has only the fallback top/base bands
+                    the pool matching cannot pass before grounding.
 
 After ground_parts.py, parts the provider could not ground (listed in
 <grounding>/grounding.json) are pruned from the plan at --replay
@@ -216,13 +225,20 @@ def object_parts(plan: StagePlan, pools: dict[str, dict[int, dict]]
     return {o: tuple(v) for o, v in acc.items()}
 
 
-def _tag_covered(tag: str, parts: tuple[str, ...], pool: dict[int, dict]
-                 ) -> bool:
+def _tag_covered(tag: str, parts: tuple[str, ...], pool: dict[int, dict],
+                 by_name: bool = False) -> bool:
     """Some attributed part grounds to a candidate carrying `tag`. A tag
     may list alternatives ("rim|opening"): under runtime grounding the
     pool's part labels are whatever call #1 named the part, so the
-    contract names the acceptable spellings instead of one band name."""
+    contract names the acceptable spellings instead of one band name.
+    `by_name` (the --defer-grounding gate): the tag is covered when an
+    attributed part NAME is one of the alternatives (exact or prefix,
+    the same rule the pool branch applies to labels) — the pool does
+    not exist yet, so only the plan's content can be checked."""
     alts = [t.strip().lower() for t in tag.split("|")]
+    if by_name:
+        return any(p.lower() == a or p.lower().startswith(a)
+                   for p in parts for a in alts)
     tagged = [c for c in pool.values()
               if str(c.get("part") or "").lower() in alts
               or str(c.get("symbol") or "").lower() in alts
@@ -233,7 +249,8 @@ def _tag_covered(tag: str, parts: tuple[str, ...], pool: dict[int, dict]
 # --------------------------------------------------------------- verify
 
 def match_roles(plan: StagePlan, pools: dict[str, dict[int, dict]],
-                spec: TaskSpec = TASK_SPEC) -> dict[str, list[int]]:
+                spec: TaskSpec = TASK_SPEC, by_name: bool = False
+                ) -> dict[str, list[int]]:
     """role -> emitted stage indices satisfying (active, passive, tags).
     The single matching rule behind BOTH the role[] check and the
     planner binding, so a plan that verifies is by construction one
@@ -249,7 +266,8 @@ def match_roles(plan: StagePlan, pools: dict[str, dict[int, dict]],
                 continue
             by_obj = per_stage[s.index]
             if all(obj in by_obj and obj in pools and all(
-                    _tag_covered(t, by_obj[obj], pools[obj]) for t in tags)
+                    _tag_covered(t, by_obj[obj], pools[obj], by_name)
+                    for t in tags)
                    for obj, tags in need.items()):
                 hits.append(s.index)
         out[role] = hits
@@ -257,7 +275,8 @@ def match_roles(plan: StagePlan, pools: dict[str, dict[int, dict]],
 
 
 def bind_roles(plan: StagePlan, pools: dict[str, dict[int, dict]],
-               spec: TaskSpec = TASK_SPEC) -> dict[str, dict]:
+               spec: TaskSpec = TASK_SPEC, by_name: bool = False
+               ) -> dict[str, dict]:
     """The planner handoff: role -> {"object", "stage"}. `object` is the
     object whose tags the role demands (the frame call #2 must place on
     it); `stage` is the FIRST emitted stage matching the role — or, for
@@ -265,7 +284,7 @@ def bind_roles(plan: StagePlan, pools: dict[str, dict[int, dict]],
     that role bound (None when unmatched / none later). Roles whose
     contract names more than one object are ambiguous as frame roles
     and rejected here rather than guessed."""
-    idx = match_roles(plan, pools, spec)
+    idx = match_roles(plan, pools, spec, by_name)
     out: dict[str, dict] = {}
     pending = list(spec.roles.items())
     while pending:                      # resolve `after` dependencies first
@@ -289,8 +308,11 @@ def bind_roles(plan: StagePlan, pools: dict[str, dict[int, dict]],
 
 
 def verify(plan: StagePlan, pools: dict[str, dict[int, dict]],
-           spec: TaskSpec = TASK_SPEC) -> list[Check]:
-    """All checks always run; (name, passed, detail)."""
+           spec: TaskSpec = TASK_SPEC, defer_grounding: bool = False
+           ) -> list[Check]:
+    """All checks always run; (name, passed, detail). Under
+    `defer_grounding` the coverage/role tags match attributed part
+    names, not the (not yet grounded) pool — see the gate policy."""
     out: list[Check] = []
     per_stage = {s.index: attribute(s, pools) for s in plan.stages}
 
@@ -329,13 +351,14 @@ def verify(plan: StagePlan, pools: dict[str, dict[int, dict]],
     for obj, tags in spec.required_tags.items():
         missing = [t for t in tags
                    if obj not in pools
-                   or not _tag_covered(t, parts.get(obj, ()), pools[obj])]
+                   or not _tag_covered(t, parts.get(obj, ()), pools[obj],
+                                       defer_grounding)]
         out.append((f"coverage[{obj}]", not missing,
                     f"needs tags {list(tags)}, attributed {list(parts.get(obj, ()))}"
                     + (f" — MISSING {missing}" if missing else "")))
 
     # -- roles: one emitted stage per planner role
-    role_idx = match_roles(plan, pools, spec)
+    role_idx = match_roles(plan, pools, spec, defer_grounding)
     for role, (act, pas, need) in spec.roles.items():
         hits = role_idx[role]
         names = [f"{i}:{next(x.name for x in plan.stages if x.index == i)}"
@@ -459,7 +482,7 @@ def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
             model: str | None = None) -> list[Check]:
     tplan = to_ground_truth(plan, gt)
     gplan = prune_parts(tplan, dropped or {})
-    checks = verify(gplan, pools, spec)
+    checks = verify(gplan, pools, spec, defer_grounding)
     parts = object_parts(gplan, pools)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({
@@ -477,7 +500,7 @@ def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
         # ungrounded and the next --replay silently un-prunes the plan
         "object_parts_requested": {o: list(v) for o, v in
                                    object_parts(tplan, pools).items()},
-        "roles": bind_roles(gplan, pools, spec),
+        "roles": bind_roles(gplan, pools, spec, defer_grounding),
         "checks": [{"check": c, "pass": ok, "detail": d} for c, ok, d in checks],
         "gate": {"defer_grounding": defer_grounding,
                  "blocking": blocking(checks, defer_grounding)},
@@ -510,8 +533,8 @@ def print_report(plan: StagePlan, checks: list[Check], parts: dict,
         tag = "PASS" if ok else ("FAIL" if check in block else "WARN")
         print(f"  {tag}  {check}: {detail}")
     if defer_grounding:
-        print("  (grounds[]/menu[] advisory: pool not yet grounded — "
-              "re-verified after ground_parts.py)")
+        print("  (grounds[]/menu[] advisory, coverage[]/role[] by part name: "
+              "pool not yet grounded — re-verified after ground_parts.py)")
     print("[plan-stages] #1 -> #2 handoff (select_frames.OBJECT_PARTS equivalent):")
     for obj, ps in parts.items():
         if ps:
@@ -574,7 +597,7 @@ def main() -> None:
             gplan = prune_parts(to_ground_truth(plan, gt), dropped)
             print(f"\n=== replay {p} (rewritten)")
             print_report(plan, checks, object_parts(gplan, pools),
-                         bind_roles(gplan, pools, spec),
+                         bind_roles(gplan, pools, spec, args.defer_grounding),
                          args.defer_grounding, dropped)
             runs.append(checks)
     else:
@@ -596,7 +619,7 @@ def main() -> None:
             gplan = prune_parts(to_ground_truth(plan, gt), dropped)
             print(f"\n=== run {k} -> {out}")
             print_report(plan, checks, object_parts(gplan, pools),
-                         bind_roles(gplan, pools, spec),
+                         bind_roles(gplan, pools, spec, args.defer_grounding),
                          args.defer_grounding, dropped)
             runs.append(checks)
 
