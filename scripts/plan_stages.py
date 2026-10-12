@@ -455,7 +455,8 @@ def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
             spec: TaskSpec = TASK_SPEC, gt: dict[int, str] | None = None,
             mode: str = "text", views: list[Path] | None = None,
             defer_grounding: bool = False,
-            dropped: dict[str, tuple[str, ...]] | None = None) -> list[Check]:
+            dropped: dict[str, tuple[str, ...]] | None = None,
+            model: str | None = None) -> list[Check]:
     tplan = to_ground_truth(plan, gt)
     gplan = prune_parts(tplan, dropped or {})
     checks = verify(gplan, pools, spec)
@@ -466,6 +467,7 @@ def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
         "plan_grounded": asdict(gplan),            # over manifest names, pruned
         "parts_dropped": {o: list(v) for o, v in (dropped or {}).items()},
         "mode": mode,
+        "model": model,                            # which VLM emitted `plan`
         "views": [str(v) for v in (views or [])],
         "task_spec": spec.name,
         "object_parts": {o: list(v) for o, v in parts.items()},
@@ -568,7 +570,7 @@ def main() -> None:
             checks = run_one(plan, pools, Path(p), None, None, spec, gt,
                              doc.get("mode", mode),
                              [Path(v) for v in doc.get("views", [])],
-                             args.defer_grounding, dropped)
+                             args.defer_grounding, dropped, doc.get("model"))
             gplan = prune_parts(to_ground_truth(plan, gt), dropped)
             print(f"\n=== replay {p} (rewritten)")
             print_report(plan, checks, object_parts(gplan, pools),
@@ -589,7 +591,8 @@ def main() -> None:
             out = base if args.repeat == 1 else base.with_name(
                 f"{base.stem}.{k}{base.suffix}")
             checks = run_one(plan, pools, out, client.logs, transport.raw,
-                             spec, gt, mode, views, args.defer_grounding, dropped)
+                             spec, gt, mode, views, args.defer_grounding, dropped,
+                             client.model)
             gplan = prune_parts(to_ground_truth(plan, gt), dropped)
             print(f"\n=== run {k} -> {out}")
             print_report(plan, checks, object_parts(gplan, pools),

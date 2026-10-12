@@ -75,7 +75,7 @@ import numpy as np
 
 API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
-MODEL = "claude-sonnet-4-6"
+MODEL = os.environ.get("MANIP_VLM_MODEL", "claude-sonnet-4-6")   # run-level knob; recorded in artifacts
 MAX_TOKENS = 2000
 TEMPERATURE = 0.0        # deterministic-as-available; variance is an ablation
 MAX_PARSE_RETRIES = 2    # rejections fed back; attempts = 1 + retries
