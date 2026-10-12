@@ -38,7 +38,10 @@ Per object (only those in the stage plan's object_parts):
               converted assets rest upright) and, when the scene
               manifest declares a facing for the object, front_axis /
               lateral_axis from that axis (the Orient Anything stand-in;
-              on hardware the caller passes the estimated front)
+              on hardware the caller passes the estimated front, and the
+              up sigma via up_sigma_deg). Every point symbol then gets
+              `depth_check` interior|skip + its `winding` value from the
+              mesh (part_grounding.annotate_depth_checks)
   5. pool     proposal.propose with the lifted part point sets, so
               candidates.json's `part` labels are the grounded ones and
               call #2's menus / plan_stages' grounds[] check read them
@@ -64,14 +67,20 @@ from pathlib import Path
 
 import numpy as np
 
-from manip_sim.part_grounding import (fit_part, lift_masks, raster_masks,
-                                      symbols_from_parts)
+from manip_sim.part_grounding import (annotate_depth_checks, fit_part, lift_masks,
+                                      raster_masks, symbols_from_parts)
 from manip_sim.proposal import (DENSE_SAMPLES, SEED, load_obj, part_masks,
                                 pool_to_json, propose, surface_samples)
 from manip_sim.scene import add_scene_arg, load_scene
 
 VIEW_PX = 640
 UP_BODY = np.array([0.0, 0.0, 1.0])     # sim: assets are converted upright
+
+
+class GroundingError(RuntimeError):
+    """ground_object could not run (missing mesh, no masks, bad provider).
+    Typed so library callers (hardware's grounding seam) can catch it
+    without catching every SystemExit; main() turns it back into one."""
 
 
 def render_depth_views(name: str, obj_dir: Path, V: np.ndarray,
@@ -157,10 +166,15 @@ def _oracle_band(part: str, bands: dict, spec: dict) -> str | None:
 def ground_object(name: str, obj_dir: Path, parts: tuple[str, ...],
                   out_dir: Path, provider: str, masks_root: Path | None,
                   write: bool, front: np.ndarray | None = None,
-                  front_sigma_deg: float = 0.0) -> dict:
+                  front_sigma_deg: float = 0.0, up_sigma_deg: float = 0.0) -> dict:
+    """Ground `parts` of one object (see module docstring). `front` /
+    `front_sigma_deg` / `up_sigma_deg` are the caller's canonical frame
+    sigmas, passed straight to symbols_from_parts (which also derives
+    lateral_axis's sigma from them). Raises GroundingError when it cannot
+    run. Returns {part: primitive}."""
     mesh = obj_dir / "meshes" / f"{name}_visual.obj"
     if not mesh.exists():
-        raise SystemExit(f"[ground] {mesh} missing — run scripts/convert_asset.py first")
+        raise GroundingError(f"[ground] {mesh} missing — run scripts/convert_asset.py first")
     V, F = load_obj(mesh)
     P, _ = surface_samples(V, F, DENSE_SAMPLES, np.random.default_rng(SEED))
     obj_out = out_dir / name
@@ -183,10 +197,10 @@ def ground_object(name: str, obj_dir: Path, parts: tuple[str, ...],
     elif provider == "masks":
         masks_by_view = read_mask_dir(masks_root, name, cams, parts)
         if not masks_by_view:
-            raise SystemExit(f"[ground] no masks under {masks_root / name}; "
+            raise GroundingError(f"[ground] no masks under {masks_root / name}; "
                              f"expected <view>/<part>.png for views {sorted(cams)}")
     else:
-        raise SystemExit(f"unknown provider {provider}")
+        raise GroundingError(f"unknown provider {provider}")
 
     lifted = lift_masks(uv_by, vis_by, masks_by_view, len(P))
     body_center = V.mean(axis=0)
@@ -198,12 +212,16 @@ def ground_object(name: str, obj_dir: Path, parts: tuple[str, ...],
         print(f"    {g.summary()}")
 
     frames = symbols_from_parts(name, grounded, UP_BODY, provider,
-                                front=front, front_sigma_deg=front_sigma_deg)
+                                front=front, front_sigma_deg=front_sigma_deg,
+                                up_sigma_deg=up_sigma_deg)
+    annotate_depth_checks(frames, V, F)
     frames["provenance"]["views"] = {v: str(p) for v, p in view_paths.items()}
     part_points = {p: P[lifted[p]] for p in parts
                    if p in lifted and grounded[p].primitive != "ungrounded"}
     pool = propose(name, V, F, frames, part_points=part_points)
     doc = pool_to_json(name, pool)
+    print("    depth: " + ", ".join(f"{n} {p['depth_check']} (w={p['winding']:+.2f})"
+                                    for n, p in sorted(frames["points"].items())))
     print(f"    symbols: points {sorted(frames['points'])}, axes "
           f"{sorted(frames['axes'])}, quantities {sorted(frames['quantities'])}")
     print(f"    pool: {len(pool.candidates)} candidates, part classes "
@@ -251,10 +269,13 @@ def main() -> None:
         if name not in scene.objects:
             print(f"[ground] {name!r} not in scene manifest — skipped")
             continue
-        results[name] = ground_object(name, scene.asset_dirs[name], tuple(ps),
-                                      out, args.provider,
-                                      Path(args.masks_root) if args.masks_root else None,
-                                      args.write, front=scene.front(name))
+        try:
+            results[name] = ground_object(name, scene.asset_dirs[name], tuple(ps),
+                                          out, args.provider,
+                                          Path(args.masks_root) if args.masks_root else None,
+                                          args.write, front=scene.front(name))
+        except GroundingError as e:
+            raise SystemExit(str(e)) from e     # CLI behaviour unchanged
     ung = {o: [p for p, k in r.items() if k == "ungrounded"] for o, r in results.items()}
     ung = {o: ps for o, ps in ung.items() if ps}
     if ung:

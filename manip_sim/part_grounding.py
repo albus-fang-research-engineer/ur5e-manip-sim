@@ -57,6 +57,21 @@ Every axis symbol carries its estimator sigma as a structured
 sigma for the canonical frame, absent for blobs) so the compiler's
 uncertainty coupling has a per-symbol sigma to work from instead of a
 scene-wide guess.
+
+Depth semantics. Every grounded POINT symbol also carries `depth_check`
+("interior" | "skip") and the raw `winding` value it was decided from
+(annotate_depth_checks, called by the driver that holds the mesh): is the
+point inside the object's material? Decided by geometry -- the generalized
+winding number of the point w.r.t. the mesh -- never by primitive or name,
+because the primitive does not determine it: a ring's center is free space
+(rim opening, handle hole), a blob's centroid may sit in an opening, and a
+LINE fit's center lies on the PCA axis through the cloud's centroid, which
+for a curved strap is off the material (a 180-deg C-handle's center sits
+~8 mm inside the curve, outside a 6 mm tube). A straight spout's center is
+interior. "surface" is never emitted: grounded points are centers and tips,
+not surface samples; it stays the default for hand-authored points.
+Consumers (hardware check_symbols) gate `interior` on depth and `skip` on
+image placement only.
 """
 
 from __future__ import annotations
@@ -75,6 +90,7 @@ RING_PLANE_REL = 0.08       # plane rms / radius gate for "ring"
 RING_MIN_ARC = 0.6          # fraction of circle angles covered (>= 60%)
 ELONGATION = 2.5            # S0 / S1 spread ratio for "line"
 UP_PARALLEL_COS = 0.985     # |up . front| above this -> no usable front
+WINDING_INSIDE = 0.5        # |generalized winding number| >= this -> inside material
 
 
 # ------------------------------------------------------------ results
@@ -253,6 +269,88 @@ def fit_part(name: str, P: np.ndarray, up: np.ndarray,
     rms = float(np.sqrt(np.mean((C ** 2).sum(1))))
     return GroundedPart(name, "blob", len(P), center=c, axis=a, rms=rms,
                         sigma_deg=float("nan"), note="outward axis only")
+
+
+# ------------------------------------------------------------ depth semantics
+
+def winding_number(points: np.ndarray, V: np.ndarray, F: np.ndarray) -> np.ndarray:
+    """Generalized winding number of each point w.r.t. the triangle mesh
+    (Jacobson et al. 2013): the signed solid angle all faces subtend,
+    over 4 pi, each face's solid angle by Van Oosterom & Strackee. ~1
+    inside a closed outward-oriented mesh, ~0 outside, saturating within a
+    few mm of the surface; small holes and cracks (reconstructed meshes)
+    move it continuously instead of flipping it, which is why it is used
+    rather than ray parity. Exactly ON a face the value is undefined: that
+    face subtends +-2 pi, the sign set by a floating-point zero, so it
+    reads 0 or 1. Sign follows face orientation (inward-wound meshes read
+    -1 inside); callers compare |w|. O(len(points) x len(F)), numpy only."""
+    P = np.atleast_2d(np.asarray(points, float))
+    V = np.asarray(V, float)
+    F = np.asarray(F, int)
+    out = np.empty(len(P))
+    for i, p in enumerate(P):
+        a, b, c = V[F[:, 0]] - p, V[F[:, 1]] - p, V[F[:, 2]] - p
+        la, lb, lc = (np.linalg.norm(x, axis=1) for x in (a, b, c))
+        num = np.einsum("ij,ij->i", a, np.cross(b, c))
+        den = (la * lb * lc + np.einsum("ij,ij->i", a, b) * lc
+               + np.einsum("ij,ij->i", b, c) * la + np.einsum("ij,ij->i", c, a) * lb)
+        out[i] = float(np.sum(2.0 * np.arctan2(num, den)) / (4.0 * np.pi))
+    return out
+
+
+def mesh_orientation(F: np.ndarray) -> dict:
+    """Face-orientation health of a triangle mesh, from its directed edges.
+    The winding number is only meaningful when faces are consistently
+    oriented: in such a mesh every directed edge occurs at most once (a
+    neighbour traverses it the other way). `inconsistent_edges` counts
+    directed edges occurring more than once -- any makes depth labels
+    unreliable near the flipped region. `boundary_edges` counts undirected
+    edges with a single face (holes, open rims): the winding number
+    degrades gracefully there, so it is recorded, not judged."""
+    F = np.asarray(F, int)
+    E = np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]])
+    _, directed = np.unique(E, axis=0, return_counts=True)
+    _, undirected = np.unique(np.sort(E, axis=1), axis=0, return_counts=True)
+    return {"inconsistent_edges": int((directed > 1).sum()),
+            "boundary_edges": int((undirected == 1).sum())}
+
+
+def annotate_depth_checks(frames: dict, V: np.ndarray, F: np.ndarray) -> dict:
+    """Add `depth_check` + `winding` to every point of a frames.json
+    document (in place; returned for chaining), from the mesh the points
+    are expressed in. inside (|w| >= WINDING_INSIDE) -> "interior",
+    outside -> "skip".
+
+    The label is only arbitrary for points AT the surface (the winding
+    value is undefined there, see winding_number), and there either label
+    is benign by construction: such a point passes a depth gate that
+    accepts a few mm either side of the surface (hardware check_symbols:
+    interior band [-5, +30] mm in front-surface depth) and passes a
+    placement-only `skip` trivially. Off the surface the value saturates
+    to ~1 / ~0 within a few mm, so the label is only ever arbitrary where
+    it does not matter.
+
+    Applied after symbols_from_parts rather than inside it: the point
+    names and positions are created there, symbols_from_parts stays
+    mesh-free, and nothing in the document is derived from depth_check.
+
+    The mesh's orientation health goes into provenance.depth_semantics:
+    with inconsistent_edges > 0 the labels are unreliable, and a consumer
+    that gates on them (the hardware seam) should refuse rather than trust
+    them. Labels are still written, so a sim run is never blocked by a
+    diagnostic."""
+    pts = frames.get("points", {})
+    names = list(pts)
+    frames.setdefault("provenance", {})["depth_semantics"] = {
+        "method": "generalized winding number w.r.t. the grounding mesh",
+        "inside_threshold": WINDING_INSIDE, **mesh_orientation(F)}
+    if not names:
+        return frames
+    w = winding_number(np.array([pts[n]["xyz"] for n in names], float), V, F)
+    for n, wi in zip(names, w):
+        pts[n]["depth_check"] = "interior" if abs(wi) >= WINDING_INSIDE else "skip"
+        pts[n]["winding"] = round(float(wi), 3)
+    return frames
 
 
 # ------------------------------------------------------------ symbols

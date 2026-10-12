@@ -154,3 +154,130 @@ def test_propose_with_part_points_uses_grounded_labels_only():
     con = [c for c in pool.candidates if c["source"] == "constructed"]
     assert [c["symbol"] for c in con] == ["cap_center"]
     assert con[0]["part"] == "cap"
+
+
+# ------------------------------------------------------- depth semantics
+#
+# depth_check is decided by the generalized winding number of the point
+# w.r.t. the mesh -- "is this point inside material" -- never by primitive.
+# The cases below are closed tubes swept along planar curves, fitted from
+# their own surface samples exactly as ground_object does.
+
+def _tube(center_line, r, closed=False, n_ring=16):
+    """Closed tube mesh around a centerline in the xz plane (end caps when
+    open), oriented so the inside reads w = +1."""
+    C = np.asarray(center_line, float)
+    n = len(C)
+    T = np.gradient(C, axis=0)
+    T /= np.linalg.norm(T, axis=1, keepdims=True)
+    B = np.array([0, 1.0, 0])
+    N = np.cross(B, T)
+    ph = np.linspace(0, 2 * np.pi, n_ring, endpoint=False)
+    V = (C[:, None] + r * (np.cos(ph)[None, :, None] * N[:, None]
+                           + np.sin(ph)[None, :, None] * B)).reshape(-1, 3)
+    F = []
+    for i in range(n if closed else n - 1):
+        i2 = (i + 1) % n
+        for j in range(n_ring):
+            j2 = (j + 1) % n_ring
+            a, b, c, d = i * n_ring + j, i * n_ring + j2, i2 * n_ring + j, i2 * n_ring + j2
+            F += [[a, b, d], [a, d, c]]
+    if not closed:
+        c0, c1, last = len(V), len(V) + 1, (n - 1) * n_ring
+        V = np.vstack([V, C[0], C[-1]])
+        F += [[c0, (j + 1) % n_ring, j] for j in range(n_ring)]
+        F += [[c1, last + j, last + (j + 1) % n_ring] for j in range(n_ring)]
+    F = np.asarray(F)
+    if pg.winding_number(C[n // 2], V, F)[0] < 0:
+        F = F[:, [0, 2, 1]]
+    return V, F
+
+
+def _arc(rx, rz, deg, n=60):
+    s = np.linspace(-np.radians(deg) / 2, np.radians(deg) / 2, n)
+    return np.column_stack([rx * np.cos(s), np.zeros(n), rz * np.sin(s)])
+
+
+def _ground_one(V, F, part="handle"):
+    from manip_sim.proposal import surface_samples
+    P, _ = surface_samples(V, F, 4000, np.random.default_rng(0))
+    g = pg.fit_part(part, P, UP, np.array([-0.1, 0.0, 0.0]))
+    doc = pg.symbols_from_parts("obj", {part: g}, UP, "test")
+    return g, pg.annotate_depth_checks(doc, V, F)["points"]
+
+
+@pytest.mark.parametrize("curve, r, closed, primitive, check", [
+    # straight spout: center on the centerline -> inside the tube
+    (np.linspace([0, 0, 0], [0.08, 0, 0.03], 40), 0.006, False, "line", "interior"),
+    # 180-deg C handle, taller than wide: still a LINE fit, but the center
+    # (PCA axis through the centroid) sits ~8 mm inside the curve, outside
+    # the 6 mm tube -- the case a primitive-keyed label gets wrong
+    (_arc(0.022, 0.028, 180), 0.006, False, "line", "skip"),
+    # the same primitive with its center ON the material: a narrow, tall C
+    (_arc(0.018, 0.035, 180), 0.006, False, "line", "interior"),
+    # round 180-deg C: blob fit, centroid in the handle's opening
+    (_arc(0.025, 0.025, 180), 0.006, False, "blob", "skip"),
+    # closed thin ring (rim): center is the free-space opening
+    (_arc(0.04, 0.04, 360, n=96)[:-1], 0.002, True, "ring", "skip"),
+])
+def test_depth_check_is_geometry_not_primitive(curve, r, closed, primitive, check):
+    V, F = _tube(curve, r, closed)
+    g, pts = _ground_one(V, F)
+    assert g.primitive == primitive
+    assert pts["handle_center"]["depth_check"] == check
+    w = pts["handle_center"]["winding"]
+    assert (w > 0.9) if check == "interior" else (abs(w) < 0.1)    # saturated, not marginal
+    if primitive == "line":
+        assert pts["handle_tip"]["depth_check"] in ("interior", "skip")
+
+
+def test_winding_saturates_off_the_surface():
+    """2 mm either side of a face already reads ~1 / ~0, so the label is
+    only arbitrary AT the surface, where the value is undefined (0 or 1 by
+    a floating-point sign). That a point at the surface passes the
+    consumer's gate under either label is pinned on the hardware side,
+    where that gate lives (check_symbols' interior band is [-5, +30] mm)."""
+    V, F = _box_mesh([-0.05, -0.05, 0], [0.05, 0.05, 0.1])
+    on, inside, outside = [0.01, 0.02, 0.1], [0.01, 0.02, 0.098], [0.01, 0.02, 0.102]
+    w = pg.winding_number(np.array([on, inside, outside]), V, F)
+    assert min(abs(w[0]), abs(w[0] - 1.0)) < 1e-6         # either side, never in between
+    assert w[1] > 0.95 and abs(w[2]) < 0.05
+    assert abs(pg.winding_number([0, 0, 0.05], V, F)[0] - 1.0) < 1e-9
+    assert abs(pg.winding_number([0.3, 0, 0.05], V, F)[0]) < 1e-9
+
+
+def test_winding_sign_follows_orientation_label_does_not():
+    V, F = _box_mesh([-0.05, -0.05, 0], [0.05, 0.05, 0.1])
+    Fi = F[:, [0, 2, 1]]                                   # inward-wound copy
+    assert pg.winding_number([0, 0, 0.05], V, Fi)[0] == pytest.approx(-1.0)
+    doc = {"points": {"c": {"xyz": [0, 0, 0.05]}}}
+    assert pg.annotate_depth_checks(doc, V, Fi)["points"]["c"]["depth_check"] == "interior"
+
+
+def test_annotate_only_touches_points_and_is_loadable(tmp_path):
+    from manip_sim.frames import load_symbols
+    V, F = _tube(_arc(0.022, 0.028, 180), 0.006)
+    g, _ = _ground_one(V, F)
+    doc = pg.symbols_from_parts("obj", {"handle": g}, UP, "test", up_sigma_deg=2.0)
+    before = {k: dict(v) for k, v in doc["axes"].items()}, dict(doc["quantities"])
+    pg.annotate_depth_checks(doc, V, F)
+    assert ({k: dict(v) for k, v in doc["axes"].items()}, dict(doc["quantities"])) == before
+    assert all({"depth_check", "winding"} <= set(p) for p in doc["points"].values())
+    assert doc["provenance"]["depth_semantics"]["inconsistent_edges"] == 0   # _tube is clean
+    assert doc["provenance"]["depth_semantics"]["boundary_edges"] == 0
+    empty = pg.annotate_depth_checks({"points": {}}, V, F)
+    assert empty["points"] == {} and "depth_semantics" in empty["provenance"]
+    (tmp_path / "frames.json").write_text(__import__("json").dumps(doc))
+    sym = load_symbols(tmp_path)                           # unknown keys ignored downstream
+    assert set(sym.points) == set(doc["points"])
+
+
+def test_mesh_orientation_counts_flips_and_holes():
+    V, F = _box_mesh([-0.05, -0.05, 0], [0.05, 0.05, 0.1])
+    assert pg.mesh_orientation(F) == {"inconsistent_edges": 0, "boundary_edges": 0}
+    Ff = F.copy()
+    Ff[0] = Ff[0, [0, 2, 1]]                                # one flipped face
+    assert pg.mesh_orientation(Ff)["inconsistent_edges"] == 3
+    assert pg.mesh_orientation(F[1:]) == {"inconsistent_edges": 0, "boundary_edges": 3}
+    # a flipped face moves the winding number off 1 inside: what the count warns about
+    assert abs(pg.winding_number([0, 0, 0.05], V, Ff)[0] - 1.0) > 0.05

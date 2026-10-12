@@ -88,3 +88,73 @@ def test_scene_grounding_override(tmp_path):
     s = load_scene(scene_json, g)
     assert s.asset_dirs["widget"] == g / "widget"
     assert Path(s.object_xmls["widget"]) == asset / "widget.xml"      # spawn xml stays authored
+
+
+# ------------------------------------------------------- the hardware seam's contract
+
+def test_points_carry_depth_check_and_winding(tmp_path, monkeypatch):
+    asset = tmp_path / "assets" / "widget"
+    _write_box_asset(asset)
+    monkeypatch.setattr(gp, "render_depth_views", _fake_render)
+    gp.ground_object("widget", asset, ("top", "base"), tmp_path / "g", "oracle", None, write=True)
+    pts = json.loads((tmp_path / "g" / "widget" / "frames.json").read_text())["points"]
+    for name, p in pts.items():
+        assert p["depth_check"] in ("interior", "skip"), name
+        assert p["depth_check"] == ("interior" if abs(p["winding"]) >= 0.5 else "skip")
+    # this fixture box is a sampling stand-in, not a solid: its faces are
+    # inconsistently wound and it is not closed, so the winding values are
+    # not meaningful -- and provenance says so, which is the point here
+    ds = json.loads((tmp_path / "g" / "widget" / "frames.json").read_text())[
+        "provenance"]["depth_semantics"]
+    assert ds["inconsistent_edges"] == 4 and ds["boundary_edges"] == 6
+    assert ds["inside_threshold"] == 0.5
+
+
+def test_up_sigma_reaches_up_and_lateral(tmp_path, monkeypatch):
+    """up_sigma_deg is plumbed into symbols_from_parts, so lateral_axis's
+    sigma (hypot(up, front)) is computed from it, not from a 0.0 that a
+    caller patched over afterwards. Default stays 0.0 (sim unchanged)."""
+    asset = tmp_path / "assets" / "widget"
+    _write_box_asset(asset)
+    monkeypatch.setattr(gp, "render_depth_views", _fake_render)
+    gp.ground_object("widget", asset, ("top",), tmp_path / "a", "oracle", None, write=True,
+                     front=np.array([1.0, 0, 0]), front_sigma_deg=20.0, up_sigma_deg=2.07)
+    ax = json.loads((tmp_path / "a" / "widget" / "frames.json").read_text())["axes"]
+    assert ax["up_axis"]["sigma_deg"] == 2.07 and ax["front_axis"]["sigma_deg"] == 20.0
+    assert ax["lateral_axis"]["sigma_deg"] == round(float(np.hypot(2.07, 20.0)), 2)
+    gp.ground_object("widget", asset, ("top",), tmp_path / "b", "oracle", None, write=True)
+    assert json.loads((tmp_path / "b" / "widget" / "frames.json").read_text())[
+        "axes"]["up_axis"]["sigma_deg"] == 0.0
+
+
+def test_grounding_error_is_typed_not_systemexit(tmp_path, monkeypatch):
+    monkeypatch.setattr(gp, "render_depth_views", _fake_render)
+    empty = tmp_path / "assets" / "nomesh"
+    empty.mkdir(parents=True)
+    with pytest.raises(gp.GroundingError, match="missing"):
+        gp.ground_object("nomesh", empty, ("top",), tmp_path / "g", "oracle", None, write=False)
+    asset = tmp_path / "assets" / "widget"
+    _write_box_asset(asset)
+    with pytest.raises(gp.GroundingError, match="no masks"):
+        gp.ground_object("widget", asset, ("top",), tmp_path / "g", "masks",
+                         tmp_path / "masks", write=False)
+    with pytest.raises(gp.GroundingError, match="unknown provider"):
+        gp.ground_object("widget", asset, ("top",), tmp_path / "g", "psychic", None, write=False)
+    assert issubclass(gp.GroundingError, RuntimeError)
+    assert not issubclass(gp.GroundingError, SystemExit)
+
+
+def test_cli_still_exits_with_the_message(tmp_path, monkeypatch):
+    empty = tmp_path / "assets" / "widget"
+    empty.mkdir(parents=True)
+    scene_json = tmp_path / "s.json"
+    scene_json.write_text(json.dumps({
+        "name": "s", "task": "t", "table": {"size": [1, 1, 0.05], "top_z": 0.8},
+        "objects": {"widget": {"asset": str(empty), "placement": {"xy": [0, 0]}}}}))
+    plan = tmp_path / "plan.json"
+    plan.write_text(json.dumps({"object_parts": {"widget": ["top"]}}))
+    monkeypatch.setattr(sys, "argv", ["ground_parts.py", "--stage-plan", str(plan),
+                                      "--scene", str(scene_json), "--out", str(tmp_path / "o")])
+    with pytest.raises(SystemExit) as e:
+        gp.main()
+    assert "missing" in str(e.value.code)
