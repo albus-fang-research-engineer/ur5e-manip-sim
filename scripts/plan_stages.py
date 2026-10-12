@@ -131,12 +131,21 @@ class TaskSpec:
                      and pour both = teapot->mug on spout): without it
                      both bind the first matching stage and the later
                      emitted stage is never used.
+      optional       roles the plan MAY leave unmatched (`"optional":
+                     true`). role[] passes and ordering[] ignores such a
+                     role when it has no hit, and a role `after` it is
+                     not floored by it; it binds `stage: None`, which the
+                     executor reads as "synthesize" (an unemitted carry
+                     is the entry set of the interaction stage's path
+                     TSR). Whether the model emits it is then measured,
+                     not prescribed. Required roles are unchanged.
     """
     name: str
     required_tags: dict[str, tuple[str, ...]]
     roles: dict[str, tuple[str, str | None, dict[str, tuple[str, ...]]]]
     ordering: tuple[tuple[str, tuple[str, ...]], ...]
     role_after: dict[str, str] = field(default_factory=dict)
+    optional: frozenset[str] = frozenset()
 
 
 def load_task_spec(path: str | Path = DEFAULT_TASK_SPEC) -> TaskSpec:
@@ -150,7 +159,9 @@ def load_task_spec(path: str | Path = DEFAULT_TASK_SPEC) -> TaskSpec:
         ordering=tuple((e["before"], tuple(e["after"]))
                        for e in doc.get("ordering", [])),
         role_after={r: v["after"] for r, v in doc["roles"].items()
-                    if v.get("after")})
+                    if v.get("after")},
+        optional=frozenset(r for r, v in doc["roles"].items()
+                           if v.get("optional")))
 
 
 TASK_SPEC = load_task_spec()
@@ -301,7 +312,20 @@ def bind_roles(plan: StagePlan, pools: dict[str, dict[int, dict]],
         hits = idx[role]
         if dep is not None:
             floor = out[dep]["stage"]
-            hits = [i for i in hits if floor is not None and i > floor]
+            if floor is not None:
+                later = [i for i in hits if i > floor]
+                if not later and hits and dep in spec.optional:
+                    # the optional dependency took the only stage this
+                    # role can use (a lone "insert" stage matches both):
+                    # it yields — rebinds to an earlier hit of its own,
+                    # else None — so the required role keeps its stage.
+                    take = hits[0]
+                    earlier = [i for i in idx[dep] if i < take]
+                    out[dep]["stage"] = earlier[0] if earlier else None
+                    later = [take]
+                hits = later
+            elif dep not in spec.optional:
+                hits = []           # required dependency unmatched
         out[role] = {"object": next(iter(need)),
                      "stage": hits[0] if hits else None}
     return out
@@ -363,15 +387,19 @@ def verify(plan: StagePlan, pools: dict[str, dict[int, dict]],
         hits = role_idx[role]
         names = [f"{i}:{next(x.name for x in plan.stages if x.index == i)}"
                  for i in hits]
-        out.append((f"role[{role}]", bool(hits),
+        out.append((f"role[{role}]", bool(hits) or role in spec.optional,
                     f"matched {names}" if hits
-                    else f"no stage with active={act} passive={pas} {need}"))
+                    else (f"optional, no stage with active={act} passive={pas} "
+                          f"{need} — executor synthesizes"
+                          if role in spec.optional else
+                          f"no stage with active={act} passive={pas} {need}")))
 
     # -- ordering: role-level precedence (first hit of `before` precedes
     #    the first hit of every `after` role)
     for before, afters in spec.ordering:
         b = role_idx.get(before, [])
-        a = {r: role_idx.get(r, []) for r in afters}
+        a = {r: role_idx.get(r, []) for r in afters
+             if role_idx.get(r) or r not in spec.optional}
         ok = bool(b) and all(v and min(b) < min(v) for v in a.values())
         out.append((f"ordering[{before}<{','.join(afters)}]", ok,
                     f"{before} at {b}, " + ", ".join(f"{r} at {v}" for r, v in a.items())))
