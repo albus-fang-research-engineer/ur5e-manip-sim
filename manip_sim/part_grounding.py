@@ -298,21 +298,42 @@ def winding_number(points: np.ndarray, V: np.ndarray, F: np.ndarray) -> np.ndarr
     return out
 
 
-def mesh_orientation(F: np.ndarray) -> dict:
-    """Face-orientation health of a triangle mesh, from its directed edges.
+def mesh_orientation(V: np.ndarray, F: np.ndarray) -> dict:
+    """Face-orientation health of a triangle mesh, from its directed edges,
+    computed on the surface's GEOMETRY: vertices are first merged by exact
+    position. UV-atlased meshes (TRELLIS -> Any6D) split vertices along
+    texture seams, so by index the surface is cut into disk-shaped charts:
+    every seam edge counts as a boundary, and a whole chart wound the wrong
+    way would be invisible to an index-based count. Measured on the mug's
+    final_mesh (20260928_190618): by index 24117 boundary edges and an
+    Euler characteristic of ~236 (one disk per chart); merged, 94198 of
+    106500 vertices, 0 inconsistent, 3 boundary, 0 non-manifold edges. The
+    seam duplicates are bit-identical copies (same source vertex, same
+    transforms, same text), so exact matching needs no tolerance.
+
     The winding number is only meaningful when faces are consistently
-    oriented: in such a mesh every directed edge occurs at most once (a
-    neighbour traverses it the other way). `inconsistent_edges` counts
-    directed edges occurring more than once -- any makes depth labels
-    unreliable near the flipped region. `boundary_edges` counts undirected
-    edges with a single face (holes, open rims): the winding number
-    degrades gracefully there, so it is recorded, not judged."""
+    oriented: then every directed edge occurs at most once (a neighbour
+    traverses it the other way). `inconsistent_edges` counts directed edges
+    occurring more than once -- any makes depth labels unreliable near the
+    flipped region. `boundary_edges` counts undirected edges with a single
+    face (holes, open rims): the winding number degrades gracefully near
+    them, so they are recorded, not judged. `non_manifold_edges` (three or
+    more faces on one edge) is recorded likewise. Faces that collapse
+    under the merge are dropped from the counts. winding_number itself
+    needs no merge: it sums solid angles and never reads connectivity."""
+    V = np.asarray(V, float)
     F = np.asarray(F, int)
-    E = np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]])
+    _, inv = np.unique(V, axis=0, return_inverse=True)
+    Fw = np.asarray(inv).reshape(-1)[F]
+    Fw = Fw[(Fw[:, 0] != Fw[:, 1]) & (Fw[:, 1] != Fw[:, 2]) & (Fw[:, 0] != Fw[:, 2])]
+    E = np.concatenate([Fw[:, [0, 1]], Fw[:, [1, 2]], Fw[:, [2, 0]]])
     _, directed = np.unique(E, axis=0, return_counts=True)
     _, undirected = np.unique(np.sort(E, axis=1), axis=0, return_counts=True)
     return {"inconsistent_edges": int((directed > 1).sum()),
-            "boundary_edges": int((undirected == 1).sum())}
+            "boundary_edges": int((undirected == 1).sum()),
+            "non_manifold_edges": int((undirected > 2).sum()),
+            "merged_vertices": int(np.asarray(inv).max() + 1) if len(V) else 0,
+            "vertices": int(len(V))}
 
 
 def annotate_depth_checks(frames: dict, V: np.ndarray, F: np.ndarray) -> dict:
@@ -343,7 +364,7 @@ def annotate_depth_checks(frames: dict, V: np.ndarray, F: np.ndarray) -> dict:
     names = list(pts)
     frames.setdefault("provenance", {})["depth_semantics"] = {
         "method": "generalized winding number w.r.t. the grounding mesh",
-        "inside_threshold": WINDING_INSIDE, **mesh_orientation(F)}
+        "inside_threshold": WINDING_INSIDE, **mesh_orientation(V, F)}
     if not names:
         return frames
     w = winding_number(np.array([pts[n]["xyz"] for n in names], float), V, F)

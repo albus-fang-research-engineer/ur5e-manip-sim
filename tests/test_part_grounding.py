@@ -274,10 +274,36 @@ def test_annotate_only_touches_points_and_is_loadable(tmp_path):
 
 def test_mesh_orientation_counts_flips_and_holes():
     V, F = _box_mesh([-0.05, -0.05, 0], [0.05, 0.05, 0.1])
-    assert pg.mesh_orientation(F) == {"inconsistent_edges": 0, "boundary_edges": 0}
+    clean = {"inconsistent_edges": 0, "boundary_edges": 0, "non_manifold_edges": 0,
+             "merged_vertices": 8, "vertices": 8}
+    assert pg.mesh_orientation(V, F) == clean
     Ff = F.copy()
     Ff[0] = Ff[0, [0, 2, 1]]                                # one flipped face
-    assert pg.mesh_orientation(Ff)["inconsistent_edges"] == 3
-    assert pg.mesh_orientation(F[1:]) == {"inconsistent_edges": 0, "boundary_edges": 3}
+    assert pg.mesh_orientation(V, Ff)["inconsistent_edges"] == 3
+    assert pg.mesh_orientation(V, F[1:])["boundary_edges"] == 3
     # a flipped face moves the winding number off 1 inside: what the count warns about
     assert abs(pg.winding_number([0, 0, 0.05], V, Ff)[0] - 1.0) > 0.05
+
+
+def _soup(V, F):
+    """Every face gets its own vertex copies: the extreme of a UV-seam
+    split, where by index no two faces share an edge."""
+    return V[F].reshape(-1, 3), np.arange(3 * len(F)).reshape(-1, 3)
+
+
+def test_mesh_orientation_sees_across_seams():
+    """By index, a seam-split mesh looks like all boundary, and a flipped
+    face is invisible; merged by position, it is a closed box again and the
+    flip is counted. The winding number never needed the merge."""
+    V, F = _box_mesh([-0.05, -0.05, 0], [0.05, 0.05, 0.1])
+    Vs, Fs = _soup(V, F)
+    m = pg.mesh_orientation(Vs, Fs)
+    assert m["boundary_edges"] == 0 and m["inconsistent_edges"] == 0
+    assert m["merged_vertices"] == 8 and m["vertices"] == 36
+    Ff = F.copy()
+    Ff[0] = Ff[0, [0, 2, 1]]
+    Vsf, Fsf = _soup(V, Ff)
+    E = np.concatenate([Fsf[:, [0, 1]], Fsf[:, [1, 2]], Fsf[:, [2, 0]]])
+    assert len(np.unique(E, axis=0)) == len(E)              # by index: no flip visible
+    assert pg.mesh_orientation(Vsf, Fsf)["inconsistent_edges"] == 3   # merged: flip counted
+    assert pg.winding_number([0, 0, 0.05], Vs, Fs)[0] == pytest.approx(1.0)
