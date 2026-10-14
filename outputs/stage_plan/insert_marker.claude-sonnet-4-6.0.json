@@ -1,0 +1,209 @@
+{
+  "plan": {
+    "task": "insert the marker into the cup",
+    "stages": [
+      {
+        "index": 0,
+        "name": "grasp marker",
+        "active": "marker",
+        "passive": null,
+        "parts": {
+          "marker": [
+            "body",
+            "tip"
+          ]
+        }
+      },
+      {
+        "index": 1,
+        "name": "insert marker into cup",
+        "active": "marker",
+        "passive": "cup",
+        "parts": {
+          "marker": [
+            "body"
+          ],
+          "cup": [
+            "opening",
+            "interior"
+          ]
+        }
+      }
+    ],
+    "objects": {
+      "marker": {
+        "handle": "marker",
+        "label": "marker",
+        "mark": 1
+      },
+      "cup": {
+        "handle": "cup",
+        "label": "cup",
+        "mark": 2
+      }
+    }
+  },
+  "plan_grounded": {
+    "task": "insert the marker into the cup",
+    "stages": [
+      {
+        "index": 0,
+        "name": "grasp marker",
+        "active": "marker",
+        "passive": null,
+        "parts": {
+          "marker": [
+            "body",
+            "tip"
+          ]
+        }
+      },
+      {
+        "index": 1,
+        "name": "insert marker into cup",
+        "active": "marker",
+        "passive": "cup",
+        "parts": {
+          "marker": [
+            "body"
+          ],
+          "cup": [
+            "opening",
+            "interior"
+          ]
+        }
+      }
+    ],
+    "objects": {
+      "marker": {
+        "handle": "marker",
+        "label": "marker",
+        "mark": 1
+      },
+      "cup": {
+        "handle": "cup",
+        "label": "cup",
+        "mark": 2
+      }
+    }
+  },
+  "parts_dropped": {},
+  "mode": "marks",
+  "model": "claude-sonnet-4-6",
+  "views": [
+    "outputs/marks/insert_marker/marked.png"
+  ],
+  "task_spec": "insert_marker",
+  "object_parts": {
+    "marker": [
+      "body",
+      "tip"
+    ],
+    "cup": [
+      "opening",
+      "interior"
+    ]
+  },
+  "object_parts_requested": {
+    "marker": [
+      "body",
+      "tip"
+    ],
+    "cup": [
+      "opening",
+      "interior"
+    ]
+  },
+  "roles": {
+    "grasp": {
+      "object": "marker",
+      "stage": 0
+    },
+    "transport_active": {
+      "object": "marker",
+      "stage": null
+    },
+    "insert": {
+      "object": "marker",
+      "stage": null
+    },
+    "transport_passive": {
+      "object": "cup",
+      "stage": 1
+    }
+  },
+  "checks": [
+    {
+      "check": "identity[marker]",
+      "pass": true,
+      "detail": "mark 1 labelled 'marker' -> marker"
+    },
+    {
+      "check": "identity[cup]",
+      "pass": true,
+      "detail": "mark 2 labelled 'cup' -> cup"
+    },
+    {
+      "check": "grounds[stage0]",
+      "pass": false,
+      "detail": "grasp marker: parts {\"marker\": [\"body\", \"tip\"]} \u2014 UNGROUNDED ['marker.body']"
+    },
+    {
+      "check": "grounds[stage1]",
+      "pass": false,
+      "detail": "insert marker into cup: parts {\"marker\": [\"body\"], \"cup\": [\"opening\", \"interior\"]} \u2014 UNGROUNDED ['marker.body', 'cup.interior']"
+    },
+    {
+      "check": "menu[marker]",
+      "pass": false,
+      "detail": "parts ['body', 'tip'] -> 8-mark menu \u2014 NO MARK for ['body']"
+    },
+    {
+      "check": "menu[cup]",
+      "pass": false,
+      "detail": "parts ['opening', 'interior'] -> 8-mark menu \u2014 NO MARK for ['interior']"
+    },
+    {
+      "check": "coverage[marker]",
+      "pass": true,
+      "detail": "needs tags ['tip', 'body|barrel|shaft'], attributed ['body', 'tip']"
+    },
+    {
+      "check": "coverage[cup]",
+      "pass": true,
+      "detail": "needs tags ['rim|opening|lip'], attributed ['opening', 'interior']"
+    },
+    {
+      "check": "role[grasp]",
+      "pass": true,
+      "detail": "matched ['0:grasp marker']"
+    },
+    {
+      "check": "role[transport_active]",
+      "pass": true,
+      "detail": "optional, no stage with active=marker passive=cup {'marker': ('tip',)} \u2014 executor synthesizes"
+    },
+    {
+      "check": "role[insert]",
+      "pass": false,
+      "detail": "no stage with active=marker passive=cup {'marker': ('tip',)}"
+    },
+    {
+      "check": "role[transport_passive]",
+      "pass": true,
+      "detail": "matched ['1:insert marker into cup']"
+    },
+    {
+      "check": "ordering[grasp<transport_active,insert]",
+      "pass": false,
+      "detail": "grasp at [0], insert at []"
+    }
+  ],
+  "gate": {
+    "defer_grounding": true,
+    "blocking": [
+      "role[insert]",
+      "ordering[grasp<transport_active,insert]"
+    ]
+  }
+}
