@@ -46,7 +46,10 @@ Retry contract: parse rejections are fed back to the model verbatim as a
 follow-up turn (the rejection names exactly which token was outside the
 license) with a bounded budget; transport errors (429/5xx) back off
 independently. Sampling is temperature 0 — selection variance is an
-ablation axis, not a default.
+ablation axis, not a default. MANIP_VLM_TEMPERATURE=none omits the
+parameter for models that reject it (the API default then applies, so
+--repeat measures sampling variance); the effective value is recorded
+beside the model in plan_stages artifacts.
 
 Transport: stdlib urllib POST to the Anthropic Messages API; the
 transport is an injectable callable so tests run offline and the
@@ -77,7 +80,21 @@ API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 MODEL = os.environ.get("MANIP_VLM_MODEL", "claude-sonnet-4-6")   # run-level knob; recorded in artifacts
 MAX_TOKENS = 2000
-TEMPERATURE = 0.0        # deterministic-as-available; variance is an ablation
+
+
+def _temperature(raw: str | None) -> float | None:
+    """MANIP_VLM_TEMPERATURE: unset -> 0.0; "none" -> None (omit the
+    key from the request); anything else -> float."""
+    if raw is None:
+        return 0.0
+    if raw.strip().lower() == "none":
+        return None
+    return float(raw)
+
+
+TEMPERATURE = _temperature(os.environ.get("MANIP_VLM_TEMPERATURE"))
+# deterministic-as-available by default; variance is an ablation.
+# None = key omitted (models that reject `temperature`)
 MAX_PARSE_RETRIES = 2    # rejections fed back; attempts = 1 + retries
 HTTP_RETRIES = 3         # 429/5xx, exponential backoff
 HTTP_BACKOFF_S = 2.0
@@ -1496,10 +1513,10 @@ class Client:
         msgs = list(messages)
         for _ in range(1 + MAX_PARSE_RETRIES):
             log.attempts += 1
-            raw = self._transport({"model": self.model,
-                                   "max_tokens": self.max_tokens,
-                                   "temperature": TEMPERATURE,
-                                   "system": system,
+            payload = {"model": self.model, "max_tokens": self.max_tokens}
+            if TEMPERATURE is not None:
+                payload["temperature"] = TEMPERATURE
+            raw = self._transport({**payload, "system": system,
                                    "messages": msgs})
             try:
                 result = parse(raw)

@@ -60,7 +60,7 @@ hand-authored ROLES / STAGES tables:
 the artifact (checks, object_parts, roles) against the pools it is run
 with, so the handoff downstream reads always reflects the pools it will
 be selected from; --repeat is the repeatability measurement at the
-module's fixed TEMPERATURE.
+module's TEMPERATURE (MANIP_VLM_TEMPERATURE; recorded in the artifact).
 
 Gate policy. All checks are always computed and reported; which of them
 BLOCK (nonzero exit, load_bindings refusal) depends on where in the
@@ -107,7 +107,7 @@ from pathlib import Path
 from manip_sim.selection import _part_match, load_pool, vlm_subset
 from manip_sim.perception.marks import load_gt, load_marks
 from manip_sim.vlm import (Client, ObjectRef, StagePlan, StageSpec,
-                           Vocabulary, _urllib_transport)
+                           Vocabulary, TEMPERATURE, _urllib_transport)
 from manip_sim.scene import add_scene_arg, load_scene
 
 REPO = Path(__file__).resolve().parents[1]
@@ -507,7 +507,8 @@ def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
             mode: str = "text", views: list[Path] | None = None,
             defer_grounding: bool = False,
             dropped: dict[str, tuple[str, ...]] | None = None,
-            model: str | None = None) -> list[Check]:
+            model: str | None = None,
+            temperature: float | str | None = None) -> list[Check]:
     tplan = to_ground_truth(plan, gt)
     gplan = prune_parts(tplan, dropped or {})
     checks = verify(gplan, pools, spec, defer_grounding)
@@ -519,6 +520,7 @@ def run_one(plan: StagePlan, pools: dict[str, dict[int, dict]],
         "parts_dropped": {o: list(v) for o, v in (dropped or {}).items()},
         "mode": mode,
         "model": model,                            # which VLM emitted `plan`
+        "temperature": temperature,                # 0.0, or "omitted"; null = unrecorded
         "views": [str(v) for v in (views or [])],
         "task_spec": spec.name,
         "object_parts": {o: list(v) for o, v in parts.items()},
@@ -621,7 +623,8 @@ def main() -> None:
             checks = run_one(plan, pools, Path(p), None, None, spec, gt,
                              doc.get("mode", mode),
                              [Path(v) for v in doc.get("views", [])],
-                             args.defer_grounding, dropped, doc.get("model"))
+                             args.defer_grounding, dropped, doc.get("model"),
+                             doc.get("temperature"))
             gplan = prune_parts(to_ground_truth(plan, gt), dropped)
             print(f"\n=== replay {p} (rewritten)")
             print_report(plan, checks, object_parts(gplan, pools),
@@ -643,7 +646,8 @@ def main() -> None:
                 f"{base.stem}.{k}{base.suffix}")
             checks = run_one(plan, pools, out, client.logs, transport.raw,
                              spec, gt, mode, views, args.defer_grounding, dropped,
-                             client.model)
+                             client.model, TEMPERATURE if TEMPERATURE is not None
+                             else "omitted")
             gplan = prune_parts(to_ground_truth(plan, gt), dropped)
             print(f"\n=== run {k} -> {out}")
             print_report(plan, checks, object_parts(gplan, pools),

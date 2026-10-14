@@ -779,3 +779,28 @@ def test_entry_line_states_anchor_side_and_height_as_facts():
     assert "teapot.spout_tip is 0.040 m above mug.opening_center in height." in line
     for word in ("should", "must", "hold", "keep"):
         assert word not in line
+
+
+# ---------------------------------------------------- temperature knob
+
+def test_temperature_env_parsing():
+    from manip_sim.vlm import _temperature
+    assert _temperature(None) == 0.0          # unset: default unchanged
+    assert _temperature("none") is None       # omit the key
+    assert _temperature(" None ") is None
+    assert _temperature("0.7") == 0.7
+
+
+@pytest.mark.parametrize("temp, sent", [(0.0, 0.0), (None, "absent")])
+def test_temperature_in_request(monkeypatch, temp, sent):
+    """Default sends temperature 0; None omits the key entirely (models
+    that reject the parameter answer 400 to its mere presence)."""
+    import manip_sim.vlm as vlm
+    monkeypatch.setattr(vlm, "TEMPERATURE", temp)
+    payloads = []
+
+    def transport(payload):
+        payloads.append(payload)
+        return "ok"
+    Client(transport=transport)._ask("t", "sys", [], lambda raw: raw)
+    assert payloads[0].get("temperature", "absent") == sent
