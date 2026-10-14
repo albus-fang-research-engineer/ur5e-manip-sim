@@ -1,0 +1,17 @@
+{
+  "client_logs": [
+    {
+      "touchpoint": "plan_stages",
+      "attempts": 1,
+      "rejections": [],
+      "flags": [],
+      "raw": "{\"objects\": {\"1\": \"marker\", \"2\": \"cup\"}, \"stages\": [{\"name\": \"grasp the marker\", \"active\": 1, \"passive\": null, \"parts\": {\"1\": [\"barrel\", \"cap\", \"tip\"]}}, {\"name\": \"align marker above cup opening\", \"active\": 1, \"passive\": 2, \"parts\": {\"1\": [\"barrel\", \"tip\"], \"2\": [\"rim\", \"opening\"]}}, {\"name\": \"insert marker into cup\", \"active\": 1, \"passive\": 2, \"parts\": {\"1\": [\"tip\", \"barrel\"], \"2\": [\"opening\", \"interior\", \"rim\"]}}, {\"name\": \"release marker\", \"active\": 1, \"passive\": 2, \"parts\": {\"1\": [\"barrel\"], \"2\": [\"interior\"]}}]}",
+      "views": 0,
+      "legend": false,
+      "entry": false
+    }
+  ],
+  "raw_responses": [
+    "{\"objects\": {\"1\": \"marker\", \"2\": \"cup\"}, \"stages\": [{\"name\": \"grasp the marker\", \"active\": 1, \"passive\": null, \"parts\": {\"1\": [\"barrel\", \"cap\", \"tip\"]}}, {\"name\": \"align marker above cup opening\", \"active\": 1, \"passive\": 2, \"parts\": {\"1\": [\"barrel\", \"tip\"], \"2\": [\"rim\", \"opening\"]}}, {\"name\": \"insert marker into cup\", \"active\": 1, \"passive\": 2, \"parts\": {\"1\": [\"tip\", \"barrel\"], \"2\": [\"opening\", \"interior\", \"rim\"]}}, {\"name\": \"release marker\", \"active\": 1, \"passive\": 2, \"parts\": {\"1\": [\"barrel\"], \"2\": [\"interior\"]}}]}"
+  ]
+}
