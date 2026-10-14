@@ -11,6 +11,7 @@ the insertion `tip|body` instead binds the insertion to the carry stage
 whenever the carry names `body` (the real insertion then binds nowhere
 and every check still passes) — the cases below pin that shut."""
 
+import json
 import sys
 from pathlib import Path
 
@@ -65,3 +66,48 @@ def test_contract_still_requires_tip_somewhere():
     """`tip` left the role predicates but stays a required tag, so call
     #2's object-level menu always carries tip candidates."""
     assert "tip" in SPEC.required_tags["marker"]
+
+
+# ------------------------------------- handoff to calls #2/#3 (load_bindings)
+
+def _artifact(pools, tmp_path, *movers):
+    out = tmp_path / "plan.json"
+    ps.run_one(_plan(*movers), pools, out, spec=SPEC, defer_grounding=True)
+    return out
+
+
+@pytest.mark.parametrize("movers, emitted, synth", [
+    ((["body"],), ("grasp", "insert"), {"insert"}),
+    ((["tip"],), ("grasp", "insert"), {"insert"}),
+    ((["body"], ["tip"]), ("grasp", "transport_active", "insert"), set()),
+])
+def test_bindings_skip_unbound_optional_and_emit_order(pools, tmp_path, movers,
+                                                       emitted, synth):
+    from scripts.emit_constraints import bound_stages
+    # no spec passed: the default is pour-tea's, so this also proves the
+    # contract comes from the artifact's recorded task_spec
+    b = ps.load_bindings(_artifact(pools, tmp_path, *movers))
+    assert b.spec.name == "insert_marker"
+    assert set(b.roles) == set(emitted) | {"transport_passive"}
+    assert b.entry_synthesized == frozenset(synth)
+    by_idx = {s.index: s for s in b.plan.stages}
+    assert tuple(r for _, r in bound_stages(b, by_idx)) == emitted
+
+
+def test_unbound_required_role_still_refused(pools, tmp_path):
+    out = _artifact(pools, tmp_path, ["body"])
+    doc = json.loads(out.read_text())
+    doc["roles"]["insert"]["stage"] = None
+    out.write_text(json.dumps(doc))
+    with pytest.raises(SystemExit, match="'insert' unbound"):
+        ps.load_bindings(out)
+
+
+def test_artifact_without_task_spec_uses_the_parameter(pools, tmp_path):
+    out = _artifact(pools, tmp_path, ["body"])
+    doc = json.loads(out.read_text())
+    del doc["task_spec"]
+    out.write_text(json.dumps(doc))
+    assert ps.load_bindings(out, SPEC).entry_synthesized == {"insert"}
+    with pytest.raises(SystemExit, match="unbound"):     # pour-tea default:
+        ps.load_bindings(out)                             # nothing optional

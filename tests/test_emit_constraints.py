@@ -181,3 +181,16 @@ def test_render_chained_renders_each_stage_after_the_previous_gate_at_its_nomina
     # the chained pose the render used equals the entry pose the gate recorded
     np.testing.assert_allclose(renders[2][3], np.array(art["compiled"][2]["entry_poses"]["teapot"]),
                                atol=1e-6)
+
+
+def test_bound_stages_reproduce_the_pour_tea_tuple():
+    """Contract-derived stage list == the literal (grasp, transport_active,
+    pour) tuple it replaced, on the committed pour-tea artifact."""
+    from scripts.emit_constraints import bound_stages
+    from scripts.plan_stages import load_bindings
+    b = load_bindings("outputs/stage_plan/pour_tea.marks.json")
+    by_idx = {s.index: s for s in b.plan.stages}
+    literal = tuple((by_idx[b.roles[r][1].index], r)
+                    for r in ("grasp", "transport_active", "pour"))
+    assert bound_stages(b, by_idx) == literal
+    assert b.entry_synthesized == frozenset()

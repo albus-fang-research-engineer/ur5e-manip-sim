@@ -132,6 +132,18 @@ def _framed_inputs(role: str, manifest: dict, views=None
     return paths, rec
 
 
+def bound_stages(b, by_idx: dict) -> tuple:
+    """(full stage, role) per call #3, from a load_bindings() result: one
+    per bound role whose contract names its active object (pour-tea:
+    grasp, transport_active, pour), in stage order. `"*"` roles
+    (transport_passive) are call-#2-only; unbound optional roles are
+    already absent, so a 2-stage insert plan yields (grasp, insert)."""
+    return tuple(sorted(
+        ((by_idx[st.index], r) for r, (_, st) in b.roles.items()
+         if b.spec.roles[r][0] != "*"),
+        key=lambda sr: sr[0].index))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--selections", default=None, metavar="JSON",
@@ -151,7 +163,8 @@ def main() -> None:
     ap.add_argument("--out", default=str(OUT), metavar="JSON")
     ap.add_argument("--stage-plan", default=None, metavar="JSON",
                     help="plan_stages.py artifact; the stages bound to the "
-                         "grasp / transport_active / pour roles replace STAGES")
+                         "contract's mover roles (named `active`; unbound "
+                         "optional roles skipped) replace STAGES")
     add_scene_arg(ap)
     args = ap.parse_args()
     if args.frames and not args.selections:
@@ -164,12 +177,13 @@ def main() -> None:
     asset_dirs = scene.asset_dirs
     poses = _spawn_poses(scene)
     stages = STAGES
+    synthesized: frozenset[str] = frozenset()   # roles with no emitted carry before them
     if args.stage_plan:
         from scripts.plan_stages import load_bindings
         b = load_bindings(args.stage_plan)
+        synthesized = b.entry_synthesized
         by_idx = {s.index: s for s in b.plan.stages}   # full parts, both objects
-        stages = tuple((by_idx[b.roles[r][1].index], r)
-                       for r in ("grasp", "transport_active", "pour"))
+        stages = bound_stages(b, by_idx)
 
     vocab = Vocabulary.from_asset_dirs(asset_dirs)
     symbols = {n: load_symbols(d) for n, d in asset_dirs.items()}
@@ -243,7 +257,11 @@ def main() -> None:
             w_tok = _point_token(stage.passive, symbols, w_point) or f"{stage.passive}.anchor"
             anchor = (e_tok, e_point)
             w_anchor = (w_tok, w_point, poses[stage.passive])
-        entry = entry_line(stage.active, poses[stage.active],
+        synth = role in synthesized
+        # no factual entry line for a synthesized entry: the stage does
+        # not begin at the pose the line would describe
+        entry = None if synth else entry_line(
+                           stage.active, poses[stage.active],
                            symbols[stage.active].axes,
                            chained=stage.active in chained, tol_rad=ALIGN_TOL_RAD,
                            anchor=anchor, w_anchor=w_anchor)
@@ -257,7 +275,7 @@ def main() -> None:
             print(f"[emit] stage {em.stage} ({em.name}) attempt {attempt}")
             try:
                 cs = compile_stage(em, symbols, poses, w_point=w_point,
-                                   e_point=e_point)
+                                   e_point=e_point, entry_synthesized=synth)
                 check_pair_consistency(cs)   # subgoal on the path manifold?
                 if prev_cs is not None and em.passive and em.active == prev_active:
                     for n_ in check_stage_seam(prev_cs, cs, em):
@@ -277,7 +295,8 @@ def main() -> None:
             acct = {**stage_accounting(cs, em, symbols, poses),
                     "attempts": attempt + 1,
                     "rejection_slots": [r.split(":")[0] for _, r in rejections],
-                    "notes": list(cs.notes)}
+                    "notes": list(cs.notes),
+                    **({"entry_from": "synthesized"} if synth else {})}
             gate.append((em.name, True, rows, None, entry, acct))
             if em.passive:                  # object mover: exits at the subgoal center
                 poses = {**poses, em.active: cs.subgoal.nominal()}
@@ -290,7 +309,8 @@ def main() -> None:
                          {**err, "rejections": [r for _, r in rejections]},
                          {n: np.round(T, 6).tolist() for n, T in poses.items()},
                          {"attempts": 1 + COMPILE_RETRIES,
-                          "rejection_slots": [r.split(":")[0] for _, r in rejections]}))
+                          "rejection_slots": [r.split(":")[0] for _, r in rejections],
+                          **({"entry_from": "synthesized"} if synth else {})}))
         emissions.append(em)
         if not gate[-1][1]:
             remaining = [st.name for st, _ in stages[len(gate):]]

@@ -114,6 +114,9 @@ def main() -> None:
     add_scene_arg(ap)
     ap.add_argument("--task", default=None,
                     help="language query; default: the scene manifest's")
+    ap.add_argument("--task-spec", default=None, metavar="JSON",
+                    help="task contract for call #1's gate; default "
+                         "tasks/<scene name>.json")
     ap.add_argument("--from", dest="start", choices=STEPS, default="pool")
     ap.add_argument("--until", dest="stop", choices=STEPS, default="exec")
     ap.add_argument("--image", default=None, metavar="RGB",
@@ -140,6 +143,9 @@ def main() -> None:
         ap.error("--image and --masks go together")
     scene = load_scene(args.scene, getattr(args, "grounding", None))
     task = args.task or scene.task
+    task_spec = Path(args.task_spec or f"tasks/{scene.name}.json")
+    if not task_spec.exists():
+        ap.error(f"no task contract {task_spec}; pass --task-spec")
     mode = "text" if args.text_only else "marks"
     marks_dir = Path(f"outputs/marks/{scene.name}")
     stage_plan = Path(f"outputs/stage_plan/{scene.name}.{mode}.json")
@@ -149,7 +155,7 @@ def main() -> None:
     G = [] if args.no_ground else ["--grounding", str(grounding)]
     do = lambda step: STEPS.index(args.start) <= STEPS.index(step) <= STEPS.index(args.stop)
     RUN.update(dir=f"outputs/runs/{time.strftime('%Y%m%d-%H%M%S')}",
-               scene=args.scene, task=task, mode=mode,
+               scene=args.scene, task=task, mode=mode, task_spec=str(task_spec),
                artifacts={"marks": str(marks_dir), "stage_plan": str(stage_plan),
                           "grounding": str(grounding) if not args.no_ground else "",
                           "selections": str(selections),
@@ -177,7 +183,7 @@ def main() -> None:
 
     if do("plan"):
         cmd = ["scripts/plan_stages.py", "--scene", args.scene, "--task", task,
-               "--out", str(stage_plan)]
+               "--task-spec", str(task_spec), "--out", str(stage_plan)]
         if not args.text_only:
             cmd += ["--marks", str(marks_dir)]
         if not args.no_ground:       # pool is produced by `ground`; only
@@ -195,7 +201,8 @@ def main() -> None:
         # not ground are pruned (grounding.json) and the contract checks
         # decide whether that loss is fatal; the artifact is rewritten
         sh(["scripts/plan_stages.py", "--scene", args.scene, "--replay",
-            str(stage_plan), *(["--marks", str(marks_dir)] if not args.text_only else []),
+            str(stage_plan), "--task-spec", str(task_spec),
+            *(["--marks", str(marks_dir)] if not args.text_only else []),
             *G])
 
     if do("render"):

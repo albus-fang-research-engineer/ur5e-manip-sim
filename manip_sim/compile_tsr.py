@@ -584,7 +584,8 @@ def compile_stage(emission: StageEmission,
                   symbols: dict[str, Symbols],
                   body_poses: dict[str, np.ndarray],
                   w_point: np.ndarray,
-                  e_point: np.ndarray | None = None) -> CompiledStage:
+                  e_point: np.ndarray | None = None,
+                  entry_synthesized: bool = False) -> CompiledStage:
     """Ground one StageEmission. `body_poses` are the world body poses
     to root frames on — pass the ENTRY poses; the w frame (including a
     fallback azimuth) and the goal attitude are frozen on them.
@@ -593,7 +594,11 @@ def compile_stage(emission: StageEmission,
     passive), in its body coords — w's origin. `e_point`: the mover's
     selected feature point (its body coords) that Tw_e pins at w; None
     -> the mover's body origin. Must be None when the mover is the
-    gripper (no passive): Tw_e = I then."""
+    gripper (no passive): Tw_e = I then. `entry_synthesized`: the stage
+    follows an unemitted (optional, unbound) carry, so the executor's
+    approach places the mover inside this path TSR by construction and
+    the entry-containment check has nothing to test (as for the gripper
+    stage). body_poses[mover] still roots the goal attitude and w."""
     notes: list[str] = []
     w_obj = emission.passive or emission.active
     mover = emission.active if emission.passive else None   # None: gripper
@@ -840,8 +845,13 @@ def compile_stage(emission: StageEmission,
     if not errs:
         errs += _check_path_containment(emission.name, tsrs["path"],
                                         tsrs["subgoal"], boxes["path"],
-                                        body_poses[mover] if mover else None,
+                                        body_poses[mover] if mover and
+                                        not entry_synthesized else None,
                                         notes)
+        if mover and entry_synthesized:
+            notes.append(f"{emission.name}.path: entry synthesized (no "
+                         "emitted carry) — entry containment not checked; "
+                         f"goal attitude still frozen on body_poses[{mover!r}]")
     if errs:
         # flatten: a per-TSR error may itself carry paired slots
         flat = [e for err in errs for e in err.all()]

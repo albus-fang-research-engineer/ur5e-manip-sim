@@ -484,6 +484,23 @@ def test_entry_outside_path_beyond_budget_rejected():
     assert "leave z free" in err.reason
 
 
+
+def test_synthesized_entry_skips_containment_only():
+    """A stage after an unemitted optional carry (insert-marker's 2-stage
+    plan): the path is centered over the opening, the mover's recorded
+    pose is its spawn, far from it. Without the flag that is a rejection
+    the repair loop would answer by loosening the path; with it the
+    executor's approach lands inside the path TSR by construction, so the
+    entry check is skipped (with a note) and the same emission compiles."""
+    doc = _path(TRANSPORT, trans=[{"term": "centered",
+                                   "anchor": "mug.opening_center",
+                                   "tol": "moderate"}])
+    err = _expect(doc, e_point=TIP)
+    assert "entry pose lies outside" in err.reason
+    cs = compile_stage(emission(doc), SYMBOLS, POSES, w_point=OPENING,
+                       e_point=TIP, entry_synthesized=True)
+    assert any("entry synthesized" in n for n in cs.notes)
+
 def test_entry_outside_path_within_budget_is_a_note():
     # pour entry tip is 0.055 m above the opening; above(contact, moderate)
     # is [0.00, 0.05]: 0.005 m outside, inside the budget -> note, and the

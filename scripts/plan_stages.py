@@ -434,11 +434,19 @@ class Bindings:
     plan, the per-object part union, and role -> (object, StageSpec).
     Roles are the task contract's; the StageSpec is the emitted stage
     the role matched, RESTRICTED to the role's object's parts so call
-    #2's prompt names the parts on the object whose menu it sees."""
+    #2's prompt names the parts on the object whose menu it sees.
+
+    Unbound optional roles are absent from `roles`. `entry_synthesized`:
+    the bound roles whose `after` dependency is such a role — their stage
+    begins where the executor's synthesized approach puts the mover (the
+    entry set of the stage's own path TSR), not at the previous emitted
+    stage's goal. `spec` is the contract the artifact was gated with."""
     plan: StagePlan
     object_parts: dict[str, tuple[str, ...]]
     roles: dict[str, tuple[str, StageSpec]]
     path: Path
+    spec: TaskSpec = TASK_SPEC
+    entry_synthesized: frozenset[str] = frozenset()
 
 
 def load_bindings(path: str | Path, spec: TaskSpec = TASK_SPEC) -> Bindings:
@@ -447,9 +455,20 @@ def load_bindings(path: str | Path, spec: TaskSpec = TASK_SPEC) -> Bindings:
     bindings violate the spec's `after` ordering (an artifact written
     before the ordering existed) — the consumer must never plan on a
     plan the contract rejected. Bindings are trusted as stored; a stale
-    artifact is regenerated with --replay, not re-bound here."""
+    artifact is regenerated with --replay, not re-bound here.
+
+    The contract is the one the artifact records (`task_spec` ->
+    tasks/<name>.json); `spec` applies only to artifacts that predate
+    the field. An unbound OPTIONAL role is skipped, not refused, and does
+    not floor the role `after` it (the same rule verify() applies)."""
     path = Path(path)
     doc = json.loads(path.read_text())
+    if doc.get("task_spec"):
+        f = REPO / "tasks" / f"{doc['task_spec']}.json"
+        if not f.exists():
+            raise SystemExit(f"[plan-stages] {path} was gated with task "
+                             f"contract {doc['task_spec']!r} but {f} is missing")
+        spec = load_task_spec(f)
     if "roles" not in doc or "plan_grounded" not in doc:
         raise SystemExit(f"[plan-stages] {path} predates role bindings; "
                          "re-run plan_stages.py (or --replay it) to regenerate")
@@ -462,11 +481,15 @@ def load_bindings(path: str | Path, spec: TaskSpec = TASK_SPEC) -> Bindings:
     gplan = plan_from_artifact_doc(doc["plan_grounded"])
     by_idx = {s.index: s for s in gplan.stages}
     roles: dict[str, tuple[str, StageSpec]] = {}
+    skipped = {r for r, b in doc["roles"].items()
+               if b["stage"] is None and r in spec.optional}
     for role, b in doc["roles"].items():
+        if role in skipped:
+            continue
         if b["stage"] is None:
             raise SystemExit(f"[plan-stages] {path}: role {role!r} unbound")
         dep = spec.role_after.get(role)
-        if dep and dep in doc["roles"] and not (
+        if dep and dep in doc["roles"] and dep not in skipped and not (
                 doc["roles"][dep]["stage"] is not None
                 and b["stage"] > doc["roles"][dep]["stage"]):
             raise SystemExit(
@@ -480,7 +503,9 @@ def load_bindings(path: str | Path, spec: TaskSpec = TASK_SPEC) -> Bindings:
             parts={obj: tuple(s.parts.get(obj, ()))}))
     return Bindings(plan=gplan,
                     object_parts={o: tuple(v) for o, v in doc["object_parts"].items()},
-                    roles=roles, path=path)
+                    roles=roles, path=path, spec=spec,
+                    entry_synthesized=frozenset(
+                        r for r in roles if spec.role_after.get(r) in skipped))
 
 
 def plan_from_artifact_doc(doc: dict) -> StagePlan:
