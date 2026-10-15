@@ -13,8 +13,19 @@ Pipeline:
      collision geoms in group 0, and the three required sites: bottom_site,
      top_site, horizontal_radius_site)
 
+Texture. MuJoCo ignores .mtl files: trimesh's export writes `vt` and a
+material.mtl -> material_0.png beside the visual OBJ, but the geom only
+shows the texture when the MJCF declares <texture>/<material> and puts
+the material on it. --texture PNG does that (copied to
+meshes/<name>_texture.png). Pass the image the SOURCE mesh's UVs index —
+the PNG next to the scan's own textured.obj, never whatever material_0.png
+trimesh resolved from a shared assets/raw/: scans exported as
+textured.obj/textured.mtl/texture_map.png collide there. --texture-xml
+wires an already-converted asset in place (no reconversion, no CoACD).
+
 Usage:
   python scripts/convert_asset.py assets/raw/mug.obj --name mug --mass 0.3
+  python scripts/convert_asset.py --texture-xml assets/objects/marker/marker.xml --texture SCAN/texture_map.png
   python scripts/convert_asset.py model.glb --name widget --scale 0.001   # mm -> m
   python scripts/convert_asset.py mesh.obj --name part --threshold 0.02   # finer decomp
 
@@ -28,14 +39,13 @@ import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import coacd
-
-coacd.set_log_level("error")
 import numpy as np
 import trimesh
 
 
 def decompose(mesh: trimesh.Trimesh, threshold: float, max_hulls: int) -> list[trimesh.Trimesh]:
+    import coacd                      # lazy: --texture-xml / --reweight-xml need no CoACD
+    coacd.set_log_level("error")
     cm = coacd.Mesh(mesh.vertices, mesh.faces)
     parts = coacd.run_coacd(cm, threshold=threshold, max_convex_hull=max_hulls)
     return [trimesh.Trimesh(v, f) for v, f in parts]
@@ -48,6 +58,55 @@ def hull_masses(pieces: list[trimesh.Trimesh], total_mass: float) -> np.ndarray:
     the induced COM error is sub-mm, versus tens of mm for an even split."""
     vols = np.array([max(abs(p.volume), 1e-12) for p in pieces])
     return total_mass * vols / vols.sum()
+
+
+def wire_texture(xml_path: Path, png: Path) -> Path:
+    """Put a colour texture on an existing converted asset's visual geom, in
+    place: copy `png` to meshes/<name>_texture.png, declare <texture> +
+    <material> (file RELATIVE to the XML, like the meshes: robosuite's
+    MujocoXMLObject absolutizes every asset file= against the XML's folder,
+    and render_candidates.build_model injects texturedir), set the material
+    on the group-1 geom and drop its rgba. Refuses when the visual OBJ has
+    no `vt` (a texture would map nowhere). Collision geoms, masses, sites
+    and frames.json are untouched; re-running replaces the texture."""
+    name = xml_path.stem
+    mesh_dir = xml_path.parent / "meshes"
+    visual = mesh_dir / f"{name}_visual.obj"
+    if not visual.exists():
+        raise SystemExit(f"[{name}] missing {visual}")
+    with open(visual) as f:
+        n_vt = sum(1 for line in f if line.startswith("vt "))
+    if not n_vt:
+        raise SystemExit(f"[{name}] {visual.name} has no vt lines — no UVs "
+                         "to map a texture with; reconvert from a textured source")
+    from PIL import Image
+    Image.open(png).verify()                         # a readable image, not a stub
+    dst = mesh_dir / f"{name}_texture.png"
+    if Path(png).resolve() != dst.resolve():
+        shutil.copyfile(png, dst)
+
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    asset = root.find("asset")
+    tex, mat = f"{name}_tex", f"{name}_mat"
+    for child in list(asset):                        # idempotent re-wire
+        if child.get("name") in (tex, mat):
+            asset.remove(child)
+    ET.SubElement(asset, "texture", name=tex, type="2d",
+                  file=f"meshes/{dst.name}")
+    ET.SubElement(asset, "material", name=mat, texture=tex,
+                  specular="0.1", shininess="0.1")
+    geoms = [g for g in root.iter("geom")
+             if g.get("mesh") == f"{name}_visual_mesh"]
+    if len(geoms) != 1:
+        raise SystemExit(f"[{name}] expected one visual geom, found {len(geoms)}")
+    geoms[0].attrib.pop("rgba", None)
+    geoms[0].set("material", mat)
+    ET.indent(root)
+    tree.write(xml_path)
+    print(f"[{name}] texture {Path(png).name} -> {dst} ({n_vt} vt); "
+          f"material {mat} on {name}_visual_mesh")
+    return dst
 
 
 def reweight_xml(xml_path: Path) -> None:
@@ -105,6 +164,7 @@ def convert(
     threshold: float,
     max_hulls: int,
     rgba: str,
+    texture: Path | None = None,
 ) -> Path:
     out_dir = out_root / name
     mesh_dir = out_dir / "meshes"
@@ -184,6 +244,8 @@ def convert(
     ET.indent(root)
     ET.ElementTree(root).write(xml_path)
     print(f"[{name}] wrote {xml_path}")
+    if texture is not None:
+        wire_texture(xml_path, texture)
     return xml_path
 
 
@@ -204,15 +266,27 @@ def main() -> None:
     ap.add_argument("--threshold", type=float, default=0.05,
                     help="CoACD concavity threshold; lower = tighter fit, more pieces")
     ap.add_argument("--max-hulls", type=int, default=32)
-    ap.add_argument("--rgba", default="0.8 0.8 0.85 1")
+    ap.add_argument("--rgba", default="0.8 0.8 0.85 1",
+                    help="visual colour when no --texture is given")
+    ap.add_argument("--texture", type=Path, default=None, metavar="PNG",
+                    help="colour texture the source mesh's UVs index (see "
+                         "module docstring); replaces --rgba")
+    ap.add_argument("--texture-xml", type=Path, default=None, metavar="XML",
+                    help="wire --texture onto an existing converted XML in "
+                         "place; no reconversion, meshes and hulls untouched")
     args = ap.parse_args()
+    if args.texture_xml is not None:
+        if args.texture is None:
+            ap.error("--texture-xml needs --texture")
+        wire_texture(args.texture_xml, args.texture)
+        return
     if args.reweight_xml is not None:
         reweight_xml(args.reweight_xml)
         return
     if args.mesh is None or args.name is None:
         ap.error("mesh and --name are required unless --reweight-xml is given")
     convert(args.mesh, args.name, args.out, args.scale, args.mass,
-            args.threshold, args.max_hulls, args.rgba)
+            args.threshold, args.max_hulls, args.rgba, args.texture)
 
 
 if __name__ == "__main__":

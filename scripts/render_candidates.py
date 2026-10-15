@@ -152,7 +152,11 @@ def build_model(name: str, obj_dir: Path, cams: dict[str, dict],
                 parent.remove(child)
             elif child.tag == "geom" and "_col_" in child.get("mesh", ""):
                 parent.remove(child)
-    ET.SubElement(root, "compiler", meshdir=str(obj_dir.resolve()))
+    # texturedir too: a textured asset declares file="meshes/<name>_texture.png"
+    # relative to its XML (convert_asset.wire_texture); from_xml_string has
+    # no model dir to resolve it against. Absolute files are unaffected.
+    ET.SubElement(root, "compiler", meshdir=str(obj_dir.resolve()),
+                  texturedir=str(obj_dir.resolve()))
     vis = ET.SubElement(root, "visual")
     ET.SubElement(vis, "global", offwidth=str(px), offheight=str(px))
     ET.SubElement(vis, "headlight", ambient="0.45 0.45 0.45",

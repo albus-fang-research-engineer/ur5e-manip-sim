@@ -550,6 +550,14 @@ def build_scene_model(scene, cams: dict[str, dict], px: int = PX,
             f = Path(m.get("file"))
             m.set("file", str((obj.asset / f).resolve()))
             asset.append(m)
+        # a textured visual geom names a material; carry it and its texture
+        # (file absolutized like the meshes) or the model fails to compile
+        for t in oroot.iter("texture"):
+            if t.get("file"):
+                t.set("file", str((obj.asset / t.get("file")).resolve()))
+            asset.append(t)
+        for mat in oroot.iter("material"):
+            asset.append(mat)
         if poses is not None and name in poses:
             T = np.asarray(poses[name], float)
             pos = T[:3, 3]
