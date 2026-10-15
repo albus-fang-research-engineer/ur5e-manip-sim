@@ -33,11 +33,13 @@
     <mesh file="meshes/cup_col_29.obj" name="cup_col_mesh_29" />
     <mesh file="meshes/cup_col_30.obj" name="cup_col_mesh_30" />
     <mesh file="meshes/cup_col_31.obj" name="cup_col_mesh_31" />
+    <texture name="cup_tex" type="2d" file="meshes/cup_texture.png" />
+    <material name="cup_mat" texture="cup_tex" specular="0.1" shininess="0.1" />
   </asset>
   <worldbody>
     <body>
       <body name="object">
-        <geom type="mesh" mesh="cup_visual_mesh" group="1" conaffinity="0" contype="0" rgba="0.8 0.8 0.85 1" mass="0.0001" />
+        <geom type="mesh" mesh="cup_visual_mesh" group="1" conaffinity="0" contype="0" mass="0.0001" material="cup_mat" />
         <geom type="mesh" mesh="cup_col_mesh_0" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.0351804" friction="0.95 0.3 0.1" condim="4" />
         <geom type="mesh" mesh="cup_col_mesh_1" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.013862" friction="0.95 0.3 0.1" condim="4" />
         <geom type="mesh" mesh="cup_col_mesh_2" group="0" rgba="0 1 0 0.0" solimp="0.998 0.998 0.001" solref="0.01 1" density="0" mass="0.00715183" friction="0.95 0.3 0.1" condim="4" />
