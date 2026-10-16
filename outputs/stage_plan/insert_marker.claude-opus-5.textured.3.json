@@ -1,0 +1,287 @@
+{
+  "plan": {
+    "task": "insert the marker into the cup",
+    "stages": [
+      {
+        "index": 0,
+        "name": "grasp the marker",
+        "active": "marker",
+        "passive": null,
+        "parts": {
+          "marker": [
+            "body",
+            "cap",
+            "tip"
+          ]
+        }
+      },
+      {
+        "index": 1,
+        "name": "align marker above cup opening",
+        "active": "marker",
+        "passive": "cup",
+        "parts": {
+          "marker": [
+            "body",
+            "tip"
+          ],
+          "cup": [
+            "rim",
+            "opening"
+          ]
+        }
+      },
+      {
+        "index": 2,
+        "name": "insert marker into cup",
+        "active": "marker",
+        "passive": "cup",
+        "parts": {
+          "marker": [
+            "body",
+            "tip"
+          ],
+          "cup": [
+            "opening",
+            "interior",
+            "rim"
+          ]
+        }
+      },
+      {
+        "index": 3,
+        "name": "release marker",
+        "active": "marker",
+        "passive": "cup",
+        "parts": {
+          "marker": [
+            "body"
+          ],
+          "cup": [
+            "interior"
+          ]
+        }
+      }
+    ],
+    "objects": {
+      "marker": {
+        "handle": "marker",
+        "label": "marker",
+        "mark": 1
+      },
+      "cup": {
+        "handle": "cup",
+        "label": "cup",
+        "mark": 2
+      }
+    }
+  },
+  "plan_grounded": {
+    "task": "insert the marker into the cup",
+    "stages": [
+      {
+        "index": 0,
+        "name": "grasp the marker",
+        "active": "marker",
+        "passive": null,
+        "parts": {
+          "marker": [
+            "body",
+            "cap",
+            "tip"
+          ]
+        }
+      },
+      {
+        "index": 1,
+        "name": "align marker above cup opening",
+        "active": "marker",
+        "passive": "cup",
+        "parts": {
+          "marker": [
+            "body",
+            "tip"
+          ],
+          "cup": [
+            "rim",
+            "opening"
+          ]
+        }
+      },
+      {
+        "index": 2,
+        "name": "insert marker into cup",
+        "active": "marker",
+        "passive": "cup",
+        "parts": {
+          "marker": [
+            "body",
+            "tip"
+          ],
+          "cup": [
+            "opening",
+            "interior",
+            "rim"
+          ]
+        }
+      },
+      {
+        "index": 3,
+        "name": "release marker",
+        "active": "marker",
+        "passive": "cup",
+        "parts": {
+          "marker": [
+            "body"
+          ],
+          "cup": [
+            "interior"
+          ]
+        }
+      }
+    ],
+    "objects": {
+      "marker": {
+        "handle": "marker",
+        "label": "marker",
+        "mark": 1
+      },
+      "cup": {
+        "handle": "cup",
+        "label": "cup",
+        "mark": 2
+      }
+    }
+  },
+  "parts_dropped": {},
+  "mode": "marks",
+  "model": "claude-opus-5",
+  "temperature": "omitted",
+  "views": [
+    "outputs/marks/insert_marker/marked.png"
+  ],
+  "task_spec": "insert_marker",
+  "object_parts": {
+    "marker": [
+      "body",
+      "cap",
+      "tip"
+    ],
+    "cup": [
+      "rim",
+      "opening",
+      "interior"
+    ]
+  },
+  "object_parts_requested": {
+    "marker": [
+      "body",
+      "cap",
+      "tip"
+    ],
+    "cup": [
+      "rim",
+      "opening",
+      "interior"
+    ]
+  },
+  "roles": {
+    "grasp": {
+      "object": "marker",
+      "stage": 0
+    },
+    "transport_active": {
+      "object": "marker",
+      "stage": 1
+    },
+    "insert": {
+      "object": "marker",
+      "stage": 2
+    },
+    "transport_passive": {
+      "object": "cup",
+      "stage": 1
+    }
+  },
+  "checks": [
+    {
+      "check": "identity[marker]",
+      "pass": true,
+      "detail": "mark 1 labelled 'marker' -> marker"
+    },
+    {
+      "check": "identity[cup]",
+      "pass": true,
+      "detail": "mark 2 labelled 'cup' -> cup"
+    },
+    {
+      "check": "grounds[stage0]",
+      "pass": false,
+      "detail": "grasp the marker: parts {\"marker\": [\"body\", \"cap\", \"tip\"]} \u2014 UNGROUNDED ['marker.body', 'marker.cap']"
+    },
+    {
+      "check": "grounds[stage1]",
+      "pass": false,
+      "detail": "align marker above cup opening: parts {\"marker\": [\"body\", \"tip\"], \"cup\": [\"rim\", \"opening\"]} \u2014 UNGROUNDED ['marker.body']"
+    },
+    {
+      "check": "grounds[stage2]",
+      "pass": false,
+      "detail": "insert marker into cup: parts {\"marker\": [\"body\", \"tip\"], \"cup\": [\"opening\", \"interior\", \"rim\"]} \u2014 UNGROUNDED ['marker.body', 'cup.interior']"
+    },
+    {
+      "check": "grounds[stage3]",
+      "pass": false,
+      "detail": "release marker: parts {\"marker\": [\"body\"], \"cup\": [\"interior\"]} \u2014 UNGROUNDED ['marker.body', 'cup.interior']"
+    },
+    {
+      "check": "menu[marker]",
+      "pass": false,
+      "detail": "parts ['body', 'cap', 'tip'] -> 8-mark menu \u2014 NO MARK for ['body', 'cap']"
+    },
+    {
+      "check": "menu[cup]",
+      "pass": false,
+      "detail": "parts ['rim', 'opening', 'interior'] -> 8-mark menu \u2014 NO MARK for ['interior']"
+    },
+    {
+      "check": "coverage[marker]",
+      "pass": true,
+      "detail": "needs tags ['tip', 'body|barrel|shaft'], attributed ['body', 'cap', 'tip']"
+    },
+    {
+      "check": "coverage[cup]",
+      "pass": true,
+      "detail": "needs tags ['rim|opening|lip'], attributed ['rim', 'opening', 'interior']"
+    },
+    {
+      "check": "role[grasp]",
+      "pass": true,
+      "detail": "matched ['0:grasp the marker']"
+    },
+    {
+      "check": "role[transport_active]",
+      "pass": true,
+      "detail": "matched ['1:align marker above cup opening', '2:insert marker into cup', '3:release marker']"
+    },
+    {
+      "check": "role[insert]",
+      "pass": true,
+      "detail": "matched ['1:align marker above cup opening', '2:insert marker into cup', '3:release marker']"
+    },
+    {
+      "check": "role[transport_passive]",
+      "pass": true,
+      "detail": "matched ['1:align marker above cup opening', '2:insert marker into cup']"
+    },
+    {
+      "check": "ordering[grasp<transport_active,insert]",
+      "pass": true,
+      "detail": "grasp at [0], transport_active at [1, 2, 3], insert at [1, 2, 3]"
+    }
+  ],
+  "gate": {
+    "defer_grounding": true,
+    "blocking": []
+  }
+}
