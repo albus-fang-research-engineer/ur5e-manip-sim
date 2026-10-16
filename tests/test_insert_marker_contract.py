@@ -111,3 +111,16 @@ def test_artifact_without_task_spec_uses_the_parameter(pools, tmp_path):
     assert ps.load_bindings(out, SPEC).entry_synthesized == {"insert"}
     with pytest.raises(SystemExit, match="unbound"):     # pour-tea default:
         ps.load_bindings(out)                             # nothing optional
+
+
+def test_explicit_spec_wins_over_the_recorded_contract(pools, tmp_path):
+    """Hardware records a contract name with no file under tasks/ and
+    passes the contract itself; the passed one must be used, never looked
+    up by name. Without a passed spec the missing file is still refused."""
+    out = _artifact(pools, tmp_path, ["body"])
+    doc = json.loads(out.read_text())
+    doc["task_spec"] = "structural (no file)"
+    out.write_text(json.dumps(doc))
+    assert ps.load_bindings(out, SPEC).entry_synthesized == {"insert"}
+    with pytest.raises(SystemExit, match="is missing"):
+        ps.load_bindings(out)

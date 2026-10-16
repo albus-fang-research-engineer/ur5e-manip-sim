@@ -449,7 +449,7 @@ class Bindings:
     entry_synthesized: frozenset[str] = frozenset()
 
 
-def load_bindings(path: str | Path, spec: TaskSpec = TASK_SPEC) -> Bindings:
+def load_bindings(path: str | Path, spec: TaskSpec | None = None) -> Bindings:
     """Read a plan_stages.py artifact as the #1 -> #2/#3 handoff. Refuses
     artifacts whose checks failed, whose roles did not bind, or whose
     bindings violate the spec's `after` ordering (an artifact written
@@ -457,18 +457,22 @@ def load_bindings(path: str | Path, spec: TaskSpec = TASK_SPEC) -> Bindings:
     plan the contract rejected. Bindings are trusted as stored; a stale
     artifact is regenerated with --replay, not re-bound here.
 
-    The contract is the one the artifact records (`task_spec` ->
-    tasks/<name>.json); `spec` applies only to artifacts that predate
-    the field. An unbound OPTIONAL role is skipped, not refused, and does
-    not floor the role `after` it (the same rule verify() applies)."""
+    Which contract: an explicit `spec` always wins -- the caller owns that
+    choice (hardware passes its structural contract, which has no file
+    under tasks/). With none passed, the one the artifact records
+    (`task_spec` -> tasks/<name>.json, refused if the file is missing),
+    else TASK_SPEC for artifacts that predate the field. An unbound
+    OPTIONAL role is skipped, not refused, and does not floor the role
+    `after` it (the same rule verify() applies)."""
     path = Path(path)
     doc = json.loads(path.read_text())
-    if doc.get("task_spec"):
+    if spec is None and doc.get("task_spec"):
         f = REPO / "tasks" / f"{doc['task_spec']}.json"
         if not f.exists():
             raise SystemExit(f"[plan-stages] {path} was gated with task "
                              f"contract {doc['task_spec']!r} but {f} is missing")
         spec = load_task_spec(f)
+    spec = spec or TASK_SPEC
     if "roles" not in doc or "plan_grounded" not in doc:
         raise SystemExit(f"[plan-stages] {path} predates role bindings; "
                          "re-run plan_stages.py (or --replay it) to regenerate")
