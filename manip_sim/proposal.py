@@ -196,11 +196,28 @@ def _masks_from_points(P: np.ndarray,
     return {k: m for k, m in masks.items() if m.sum() >= 3}
 
 
-def part_masks(name: str, P: np.ndarray, spec: dict) -> dict[str, np.ndarray]:
+def face_normals(V: np.ndarray, F: np.ndarray, fi: np.ndarray) -> np.ndarray:
+    """Unit normal of the face each surface sample lies on (winding order
+    as written; part_masks orients them itself where it needs a side)."""
+    a, b, c = V[F[:, 0]], V[F[:, 1]], V[F[:, 2]]
+    n = np.cross(b - a, c - a)
+    n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
+    return n[fi]
+
+
+def part_masks(name: str, P: np.ndarray, spec: dict,
+               normals: np.ndarray | None = None) -> dict[str, np.ndarray]:
     """Boolean sample masks per named part region, derived from the SAME
-    calibrated frames.json symbols the compiler consumes. Unknown objects
-    fall back to top/bottom bands only (still gives part coverage of the
-    two universally meaningful contact regions)."""
+    calibrated frames.json symbols the compiler consumes. The teapot and
+    mug have their own bands; any other object gets bands from the
+    authored symbols it carries (_symbol_bands): an elongated object with
+    a `tip` and `tail_center` gets tip / body / tail along that segment,
+    an open container with `opening_center` + `rim_radius` gets rim /
+    interior / base. Objects with neither fall back to top/bottom bands
+    (still gives part coverage of the two universally meaningful contact
+    regions). `normals` (per-sample face normals, face_normals) is needed
+    only for a container's interior band; without it that band is
+    omitted."""
     z = P[:, 2]
     masks: dict[str, np.ndarray] = {}
     if name == "teapot":
@@ -219,9 +236,69 @@ def part_masks(name: str, P: np.ndarray, spec: dict) -> dict[str, np.ndarray]:
         masks["handle"] = r_xy > 1.12 * rr
         masks["base"] = _q(-z, 0.98)
     else:
-        masks["top"] = _q(z, 0.98)
-        masks["base"] = _q(-z, 0.98)
+        masks = _symbol_bands(P, spec, normals)
+        if not masks:
+            masks["top"] = _q(z, 0.98)
+            masks["base"] = _q(-z, 0.98)
     return {k: m for k, m in masks.items() if m.sum() >= 3}
+
+
+# Band tunables for _symbol_bands. Ground-truth labelling choices for the
+# oracle arm, not measured quantities.
+ELONGATED_END_FRAC = 0.20     # tip / tail bands: this fraction of the
+                              # tip-tail segment at each end; body between
+INTERIOR_INWARD_COS = 0.30    # inner wall: normal points toward the axis
+INTERIOR_FLOOR_COS = 0.70     # inner floor: normal points up ...
+INTERIOR_RIM_CLEAR = 0.25     # ... and lies below the opening by this
+                              # fraction of the rim radius (not the rim top)
+
+
+def _symbol_bands(P: np.ndarray, spec: dict,
+                  normals: np.ndarray | None) -> dict[str, np.ndarray]:
+    """Part bands from authored symbols alone (no object-name branches).
+
+      tip + tail_center            tip / body / tail by position along the
+                                   tail->tip segment
+      opening_center + rim_radius  rim (top 2% along up, as the mug),
+                                   base (bottom 2%), and with normals the
+                                   interior: inward-facing wall within the
+                                   rim radius, or the up-facing floor below
+                                   the opening. Normals are oriented so the
+                                   base band faces down (outer underside),
+                                   which makes the test independent of the
+                                   mesh's winding convention.
+    """
+    pts = spec.get("points", {})
+    qty = spec.get("quantities", {})
+    out: dict[str, np.ndarray] = {}
+    if "tip" in pts and "tail_center" in pts:
+        tip = np.asarray(pts["tip"]["xyz"], float)
+        tail = np.asarray(pts["tail_center"]["xyz"], float)
+        seg = tip - tail
+        s = (P - tail) @ seg / max(float(seg @ seg), 1e-12)
+        out["tip"] = s >= 1.0 - ELONGATED_END_FRAC
+        out["body"] = (s >= ELONGATED_END_FRAC) & (s < 1.0 - ELONGATED_END_FRAC)
+        out["tail"] = s < ELONGATED_END_FRAC
+    if "opening_center" in pts and "rim_radius" in qty:
+        oc = np.asarray(pts["opening_center"]["xyz"], float)
+        rr = float(qty["rim_radius"]["value"])
+        up = np.asarray(spec.get("axes", {}).get("up_axis", {}).get("xyz", [0, 0, 1]), float)
+        up = up / np.linalg.norm(up)
+        h = P @ up
+        out["rim"] = _q(h, 0.98)
+        out["base"] = _q(-h, 0.98)
+        if normals is not None:
+            n = np.asarray(normals, float)
+            if (n[out["base"]] @ up).mean() > 0:      # underside must face down
+                n = -n
+            d = P - oc
+            radial = d - np.outer(d @ up, up)
+            r = np.linalg.norm(radial, axis=1)
+            rhat = radial / np.maximum(r, 1e-9)[:, None]
+            inward = np.einsum("ij,ij->i", n, rhat) < -INTERIOR_INWARD_COS
+            floor = ((n @ up) > INTERIOR_FLOOR_COS) & (h < oc @ up - INTERIOR_RIM_CLEAR * rr)
+            out["interior"] = (r < rr) & (inward | floor)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +315,8 @@ def _part_of_symbol(sym: str, parts) -> str | None:
                 "opening_center": "rim"}
     if sym in authored:
         return authored[sym]
+    if sym in parts:                     # an authored point named for its part (`tip`)
+        return sym
     for kind in ("_center", "_tip"):
         if sym.endswith(kind) and sym[: -len(kind)] in parts:
             return sym[: -len(kind)]
@@ -321,7 +400,7 @@ def propose(name: str, V: np.ndarray, F: np.ndarray, spec: dict,
 
     # part-aware (priority 1): FPS quota inside each part region
     if part_points is None:
-        masks = part_masks(name, P, spec)
+        masks = part_masks(name, P, spec, normals=face_normals(V, F, fi))
     else:
         masks = _masks_from_points(P, part_points)
 

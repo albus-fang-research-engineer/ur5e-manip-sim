@@ -69,8 +69,9 @@ import numpy as np
 
 from manip_sim.part_grounding import (annotate_depth_checks, fit_part, lift_masks,
                                       raster_masks, symbols_from_parts)
-from manip_sim.proposal import (DENSE_SAMPLES, SEED, load_obj, part_masks,
-                                pool_to_json, propose, surface_samples)
+from manip_sim.proposal import (DENSE_SAMPLES, SEED, face_normals, load_obj,
+                                part_masks, pool_to_json, propose,
+                                surface_samples)
 from manip_sim.scene import add_scene_arg, load_scene
 
 VIEW_PX = 640
@@ -176,7 +177,7 @@ def ground_object(name: str, obj_dir: Path, parts: tuple[str, ...],
     if not mesh.exists():
         raise GroundingError(f"[ground] {mesh} missing — run scripts/convert_asset.py first")
     V, F = load_obj(mesh)
-    P, _ = surface_samples(V, F, DENSE_SAMPLES, np.random.default_rng(SEED))
+    P, fi = surface_samples(V, F, DENSE_SAMPLES, np.random.default_rng(SEED))
     obj_out = out_dir / name
     cams, project_samples, view_paths = render_depth_views(
         name, obj_dir, V, obj_out / "views")
@@ -184,7 +185,7 @@ def ground_object(name: str, obj_dir: Path, parts: tuple[str, ...],
 
     if provider == "oracle":
         spec = json.loads((obj_dir / "frames.json").read_text())
-        bands = part_masks(name, P, spec)            # authored-anchored
+        bands = part_masks(name, P, spec, normals=face_normals(V, F, fi))   # authored-anchored
         labels, missing = {}, []
         for p in parts:
             b = _oracle_band(p, bands, spec)
