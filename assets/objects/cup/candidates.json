@@ -16,14 +16,14 @@
   "class_counts": {
     "raw": {
       "constructed": 1,
-      "part": 16,
+      "part": 24,
       "curvature": 12,
       "fps": 16
     },
     "kept": {
       "constructed": 1,
-      "part": 16,
-      "curvature": 8,
+      "part": 24,
+      "curvature": 6,
       "fps": 10
     }
   },
@@ -131,14 +131,102 @@
     },
     {
       "xyz": [
+        -0.0095,
+        0.0366,
+        0.02
+      ],
+      "source": "part",
+      "part": "interior",
+      "on_surface": true,
+      "id": 9
+    },
+    {
+      "xyz": [
+        0.0126,
+        -0.032,
+        -0.0372
+      ],
+      "source": "part",
+      "part": "interior",
+      "on_surface": true,
+      "id": 10
+    },
+    {
+      "xyz": [
+        -0.008,
+        -0.0398,
+        0.037
+      ],
+      "source": "part",
+      "part": "interior",
+      "on_surface": true,
+      "id": 11
+    },
+    {
+      "xyz": [
+        -0.0302,
+        0.0155,
+        -0.0367
+      ],
+      "source": "part",
+      "part": "interior",
+      "on_surface": true,
+      "id": 12
+    },
+    {
+      "xyz": [
+        0.0416,
+        0.0016,
+        0.0343
+      ],
+      "source": "part",
+      "part": "interior",
+      "on_surface": true,
+      "id": 13
+    },
+    {
+      "xyz": [
+        0.028,
+        0.0248,
+        -0.0263
+      ],
+      "source": "part",
+      "part": "interior",
+      "on_surface": true,
+      "id": 14
+    },
+    {
+      "xyz": [
+        -0.037,
+        -0.0074,
+        0.0091
+      ],
+      "source": "part",
+      "part": "interior",
+      "on_surface": true,
+      "id": 15
+    },
+    {
+      "xyz": [
+        0.0243,
+        -0.0294,
+        0.0058
+      ],
+      "source": "part",
+      "part": "interior",
+      "on_surface": true,
+      "id": 16
+    },
+    {
+      "xyz": [
         0.0389,
         0.0155,
         0.0372
       ],
       "source": "part",
-      "part": "top",
+      "part": "rim",
       "on_surface": true,
-      "id": 9
+      "id": 17
     },
     {
       "xyz": [
@@ -147,9 +235,9 @@
         0.0371
       ],
       "source": "part",
-      "part": "top",
+      "part": "rim",
       "on_surface": true,
-      "id": 10
+      "id": 18
     },
     {
       "xyz": [
@@ -158,9 +246,9 @@
         0.0372
       ],
       "source": "part",
-      "part": "top",
+      "part": "rim",
       "on_surface": true,
-      "id": 11
+      "id": 19
     },
     {
       "xyz": [
@@ -169,9 +257,9 @@
         0.0373
       ],
       "source": "part",
-      "part": "top",
+      "part": "rim",
       "on_surface": true,
-      "id": 12
+      "id": 20
     },
     {
       "xyz": [
@@ -180,9 +268,9 @@
         0.037
       ],
       "source": "part",
-      "part": "top",
+      "part": "rim",
       "on_surface": true,
-      "id": 13
+      "id": 21
     },
     {
       "xyz": [
@@ -191,9 +279,9 @@
         0.0371
       ],
       "source": "part",
-      "part": "top",
+      "part": "rim",
       "on_surface": true,
-      "id": 14
+      "id": 22
     },
     {
       "xyz": [
@@ -202,9 +290,9 @@
         0.0374
       ],
       "source": "part",
-      "part": "top",
+      "part": "rim",
       "on_surface": true,
-      "id": 15
+      "id": 23
     },
     {
       "xyz": [
@@ -213,9 +301,9 @@
         0.0374
       ],
       "source": "part",
-      "part": "top",
+      "part": "rim",
       "on_surface": true,
-      "id": 16
+      "id": 24
     },
     {
       "xyz": [
@@ -226,7 +314,7 @@
       "source": "curvature",
       "saliency": 251319.278,
       "on_surface": true,
-      "id": 17
+      "id": 25
     },
     {
       "xyz": [
@@ -237,18 +325,7 @@
       "source": "curvature",
       "saliency": 112290.642,
       "on_surface": true,
-      "id": 18
-    },
-    {
-      "xyz": [
-        -0.0126,
-        -0.0432,
-        0.0324
-      ],
-      "source": "curvature",
-      "saliency": 30729.9769,
-      "on_surface": true,
-      "id": 19
+      "id": 26
     },
     {
       "xyz": [
@@ -259,7 +336,7 @@
       "source": "curvature",
       "saliency": 29363.9148,
       "on_surface": true,
-      "id": 20
+      "id": 27
     },
     {
       "xyz": [
@@ -270,7 +347,7 @@
       "source": "curvature",
       "saliency": 19711.6699,
       "on_surface": true,
-      "id": 21
+      "id": 28
     },
     {
       "xyz": [
@@ -281,7 +358,7 @@
       "source": "curvature",
       "saliency": 15347.4602,
       "on_surface": true,
-      "id": 22
+      "id": 29
     },
     {
       "xyz": [
@@ -292,18 +369,7 @@
       "source": "curvature",
       "saliency": 12206.2087,
       "on_surface": true,
-      "id": 23
-    },
-    {
-      "xyz": [
-        -0.0343,
-        0.0117,
-        -0.0294
-      ],
-      "source": "curvature",
-      "saliency": 11666.4877,
-      "on_surface": true,
-      "id": 24
+      "id": 30
     },
     {
       "xyz": [
@@ -313,7 +379,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 25
+      "id": 31
     },
     {
       "xyz": [
@@ -323,7 +389,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 26
+      "id": 32
     },
     {
       "xyz": [
@@ -333,7 +399,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 27
+      "id": 33
     },
     {
       "xyz": [
@@ -343,7 +409,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 28
+      "id": 34
     },
     {
       "xyz": [
@@ -353,7 +419,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 29
+      "id": 35
     },
     {
       "xyz": [
@@ -363,7 +429,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 30
+      "id": 36
     },
     {
       "xyz": [
@@ -373,7 +439,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 31
+      "id": 37
     },
     {
       "xyz": [
@@ -383,7 +449,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 32
+      "id": 38
     },
     {
       "xyz": [
@@ -393,7 +459,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 33
+      "id": 39
     },
     {
       "xyz": [
@@ -403,7 +469,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 34
+      "id": 40
     }
   ]
 }

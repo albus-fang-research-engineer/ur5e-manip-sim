@@ -16,30 +16,19 @@
   "class_counts": {
     "raw": {
       "constructed": 3,
-      "part": 16,
+      "part": 24,
       "curvature": 12,
       "fps": 16
     },
     "kept": {
       "constructed": 3,
-      "part": 6,
-      "curvature": 5,
-      "fps": 5
+      "part": 17,
+      "curvature": 4,
+      "fps": 2
     }
   },
   "coverage_readmitted_parts": [],
   "candidates": [
-    {
-      "xyz": [
-        0.0,
-        -0.02,
-        0.0039
-      ],
-      "source": "constructed",
-      "symbol": "grip_center",
-      "on_surface": false,
-      "id": 0
-    },
     {
       "xyz": [
         0.0,
@@ -48,8 +37,9 @@
       ],
       "source": "constructed",
       "symbol": "tail_center",
+      "part": "tail",
       "on_surface": false,
-      "id": 1
+      "id": 0
     },
     {
       "xyz": [
@@ -59,85 +49,20 @@
       ],
       "source": "constructed",
       "symbol": "tip",
+      "part": "tip",
+      "on_surface": false,
+      "id": 1
+    },
+    {
+      "xyz": [
+        0.0,
+        -0.02,
+        0.0039
+      ],
+      "source": "constructed",
+      "symbol": "grip_center",
       "on_surface": false,
       "id": 2
-    },
-    {
-      "xyz": [
-        -0.0005,
-        -0.0462,
-        -0.0091
-      ],
-      "source": "part",
-      "part": "base",
-      "on_surface": true,
-      "id": 3
-    },
-    {
-      "xyz": [
-        -0.0004,
-        0.0547,
-        -0.0092
-      ],
-      "source": "part",
-      "part": "base",
-      "on_surface": true,
-      "id": 4
-    },
-    {
-      "xyz": [
-        -0.0023,
-        -0.0079,
-        -0.0091
-      ],
-      "source": "part",
-      "part": "base",
-      "on_surface": true,
-      "id": 5
-    },
-    {
-      "xyz": [
-        0.0011,
-        -0.027,
-        -0.009
-      ],
-      "source": "part",
-      "part": "base",
-      "on_surface": true,
-      "id": 6
-    },
-    {
-      "xyz": [
-        0.0006,
-        -0.0431,
-        0.0089
-      ],
-      "source": "part",
-      "part": "top",
-      "on_surface": true,
-      "id": 7
-    },
-    {
-      "xyz": [
-        -0.0021,
-        0.0547,
-        0.0088
-      ],
-      "source": "part",
-      "part": "top",
-      "on_surface": true,
-      "id": 8
-    },
-    {
-      "xyz": [
-        0.0042,
-        0.0409,
-        0.0065
-      ],
-      "source": "curvature",
-      "saliency": 839335.9152,
-      "on_surface": true,
-      "id": 9
     },
     {
       "xyz": [
@@ -145,10 +70,186 @@
         0.0193,
         0.008
       ],
-      "source": "curvature",
-      "saliency": 628285.1938,
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 3
+    },
+    {
+      "xyz": [
+        0.0048,
+        -0.0362,
+        -0.0083
+      ],
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 4
+    },
+    {
+      "xyz": [
+        -0.0085,
+        -0.0103,
+        0.0016
+      ],
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 5
+    },
+    {
+      "xyz": [
+        0.0012,
+        0.0363,
+        -0.0079
+      ],
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 6
+    },
+    {
+      "xyz": [
+        0.0051,
+        0.0051,
+        -0.0071
+      ],
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 7
+    },
+    {
+      "xyz": [
+        -0.0067,
+        -0.0362,
+        0.0052
+      ],
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 8
+    },
+    {
+      "xyz": [
+        0.0058,
+        -0.0142,
+        -0.0072
+      ],
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 9
+    },
+    {
+      "xyz": [
+        0.01,
+        -0.0596,
+        0.0019
+      ],
+      "source": "part",
+      "part": "tail",
       "on_surface": true,
       "id": 10
+    },
+    {
+      "xyz": [
+        0.0087,
+        -0.0364,
+        0.0042
+      ],
+      "source": "part",
+      "part": "tail",
+      "on_surface": true,
+      "id": 11
+    },
+    {
+      "xyz": [
+        0.0057,
+        -0.0477,
+        -0.0079
+      ],
+      "source": "part",
+      "part": "tail",
+      "on_surface": true,
+      "id": 12
+    },
+    {
+      "xyz": [
+        0.0,
+        -0.0487,
+        0.0089
+      ],
+      "source": "part",
+      "part": "tail",
+      "on_surface": true,
+      "id": 13
+    },
+    {
+      "xyz": [
+        -0.0027,
+        0.0428,
+        0.0083
+      ],
+      "source": "part",
+      "part": "tip",
+      "on_surface": true,
+      "id": 14
+    },
+    {
+      "xyz": [
+        -0.008,
+        0.0501,
+        -0.006
+      ],
+      "source": "part",
+      "part": "tip",
+      "on_surface": true,
+      "id": 15
+    },
+    {
+      "xyz": [
+        0.0076,
+        0.0485,
+        -0.0019
+      ],
+      "source": "part",
+      "part": "tip",
+      "on_surface": true,
+      "id": 16
+    },
+    {
+      "xyz": [
+        0.007,
+        0.0363,
+        0.0026
+      ],
+      "source": "part",
+      "part": "tip",
+      "on_surface": true,
+      "id": 17
+    },
+    {
+      "xyz": [
+        -0.0089,
+        0.0367,
+        -0.0
+      ],
+      "source": "part",
+      "part": "tip",
+      "on_surface": true,
+      "id": 18
+    },
+    {
+      "xyz": [
+        -0.0089,
+        0.0524,
+        0.005
+      ],
+      "source": "part",
+      "part": "tip",
+      "on_surface": true,
+      "id": 19
     },
     {
       "xyz": [
@@ -159,18 +260,18 @@
       "source": "curvature",
       "saliency": 609822.4643,
       "on_surface": true,
-      "id": 11
+      "id": 20
     },
     {
       "xyz": [
-        0.0096,
-        -0.0394,
-        -0.0005
+        -0.0036,
+        -0.0307,
+        -0.0084
       ],
       "source": "curvature",
-      "saliency": 293310.1509,
+      "saliency": 387230.3884,
       "on_surface": true,
-      "id": 12
+      "id": 21
     },
     {
       "xyz": [
@@ -181,37 +282,28 @@
       "source": "curvature",
       "saliency": 245464.2319,
       "on_surface": true,
-      "id": 13
+      "id": 22
     },
     {
       "xyz": [
-        0.0,
-        0.0368,
-        -0.0081
-      ],
-      "source": "fps",
-      "on_surface": true,
-      "id": 14
-    },
-    {
-      "xyz": [
-        -0.0027,
-        0.0088,
+        -0.0022,
+        -0.0028,
         -0.0087
       ],
-      "source": "fps",
+      "source": "curvature",
+      "saliency": 242302.8262,
       "on_surface": true,
-      "id": 15
+      "id": 23
     },
     {
       "xyz": [
-        -0.0087,
-        -0.0052,
-        0.0004
+        -0.0037,
+        -0.0192,
+        -0.0082
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 16
+      "id": 24
     },
     {
       "xyz": [
@@ -221,17 +313,7 @@
       ],
       "source": "fps",
       "on_surface": true,
-      "id": 17
-    },
-    {
-      "xyz": [
-        -0.0085,
-        -0.0312,
-        0.0001
-      ],
-      "source": "fps",
-      "on_surface": true,
-      "id": 18
+      "id": 25
     }
   ]
 }
