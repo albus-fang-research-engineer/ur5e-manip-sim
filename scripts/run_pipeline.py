@@ -20,8 +20,11 @@ passes artifacts between them by path; nothing is computed here.
     preview  scripts/preview_selections.py selected frames rendered on
              the objects, before any planner touches them
     emit     scripts/emit_constraints.py   VLM call #3 per bound stage,
-             compile-gated -> emissions artifact (--no-emit: pour_stages
-             hand compilers, the schema ablation's authored arm)
+             compile-gated -> emissions artifact. Framed by default
+             (--render-chained: the stage's views with w and the canonical
+             triads drawn at the call-#2 points); --emit-arm schema-only
+             is the text-only ablation arm (--no-emit: pour_stages hand
+             compilers, the schema ablation's authored arm)
     path     scripts/plan_pour_tea.py      --selections [--emissions]
              -> plan npz
     video    scripts/render_full_plan.py   kinematic playback mp4
@@ -35,6 +38,7 @@ passes artifacts between them by path; nothing is computed here.
     ... --text-only                    # call #1 without the image (ablation arm)
     ... --ground-provider masks --masks-root DIR   # SAM part masks instead of the oracle
     ... --no-ground --no-emit          # authored symbols + hand compilers
+    ... --emit-arm schema-only         # call #3 without images (ablation arm)
 
 Every step's artifacts stay where its script writes them (the paths each
 script's docstring documents); the run additionally writes
@@ -132,6 +136,11 @@ def main() -> None:
     ap.add_argument("--masks-root", default=None, metavar="DIR")
     ap.add_argument("--no-emit", action="store_true",
                     help="skip call #3; stages 2-3 from pour_stages.* hand compilers")
+    ap.add_argument("--emit-arm", choices=("framed-chained", "schema-only"),
+                    default="framed-chained",
+                    help="call #3 modality: framed-chained (default; the stage "
+                         "rendered at its chained entry with w and the triads "
+                         "drawn) or schema-only (text only, the ablation arm)")
     ap.add_argument("--plan-args", default="",
                     help="extra args for plan_pour_tea.py, e.g. "
                          "'--seed 3 --tilt-deg 95'")
@@ -152,10 +161,12 @@ def main() -> None:
     selections = Path(f"outputs/selections/{scene.name}.json")
     emissions = Path(f"outputs/emissions/{scene.name}.json")
     grounding = Path(f"outputs/grounding/{scene.name}")
+    frames_chained = Path(f"outputs/frames/{scene.name}_chained")
     G = [] if args.no_ground else ["--grounding", str(grounding)]
     do = lambda step: STEPS.index(args.start) <= STEPS.index(step) <= STEPS.index(args.stop)
     RUN.update(dir=f"outputs/runs/{time.strftime('%Y%m%d-%H%M%S')}",
                scene=args.scene, task=task, mode=mode, task_spec=str(task_spec),
+               emit_arm=None if args.no_emit else args.emit_arm,
                artifacts={"marks": str(marks_dir), "stage_plan": str(stage_plan),
                           "grounding": str(grounding) if not args.no_ground else "",
                           "selections": str(selections),
@@ -221,9 +232,11 @@ def main() -> None:
             "--render", str(selections.with_suffix(".preview.png"))], gl=args.gl)
 
     if do("emit") and not args.no_emit:
+        framed = (["--render-chained", str(frames_chained)]
+                  if args.emit_arm == "framed-chained" else [])
         sh(["scripts/emit_constraints.py", "--scene", args.scene, *G,
             "--stage-plan", str(stage_plan), "--selections", str(selections),
-            "--out", str(emissions)])
+            *framed, "--out", str(emissions)], gl=args.gl if framed else None)
 
     if do("path"):
         sh(["scripts/plan_pour_tea.py", "--scene", args.scene, *G,
