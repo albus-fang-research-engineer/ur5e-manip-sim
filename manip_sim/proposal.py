@@ -251,6 +251,9 @@ INTERIOR_INWARD_COS = 0.30    # inner wall: normal points toward the axis
 INTERIOR_FLOOR_COS = 0.70     # inner floor: normal points up ...
 INTERIOR_RIM_CLEAR = 0.25     # ... and lies below the opening by this
                               # fraction of the rim radius (not the rim top)
+INTERIOR_FLOOR_TOL = 0.02     # nothing below the inner floor is interior
+                              # (a foot ring's inside wall faces the axis
+                              # too); tolerance as a fraction of rim radius
 
 
 def _symbol_bands(P: np.ndarray, spec: dict,
@@ -263,10 +266,14 @@ def _symbol_bands(P: np.ndarray, spec: dict,
                                    base (bottom 2%), and with normals the
                                    interior: inward-facing wall within the
                                    rim radius, or the up-facing floor below
-                                   the opening. Normals are oriented so the
-                                   base band faces down (outer underside),
-                                   which makes the test independent of the
-                                   mesh's winding convention.
+                                   the opening, and nothing below the floor
+                                   (the inside wall of a foot ring under a
+                                   recessed bottom faces the axis but is not
+                                   in the cavity). Normals are oriented so
+                                   the base band faces down (outer
+                                   underside), which makes the test
+                                   independent of the mesh's winding
+                                   convention.
     """
     pts = spec.get("points", {})
     qty = spec.get("quantities", {})
@@ -297,7 +304,11 @@ def _symbol_bands(P: np.ndarray, spec: dict,
             rhat = radial / np.maximum(r, 1e-9)[:, None]
             inward = np.einsum("ij,ij->i", n, rhat) < -INTERIOR_INWARD_COS
             floor = ((n @ up) > INTERIOR_FLOOR_COS) & (h < oc @ up - INTERIOR_RIM_CLEAR * rr)
-            out["interior"] = (r < rr) & (inward | floor)
+            interior = (r < rr) & (inward | floor)
+            centre = floor & (r < 0.5 * rr)          # the floor near the axis
+            if centre.any():
+                interior &= h >= h[centre].min() - INTERIOR_FLOOR_TOL * rr
+            out["interior"] = interior
     return out
 
 

@@ -34,16 +34,21 @@ def test_elongated_bands_follow_the_tail_to_tip_segment():
     assert not (m["tip"] & m["body"]).any() and not (m["tail"] & m["body"]).any()
 
 
-def _cup(n=2000):
+def _cup(n=2000, foot=False):
     """Flared open cup, axis +z: outer wall r 35->42 mm over z -35..37 mm,
     inner wall 2 mm inside it, inner floor at z=-33 mm, underside at
-    z=-35 mm, rim top annulus at z=37 mm. Returns points, OUTWARD normals,
-    and the true label of each sample."""
+    z=-35 mm, rim top annulus at z=37 mm. With `foot`, the bottom is
+    recessed like the YCB cup: a foot ring (bottom annulus r 31..35 mm at
+    z=-35 mm, inside wall at r=31 mm facing the axis up to z=-31 mm), the
+    recess ceiling at z=-31 mm facing down, and the inner floor at z=-29 mm.
+    Returns points, OUTWARD normals, and the true label of each sample."""
     P, N, lab = [], [], []
+    z_floor = -0.029 if foot else -0.033
 
-    def wall(offset, sign, label):
-        z = RNG.uniform(-0.033, 0.037, n)
-        r = 0.035 + (z + 0.035) / 0.072 * 0.007 - offset
+    def wall(offset, sign, label, z0=z_floor, z1=0.037, r_fixed=None):
+        z = RNG.uniform(z0, z1, n)
+        r = (np.full(n, r_fixed) if r_fixed is not None
+             else 0.035 + (z + 0.035) / 0.072 * 0.007 - offset)
         th = RNG.uniform(0, 2 * np.pi, n)
         P.append(np.column_stack([r * np.cos(th), r * np.sin(th), z]))
         N.append(sign * np.column_stack([np.cos(th), np.sin(th), np.zeros(n)]))
@@ -56,25 +61,31 @@ def _cup(n=2000):
         N.append(np.tile([0.0, 0.0, nz], (n, 1)))
         lab.extend([label] * n)
 
-    wall(0.0, +1, "outer")
+    wall(0.0, +1, "outer", z0=-0.035)
     wall(0.002, -1, "inner")
-    disk(-0.033, 0.0, 0.033, +1, "floor")
-    disk(-0.035, 0.0, 0.035, -1, "underside")
+    disk(z_floor, 0.0, 0.033, +1, "floor")
+    if foot:
+        disk(-0.035, 0.031, 0.035, -1, "underside")
+        wall(0.0, -1, "foot_inner", z0=-0.035, z1=-0.031, r_fixed=0.031)
+        disk(-0.031, 0.0, 0.031, -1, "recess")
+    else:
+        disk(-0.035, 0.0, 0.035, -1, "underside")
     disk(0.037, 0.040, 0.042, +1, "rimtop")
     return np.vstack(P), np.vstack(N), np.array(lab)
 
 
+@pytest.mark.parametrize("foot", [False, True])
 @pytest.mark.parametrize("winding", [+1, -1])
-def test_container_interior_is_inner_wall_and_floor_either_winding(winding):
+def test_container_interior_is_inner_wall_and_floor_either_winding(winding, foot):
     spec = json.loads((ROOT / "assets/objects/cup/frames.json").read_text())
-    P, N, lab = _cup()
+    P, N, lab = _cup(foot=foot)
     m = part_masks("cup", P, spec, normals=winding * N)
     assert {"rim", "interior", "base"} <= set(m)
     inside = np.isin(lab, ["inner", "floor"])
     got = m["interior"]
     assert got[inside].mean() > 0.97             # inner wall + floor
-    assert not got[np.isin(lab, ["outer", "underside", "rimtop"])].any()
-    assert (lab[m["base"]] == "underside").mean() > 0.9
+    assert not got[np.isin(lab, ["outer", "underside", "rimtop", "foot_inner", "recess"])].any()
+    assert np.isin(lab[m["base"]], ["underside", "outer", "foot_inner"]).all()
 
 
 def test_container_without_normals_has_no_interior_band():
