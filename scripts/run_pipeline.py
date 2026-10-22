@@ -26,7 +26,10 @@ passes artifacts between them by path; nothing is computed here.
              is the text-only ablation arm (--no-emit: pour_stages hand
              compilers, the schema ablation's authored arm)
     path     scripts/plan_pour_tea.py      --selections [--emissions]
-             -> plan npz
+             -> plan npz (--planner pour_tea, the default), or
+             scripts/plan_task.py          --stage-plan --selections
+             --emissions -> plan npz + report (--planner task: any task
+             the contract binds; no video/exec step yet)
     video    scripts/render_full_plan.py   kinematic playback mp4
     exec     scripts/execute_pour_tea.py   physics execution mp4 + metrics
 
@@ -39,6 +42,7 @@ passes artifacts between them by path; nothing is computed here.
     ... --ground-provider masks --masks-root DIR   # SAM part masks instead of the oracle
     ... --no-ground --no-emit          # authored symbols + hand compilers
     ... --emit-arm schema-only         # call #3 without images (ablation arm)
+    ... --planner task --until path    # generic multi-stage planner (plan_task.py)
 
 Every step's artifacts stay where its script writes them (the paths each
 script's docstring documents); the run additionally writes
@@ -141,6 +145,11 @@ def main() -> None:
                     help="call #3 modality: framed-chained (default; the stage "
                          "rendered at its chained entry with w and the triads "
                          "drawn) or schema-only (text only, the ablation arm)")
+    ap.add_argument("--planner", choices=("pour_tea", "task"), default="pour_tea",
+                    help="path step: plan_pour_tea.py (default; pour-tea's "
+                         "three fixed stages) or plan_task.py (the stages the "
+                         "contract bound, from the stage plan + selections + "
+                         "emissions)")
     ap.add_argument("--plan-args", default="",
                     help="extra args for plan_pour_tea.py, e.g. "
                          "'--seed 3 --tilt-deg 95'")
@@ -150,6 +159,11 @@ def main() -> None:
     args = ap.parse_args()
     if bool(args.image) != bool(args.masks):
         ap.error("--image and --masks go together")
+    if args.planner == "task":
+        if STEPS.index(args.stop) > STEPS.index("path"):
+            ap.error("--planner task has no video/exec step yet: stop at --until path")
+        if args.no_emit and STEPS.index(args.stop) >= STEPS.index("path"):
+            ap.error("--planner task plans on call #3's emissions: drop --no-emit")
     scene = load_scene(args.scene, getattr(args, "grounding", None))
     task = args.task or scene.task
     task_spec = Path(args.task_spec or f"tasks/{scene.name}.json")
@@ -167,12 +181,15 @@ def main() -> None:
     RUN.update(dir=f"outputs/runs/{time.strftime('%Y%m%d-%H%M%S')}",
                scene=args.scene, task=task, mode=mode, task_spec=str(task_spec),
                emit_arm=None if args.no_emit else args.emit_arm,
+               planner=args.planner,
                artifacts={"marks": str(marks_dir), "stage_plan": str(stage_plan),
                           "grounding": str(grounding) if not args.no_ground else "",
                           "selections": str(selections),
                           "emissions": str(emissions) if not args.no_emit else "",
                           "preview": str(selections.with_suffix(".preview.png")),
-                          "plan": "outputs/plans/vlm/pour_tea_full_vlm.npz",
+                          "plan": (f"outputs/plans/vlm/{scene.name}_task_vlm.npz"
+                                   if args.planner == "task"
+                                   else "outputs/plans/vlm/pour_tea_full_vlm.npz"),
                           "video_plan": "outputs/videos/vlm/pour_tea_full_vlm.mp4",
                           "video_exec": "outputs/videos/vlm/pour_tea_exec_vlm.mp4",
                           "metrics": "outputs/metrics/vlm/pour_tea_exec_vlm.json"})
@@ -238,7 +255,11 @@ def main() -> None:
             "--stage-plan", str(stage_plan), "--selections", str(selections),
             *framed, "--out", str(emissions)], gl=args.gl if framed else None)
 
-    if do("path"):
+    if do("path") and args.planner == "task":
+        sh(["scripts/plan_task.py", "--scene", args.scene, *G,
+            "--stage-plan", str(stage_plan), "--selections", str(selections),
+            "--emissions", str(emissions), *shlex.split(args.plan_args)], gl=args.gl)
+    elif do("path"):
         sh(["scripts/plan_pour_tea.py", "--scene", args.scene, *G,
             "--selections", str(selections),
             *([] if args.no_emit else ["--emissions", str(emissions)]),
