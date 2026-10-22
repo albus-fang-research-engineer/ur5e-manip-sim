@@ -65,7 +65,7 @@ from manip_sim.task_plan import (GRASP_ELEVATION_RAD, GRASP_PAD_BACKOFF_M,
                                  mover_stages, probe_fractions,
                                  rotation_angle_deg, sample_goals,
                                  synthesized_start, topdown_approach_h,
-                                 walk_goals)
+                                 transform_points, walk_goals)
 from manip_sim.tsr import pose_from_pos_quat_wxyz, sample_intersection
 from manip_sim.vlm import load_emissions
 from scripts.emit_constraints import bound_stages
@@ -329,6 +329,7 @@ def plan(args, scene, out: Path, report: dict) -> None:
     q_cur = lift[-1]
 
     # ---- MOVER STAGES ---------------------------------------------------
+    last_target = {}                 # the final stage's passive point, for execution
     for m in movers:
         print(f"\n================ {m.role}: {m.stage.name} ================")
         mover, passive = m.stage.active, m.stage.passive
@@ -391,7 +392,12 @@ def plan(args, scene, out: Path, report: dict) -> None:
         T_end = attached.body_pose(kin_att.fk(q_cur))
         rec["reorient_in_stage_deg"] = round(rotation_angle_deg(T_stage[:3, :3],
                                                                 T_end[:3, :3]), 1)
-        rec["lowest_end_at_goal"] = lowest_end(T_end, meshes[mover], symbols[mover].points)
+        up_p = T0[passive][:3, :3] @ symbols[passive].axes["up_axis"]
+        target = (transform_points(T0[passive], np.asarray(w_pt)[None])[0], up_p)
+        rec["lowest_end_at_goal"] = lowest_end(T_end, meshes[mover], symbols[mover].points,
+                                               target=target)
+        last_target = {"target_object": np.array(passive), "target_point_body": np.asarray(w_pt),
+                       "target_up_body": symbols[passive].axes["up_axis"]}
         print(f"[{m.role}] planned: {rec['planning']}; lowest end {rec['lowest_end_at_goal']}")
 
     report["decomposition"] = decomposition(report["stages"])
@@ -401,7 +407,7 @@ def plan(args, scene, out: Path, report: dict) -> None:
     labels = np.array([lab for lab, _ in segments])
     out.parent.mkdir(parents=True, exist_ok=True)
     np.savez(out, path=path, stage_ids=stage_ids, stage_labels=labels, q_home=q_home,
-             q_grasp=q_grasp, T_ee_body=T_ee_body, grasped=np.array(obj),
+             q_grasp=q_grasp, T_ee_body=T_ee_body, grasped=np.array(obj), **last_target,
              **{f"T0_{n}": T for n, T in T0.items()},
              **stamp("vlm", args.selections, args.emissions))
     report["plan"] = {"path": str(out), "n_waypoints": int(len(path)),

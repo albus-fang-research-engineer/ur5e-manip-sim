@@ -94,14 +94,26 @@ def synthesized_start(T_sub_nominal: np.ndarray, mover_V: np.ndarray,
 
 
 def lowest_end(T_body: np.ndarray, V_body: np.ndarray,
-               points: dict[str, np.ndarray], up_world=(0.0, 0.0, 1.0)) -> dict:
+               points: dict[str, np.ndarray], up_world=(0.0, 0.0, 1.0),
+               target=None) -> dict:
     """Which end of the object is lowest at pose T_body: the lowest mesh
-    vertex (body coords) and the nearest grounded point symbol to it."""
+    vertex (body coords) and the nearest grounded point symbol to it.
+    target = (point_w, up_w), the stage's passive point and the passive's
+    up in world: adds how far the lowest point sits below the plane through
+    the point and how far it is from the axis through it (an end that dips
+    beside the passive is deep but far from the axis)."""
     up = np.asarray(up_world, float)
     k = int(np.argmin(transform_points(T_body, V_body) @ up))
     v = np.asarray(V_body, float)[k]
+    p = transform_points(T_body, v[None])[0]
     rec = {"lowest_point_body": np.round(v, 4).tolist(),
-           "lowest_point_world_z": round(float(transform_points(T_body, v[None])[0] @ up), 4)}
+           "lowest_point_world_z": round(float(p @ up), 4)}
+    if target is not None:
+        c, a = np.asarray(target[0], float), np.asarray(target[1], float)
+        a = a / np.linalg.norm(a)
+        d = p - c
+        rec.update(depth_below_target_m=round(float(-(d @ a)), 4),
+                   radial_from_target_axis_m=round(float(np.linalg.norm(d - (d @ a) * a)), 4))
     if points:
         name = min(points, key=lambda n: float(np.linalg.norm(np.asarray(points[n]) - v)))
         rec.update(nearest_symbol=name,

@@ -12,8 +12,9 @@ everything pour-specific (re-anchoring, the pour pair, the spout report).
        (arm obstructed) aborts instead of dragging the object through
     3  --release (default): open the gripper and let the object settle
     report: per-segment tracking, slip, grasp contacts, and where the object
-       ended relative to the passive object: long-axis tilt from vertical,
-       lowest point below the passive's top, horizontal offset from its axis
+       ended relative to the final stage's passive point: long-axis tilt from
+       the passive's up, the lowest point's depth below the plane through the
+       point and its distance from the axis through it
   --kinematic
        no physics: set the arm to each waypoint and carry the object rigidly
        with the plan's T_ee_body after the grasp (the plan as planned)
@@ -44,7 +45,7 @@ from manip_sim.frames import load_symbols
 from manip_sim.planning import ArmKinematics, AttachedObject
 from manip_sim.proposal import load_obj
 from manip_sim.scene import add_scene_arg, load_scene, make_env
-from manip_sim.task_plan import transform_points
+from manip_sim.task_plan import lowest_end, transform_points
 
 ARM_OUTPUT_MAX = 0.05             # as execute_pour_tea: rad/step delta cap
 
@@ -72,22 +73,22 @@ class Camera:
         self.frames.append(self.r.render().copy())
 
 
-def end_state(T_obj, V_obj, T_pas, V_pas, up_pas_body) -> dict:
-    """Where the object ended relative to the passive (generic numbers;
-    what counts as success is a separate decision)."""
-    up = T_pas[:3, :3] @ np.asarray(up_pas_body, float)
+def end_state(T_obj, V_obj, T_pas, target_body, up_body) -> dict:
+    """Where the object ended relative to the passive's target point (the
+    final stage's passive point): long-axis tilt from the passive's up, and
+    the lowest point's depth below the target plane and distance from the
+    target axis (task_plan.lowest_end). Plain numbers; what counts as
+    success is a separate decision."""
+    up = T_pas[:3, :3] @ np.asarray(up_body, float)
     up /= np.linalg.norm(up)
     Vw = transform_points(T_obj, V_obj)
-    c = Vw - Vw.mean(0)
-    axis = np.linalg.svd(c, full_matrices=False)[2][0]
+    axis = np.linalg.svd(Vw - Vw.mean(0), full_matrices=False)[2][0]
     tilt = float(np.degrees(np.arccos(min(1.0, abs(axis @ up)))))
-    top = float(np.max(transform_points(T_pas, V_pas) @ up))
-    low = float(np.min(Vw @ up))
-    d = Vw.mean(0) - T_pas[:3, 3]
-    r_xy = float(np.linalg.norm(d - (d @ up) * up))
+    c = transform_points(T_pas, np.asarray(target_body, float)[None])[0]
+    low = lowest_end(T_obj, V_obj, {}, up_world=up, target=(c, up))
     return {"long_axis_tilt_from_passive_up_deg": round(tilt, 1),
-            "lowest_point_below_passive_top_m": round(top - low, 4),
-            "centroid_offset_from_passive_axis_m": round(r_xy, 4)}
+            "lowest_point_below_target_plane_m": low["depth_below_target_m"],
+            "lowest_point_from_target_axis_m": low["radial_from_target_axis_m"]}
 
 
 def main() -> None:
@@ -97,7 +98,7 @@ def main() -> None:
     ap.add_argument("--kinematic", action="store_true", help="playback, no physics")
     ap.add_argument("--passive", default=None,
                     help="object the end state is measured against; default: the "
-                         "scene's only other object")
+                         "plan's final-stage passive, else the scene's only other object")
     ap.add_argument("--robot", default="UR5e")
     ap.add_argument("--camera", default="frontview")
     ap.add_argument("--width", type=int, default=1280)
@@ -117,7 +118,8 @@ def main() -> None:
     obj = str(plan["grasped"])
     segs = [(labels[i], path[ids == i]) for i in range(len(labels))]
     others = [n for n in scene.objects if n != obj]
-    passive = args.passive or (others[0] if len(others) == 1 else None)
+    passive = args.passive or (str(plan["target_object"]) if "target_object" in plan.files
+                               else others[0] if len(others) == 1 else None)
     meshes = {n: load_obj(Path(scene.asset_dirs[n]) / "meshes" / f"{n}_visual.obj")[0]
               for n in [obj] + ([passive] if passive else [])}
     mode = "kin" if args.kinematic else "exec"
@@ -194,16 +196,20 @@ def main() -> None:
                 metrics["failure"] = f"{label}: stalled (arm obstructed)"
                 break
         if passive:
-            sym = load_symbols(scene.asset_dirs[passive])
-            up = sym.axes.get("up_axis", np.array([0.0, 0.0, 1.0]))
+            if "target_point_body" in plan.files:
+                tgt, up = plan["target_point_body"], plan["target_up_body"]
+            else:                        # older plan files: top-centre of the passive
+                up = load_symbols(scene.asset_dirs[passive]).axes["up_axis"]
+                tgt = up * float(np.max(meshes[passive] @ up))
+            metrics["target_point_body"] = np.round(tgt, 4).tolist()
             metrics["held_end"] = end_state(arm.body_pose(obj), meshes[obj],
-                                            arm.body_pose(passive), meshes[passive], up)
+                                            arm.body_pose(passive), tgt, up)
             metrics["held_contacts"] = arm.contacts_between("gripper0", obj)
             print(f"[end, held] {metrics['held_end']}")
             if not args.no_release and "failure" not in metrics:
                 tracker.hold(arm.q(), GRIPPER_OPEN, int(args.settle_seconds * 20), on_step=tap)
                 metrics["released_end"] = end_state(arm.body_pose(obj), meshes[obj],
-                                                    arm.body_pose(passive), meshes[passive], up)
+                                                    arm.body_pose(passive), tgt, up)
                 print(f"[end, released] {metrics['released_end']}")
 
     out_video.parent.mkdir(parents=True, exist_ok=True)

@@ -219,6 +219,17 @@ def test_lowest_end_names_the_nearest_symbol():
                       "body_tip": np.array([0, -0.0365, 0])})
     assert rec["nearest_symbol"] == "body_tip"
     assert rec["lowest_point_body"][1] == pytest.approx(-0.06)
+    assert "depth_below_target_m" not in rec
+
+
+def test_lowest_end_against_a_target_point_and_axis():
+    """Lowest point at (0.02, 0, 0.94): 4 cm below a target at z 0.98 and
+    2 cm from the vertical axis through it."""
+    R_down = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]], float)    # body +y -> world +z
+    rec = lowest_end(make_pose([0.02, 0, 1], R_down), _rod(), {},
+                     target=(np.array([0.0, 0.0, 0.98]), np.array([0.0, 0.0, 2.0])))
+    assert rec["depth_below_target_m"] == pytest.approx(0.04)
+    assert rec["radial_from_target_axis_m"] == pytest.approx(0.02)
 
 
 def test_decomposition_line_names_where_the_rotation_happened():
