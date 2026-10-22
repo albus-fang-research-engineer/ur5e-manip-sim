@@ -42,6 +42,7 @@ import argparse
 import json
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -117,6 +118,27 @@ def main() -> None:
     sys.exit(0 if report["status"] == "ok" else 2)
 
 
+def contact_offender(kin, allowed) -> str:
+    """First penetrating robot contact not on the allowed list, as
+    'bodyA <-> bodyB' (call right after in_collision returned True: the
+    scratch world still holds that config)."""
+    import mujoco as mj
+    watched = ("robot0", "gripper0", "mount0")
+    for i in range(kin.data.ncon):
+        con = kin.data.contact[i]
+        if con.dist > -1e-4:
+            continue
+        b1 = mj.mj_id2name(kin.model, mj.mjtObj.mjOBJ_BODY, kin.model.geom_bodyid[con.geom1]) or ""
+        b2 = mj.mj_id2name(kin.model, mj.mjtObj.mjOBJ_BODY, kin.model.geom_bodyid[con.geom2]) or ""
+        if not (b1.startswith(watched) or b2.startswith(watched)):
+            continue
+        if any((b1.startswith(a) and b2.startswith(b)) or (b1.startswith(b) and b2.startswith(a))
+               for a, b in allowed):
+            continue
+        return " <-> ".join(sorted((b1, b2)))
+    return "?"
+
+
 def _jsonable(o):
     if isinstance(o, np.ndarray):
         return o.tolist()
@@ -188,20 +210,35 @@ def plan(args, scene, out: Path, report: dict) -> None:
     survivors, tally = classify_grasps(gtsr, proposals)
     survivors.sort(key=lambda p: p.tsr_distance)
     grasp_allowed = (("gripper0", "gripper0"), ("gripper0", obj))
-    cands = []
+    cands, n_tried, n_ik, offenders = [], 0, 0, Counter()
     for p in survivors:
         if len(cands) >= args.max_grasp_candidates:
             break
         for T in (p.T0_ee, wrist_flip(p.T0_ee)):
+            n_tried += 1
             q, ok = ik.solve_multiseed(T, seeds)
-            if ok and not kin.in_collision(q, allowed_prefix_pairs=grasp_allowed):
-                cands.append((q, kin.fk(q)))
+            if not ok:
+                continue
+            n_ik += 1
+            if kin.in_collision(q, allowed_prefix_pairs=grasp_allowed):
+                offenders[contact_offender(kin, grasp_allowed)] += 1
+                continue
+            cands.append((q, kin.fk(q)))
+    site_h = [round(float(p.T0_ee[2, 3] - scene.table_top_z), 4) for p in survivors]
     report["grasp"] = {"part": gp.part, "primitive": gp.primitive,
                        "slide_half_length_m": gp.half_length,
                        "proposed": len(proposals), "classified": len(survivors),
+                       "ik_tried": n_tried, "ik_feasible": n_ik,
+                       "collision_free": len(cands),
+                       "offenders": dict(offenders.most_common()),
+                       "grip_site_height_above_table_m": [min(site_h, default=None),
+                                                          max(site_h, default=None)],
                        "reachable": len(cands)}
     print(f"[grasp] part {gp.part} ({gp.primitive}, slide +-{gp.half_length * 1000:.0f} mm): "
-          f"{len(proposals)} proposed -> {len(survivors)} classified -> {len(cands)} reachable")
+          f"{len(proposals)} proposed -> {len(survivors)} classified -> {n_tried} poses "
+          f"(with wrist flips) -> {n_ik} IK-feasible -> {len(cands)} collision-free")
+    if offenders:
+        print(f"[grasp] collision offenders: {dict(offenders.most_common())}")
     if not cands:
         raise TaskPlanError("grasp", "grasp", "no reachable, collision-free grasp",
                             report["grasp"])
