@@ -56,6 +56,7 @@ from manip_sim.frames import load_symbols
 from manip_sim.selection import (load_pool, menu_from_pool,
                                  resolve_selection, vlm_subset)
 from manip_sim.vlm import Client, StageSpec, Vocabulary
+from manip_sim.vlm import TEMPERATURE as VLM_TEMPERATURE
 from manip_sim.scene import add_scene_arg, load_scene
 
 VLM_DIR = Path("outputs/candidates/vlm")
@@ -157,6 +158,10 @@ def main() -> None:
     log = out.with_suffix(".log.json")
     log.write_text(json.dumps({
         "stage_plan": args.stage_plan,
+        # the selections file itself is role-keyed (every top-level key is
+        # read as a role), so the run's model is recorded here
+        "model": getattr(client, "model", None),
+        "temperature": VLM_TEMPERATURE,
         "client_logs": [asdict(l) for l in client.logs]}, indent=2,
         default=str) + "\n")
     print(f"[select-frames] wrote {out} (+ {log})")

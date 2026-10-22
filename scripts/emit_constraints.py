@@ -76,6 +76,7 @@ from manip_sim.compile_tsr import (ALIGN_TOL_RAD, CompileError, check_pair_consi
                                    compile_stage, stage_accounting)
 from manip_sim.frames import Symbols, load_symbols
 from manip_sim.vlm import PROMPT_DELTAS, Client, StageSpec, Vocabulary, entry_line
+from manip_sim.vlm import TEMPERATURE as VLM_TEMPERATURE
 from manip_sim.scene import add_scene_arg, load_scene
 
 COMPILE_RETRIES = 2      # re-emissions per stage on a CompileError (stopgap
@@ -329,6 +330,8 @@ def main() -> None:
         "roles": [r for _, r in stages],
         "arm": ("framed-chained" if args.render_chained
                 else "framed" if args.frames else "schema-only"),
+        "model": getattr(client, "model", None),
+        "temperature": VLM_TEMPERATURE,
         "render_dir": str(render_dir) if args.render_chained else None,
         "prompt_deltas": list(PROMPT_DELTAS),
         "views": framed,

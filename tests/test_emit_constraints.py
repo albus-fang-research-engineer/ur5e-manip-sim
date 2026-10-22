@@ -177,6 +177,7 @@ def test_render_chained_renders_each_stage_after_the_previous_gate_at_its_nomina
     assert order.index(("render", "pour")) > order.index(("emit", "transport"))
     art = json.loads(out.read_text())
     assert art["arm"] == "framed-chained" and art["stages_reached"] == 3
+    assert "model" in art and "temperature" in art      # run provenance
     assert all(c["grounded"] for c in art["compiled"])
     # the chained pose the render used equals the entry pose the gate recorded
     np.testing.assert_allclose(renders[2][3], np.array(art["compiled"][2]["entry_poses"]["teapot"]),
