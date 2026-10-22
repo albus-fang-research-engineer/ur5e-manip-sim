@@ -287,3 +287,21 @@ def test_topdown_grasp_on_a_slightly_tilted_bar_still_closes_across_it():
     T_nom = tsr.zero()
     assert T_nom[:3, 2] @ np.array([0, 0, -1.0]) > 0.999
     assert abs(T_nom[:3, 0] @ axis) < 1e-6
+
+
+def test_pad_backoff_raises_a_topdown_grip_site_along_the_approach():
+    from manip_sim.task_plan import GRASP_PAD_BACKOFF_M, backoff_along_approach
+    gp = grasp_part(_frames_doc(), "body")
+    T0 = make_pose([0.0, -0.25, 0.86], np.eye(3))
+    fr = Frame("marker.body", gp.center, gp.axis, np.array([0.0, 0.0, 1.0]))
+    tsr = handle_grasp_tsr(T0, fr, topdown_approach_h(T0 @ fr.T()),
+                           elevation=GRASP_ELEVATION_RAD, slide=gp.half_length)
+    raised = backoff_along_approach(tsr, GRASP_PAD_BACKOFF_M)
+    d = raised.zero()[:3, 3] - tsr.zero()[:3, 3]
+    assert np.allclose(d, [0, 0, GRASP_PAD_BACKOFF_M])
+    assert np.allclose(raised.zero()[:3, :3], tsr.zero()[:3, :3])
+    # the region is re-centred, not widened: a grip site 3 mm below the
+    # centreline was admitted (lateral tol 5 mm) and no longer is
+    low = tsr.zero().copy()
+    low[2, 3] -= 0.003
+    assert tsr.contains(low) and not raised.contains(low)

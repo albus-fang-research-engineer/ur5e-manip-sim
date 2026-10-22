@@ -32,6 +32,16 @@ SYNTH_START_CLEARANCE_M = 0.05
 # lying on the table.
 GRASP_ELEVATION_RAD = np.pi / 2
 
+# Sim grasp stand-in, same status as the elevation: how far the grip site is
+# backed off along the approach from the grasp part's axis, so the open
+# fingertip pads stop above the support surface. Measured 2026-10-21 on the
+# insert_marker scene (UR5e + Robotiq 2F-85, fingers as spawned = open): the
+# nominal top-down grasp at the marker centreline (9.9 mm above the table)
+# collides inner_finger <-> table at 0 and 1 mm and is clear from 2 mm; +3 mm
+# margin for the proposals' roll/pitch noise. pad_offset is the hardware
+# equivalent; on hardware the grasp network sets the depth.
+GRASP_PAD_BACKOFF_M = 0.005
+
 # containment tolerance for the synthesized start against the stage's path
 # TSR (distance mixes m and rad; this is "contained", not a slack)
 START_CONTAINMENT_TOL = 1e-6
@@ -134,6 +144,15 @@ def grasp_part(frames_doc: dict, part: str | None, stage: str = "grasp") -> Gras
         half = 0.5 * float(L)
     return GraspPart(part, prim, np.asarray(c["xyz"], float),
                      axis / np.linalg.norm(axis), half)
+
+
+def backoff_along_approach(tsr, d: float):
+    """The same grasp TSR with the gripper frame e moved back by d along
+    its own approach axis (e's -z): Tw_e @ T(0, 0, -d). Applies to any
+    approach direction; for a top-down grasp it raises the grip site."""
+    from manip_sim.tsr import TSR, make_pose
+    return TSR(T0_w=tsr.T0_w, Bw=tsr.Bw, name=tsr.name,
+               Tw_e=tsr.Tw_e @ make_pose([0.0, 0.0, -float(d)], np.eye(3)))
 
 
 def topdown_approach_h(T0_w: np.ndarray, stage: str = "grasp") -> np.ndarray:

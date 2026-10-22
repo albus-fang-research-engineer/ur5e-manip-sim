@@ -58,7 +58,8 @@ from manip_sim.provenance import stamp, tagged
 from manip_sim.scene import add_scene_arg, load_scene, make_env
 from manip_sim.selection import (load_pool, load_selections, selected_points,
                                  selection_objects)
-from manip_sim.task_plan import (GRASP_ELEVATION_RAD, START_CONTAINMENT_TOL,
+from manip_sim.task_plan import (GRASP_ELEVATION_RAD, GRASP_PAD_BACKOFF_M,
+                                 START_CONTAINMENT_TOL, backoff_along_approach,
                                  SYNTH_START_CLEARANCE_M, TaskPlanError,
                                  decomposition, grasp_part, lowest_end,
                                  mover_stages, probe_fractions,
@@ -100,7 +101,8 @@ def main() -> None:
               "stage_plan": args.stage_plan, "selections": args.selections,
               "emissions": args.emissions, "seed": args.seed,
               "constants": {"SYNTH_START_CLEARANCE_M": SYNTH_START_CLEARANCE_M,
-                            "GRASP_ELEVATION_RAD (sim stand-in)": GRASP_ELEVATION_RAD},
+                            "GRASP_ELEVATION_RAD (sim stand-in)": GRASP_ELEVATION_RAD,
+                            "GRASP_PAD_BACKOFF_M (sim stand-in)": GRASP_PAD_BACKOFF_M},
               "status": "running", "grasp": {}, "stages": []}
     try:
         plan(args, scene, out, report)
@@ -203,8 +205,9 @@ def plan(args, scene, out: Path, report: dict) -> None:
     gframe = Frame(f"{obj}.{gp.part}", gp.center, gp.axis, sec)
     T0_w = T0[obj] @ gframe.T()
     a_h = topdown_approach_h(T0_w)
-    gtsr = handle_grasp_tsr(T0[obj], gframe, a_h, elevation=GRASP_ELEVATION_RAD,
-                            slide=max(gp.half_length, 1e-3))
+    gtsr = backoff_along_approach(
+        handle_grasp_tsr(T0[obj], gframe, a_h, elevation=GRASP_ELEVATION_RAD,
+                         slide=max(gp.half_length, 1e-3)), GRASP_PAD_BACKOFF_M)
     proposals = propose_handle_grasps(gtsr, rng, n=args.n_proposals,
                                       slide_span=max(gp.half_length, 1e-3))
     survivors, tally = classify_grasps(gtsr, proposals)
