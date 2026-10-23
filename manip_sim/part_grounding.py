@@ -314,8 +314,16 @@ def mesh_orientation(V: np.ndarray, F: np.ndarray) -> dict:
     The winding number is only meaningful when faces are consistently
     oriented: then every directed edge occurs at most once (a neighbour
     traverses it the other way). `inconsistent_edges` counts directed edges
-    occurring more than once -- any makes depth labels unreliable near the
-    flipped region. `boundary_edges` counts undirected edges with a single
+    occurring more than once. That count does not separate two causes:
+    `flipped_edges` counts edges with exactly two faces traversing them the
+    SAME way -- a face wound against its neighbour, which is what makes depth
+    labels unreliable near it; `pinch_edges` counts edges with more than two
+    faces whose traversals balance (as many each way) -- consistently wound
+    sheets touching along an edge, which TRELLIS meshes do where thin parts
+    meet (measured on the 20261023_032004 mug: 272 four-face pinch edges, all
+    balanced, = all 544 inconsistent directed edges; 0 flipped). The winding
+    number sums solid angles over consistently oriented faces, so a pinch
+    leaves it exact; consumers gate on `flipped_edges`. `boundary_edges` counts undirected edges with a single
     face (holes, open rims): the winding number degrades gracefully near
     them, so they are recorded, not judged. `non_manifold_edges` (three or
     more faces on one edge) is recorded likewise. Faces that collapse
@@ -328,8 +336,13 @@ def mesh_orientation(V: np.ndarray, F: np.ndarray) -> dict:
     Fw = Fw[(Fw[:, 0] != Fw[:, 1]) & (Fw[:, 1] != Fw[:, 2]) & (Fw[:, 0] != Fw[:, 2])]
     E = np.concatenate([Fw[:, [0, 1]], Fw[:, [1, 2]], Fw[:, [2, 0]]])
     _, directed = np.unique(E, axis=0, return_counts=True)
-    _, undirected = np.unique(np.sort(E, axis=1), axis=0, return_counts=True)
+    _, ui, undirected = np.unique(np.sort(E, axis=1), axis=0, return_inverse=True,
+                                  return_counts=True)
+    fwd = np.bincount(np.asarray(ui).reshape(-1), weights=(E[:, 0] < E[:, 1]),
+                      minlength=len(undirected))        # traversals low -> high index
     return {"inconsistent_edges": int((directed > 1).sum()),
+            "flipped_edges": int(((undirected == 2) & (fwd != 1)).sum()),
+            "pinch_edges": int(((undirected > 2) & (2 * fwd == undirected)).sum()),
             "boundary_edges": int((undirected == 1).sum()),
             "non_manifold_edges": int((undirected > 2).sum()),
             "merged_vertices": int(np.asarray(inv).max() + 1) if len(V) else 0,

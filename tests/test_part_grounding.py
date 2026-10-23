@@ -274,15 +274,36 @@ def test_annotate_only_touches_points_and_is_loadable(tmp_path):
 
 def test_mesh_orientation_counts_flips_and_holes():
     V, F = _box_mesh([-0.05, -0.05, 0], [0.05, 0.05, 0.1])
-    clean = {"inconsistent_edges": 0, "boundary_edges": 0, "non_manifold_edges": 0,
+    clean = {"inconsistent_edges": 0, "flipped_edges": 0, "pinch_edges": 0,
+             "boundary_edges": 0, "non_manifold_edges": 0,
              "merged_vertices": 8, "vertices": 8}
     assert pg.mesh_orientation(V, F) == clean
     Ff = F.copy()
     Ff[0] = Ff[0, [0, 2, 1]]                                # one flipped face
     assert pg.mesh_orientation(V, Ff)["inconsistent_edges"] == 3
+    assert pg.mesh_orientation(V, Ff)["flipped_edges"] == 3
     assert pg.mesh_orientation(V, F[1:])["boundary_edges"] == 3
     # a flipped face moves the winding number off 1 inside: what the count warns about
     assert abs(pg.winding_number([0, 0, 0.05], V, Ff)[0] - 1.0) > 0.05
+
+
+def test_mesh_orientation_tells_a_pinch_from_a_flip():
+    """Two consistently wound boxes touching along one edge: four faces on
+    it, two traversals each way -- 2 'inconsistent' directed edges, but no
+    flip, and the winding number is exact inside both. Flip a face of one
+    box and only then does flipped_edges count."""
+    A, FA = _box_mesh([0, 0, 0], [0.1, 0.1, 0.1])
+    B, FB = _box_mesh([0.1, 0.1, 0], [0.2, 0.2, 0.1])
+    V, F = np.vstack([A, B]), np.vstack([FA, FB + len(A)])
+    m = pg.mesh_orientation(V, F)
+    assert (m["inconsistent_edges"], m["non_manifold_edges"]) == (2, 1)
+    assert (m["flipped_edges"], m["pinch_edges"]) == (0, 1)
+    assert pg.winding_number([[0.05, 0.05, 0.05], [0.15, 0.15, 0.05]], V, F) == \
+        pytest.approx([1.0, 1.0])
+    Ff = F.copy()
+    Ff[0] = Ff[0, [0, 2, 1]]
+    mf = pg.mesh_orientation(V, Ff)
+    assert mf["flipped_edges"] >= 1 and mf["pinch_edges"] <= 1
 
 
 def _soup(V, F):
