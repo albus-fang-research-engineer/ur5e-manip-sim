@@ -1,0 +1,222 @@
+{
+  "object": "marker",
+  "units": "meters",
+  "coordinates": "body frame of mjcf body 'object' (same convention as frames.json / PoseReader)",
+  "schema": "interaction point candidate POOL for the 3D-propose / 2D-select grounding stage; union of fps + curvature + part + constructed classes, priority-NMS deduplicated. Marked-render generation and per-view legibility live downstream.",
+  "params": {
+    "dense_samples": 20000,
+    "fps_quota": 16,
+    "curvature_quota": 12,
+    "part_quota_each": 8,
+    "curvature_quantile": 0.9,
+    "pool_budget": 48,
+    "nms_radius_m": 0.01,
+    "seed": 0
+  },
+  "class_counts": {
+    "raw": {
+      "constructed": 3,
+      "part": 16,
+      "curvature": 12,
+      "fps": 16
+    },
+    "kept": {
+      "constructed": 3,
+      "part": 7,
+      "curvature": 6,
+      "fps": 1
+    }
+  },
+  "coverage_readmitted_parts": [],
+  "candidates": [
+    {
+      "xyz": [
+        -0.0001,
+        -0.0005,
+        -0.0002
+      ],
+      "source": "constructed",
+      "symbol": "body_center",
+      "part": "body",
+      "on_surface": false,
+      "id": 0
+    },
+    {
+      "xyz": [
+        0.0008,
+        -0.0365,
+        -0.0001
+      ],
+      "source": "constructed",
+      "symbol": "body_tip",
+      "part": "body",
+      "on_surface": false,
+      "id": 1
+    },
+    {
+      "xyz": [
+        -0.001,
+        0.0486,
+        0.0001
+      ],
+      "source": "constructed",
+      "symbol": "tip_center",
+      "part": "tip",
+      "on_surface": false,
+      "id": 2
+    },
+    {
+      "xyz": [
+        -0.0029,
+        0.0193,
+        0.008
+      ],
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 3
+    },
+    {
+      "xyz": [
+        0.0066,
+        -0.0468,
+        -0.0073
+      ],
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 4
+    },
+    {
+      "xyz": [
+        -0.0086,
+        -0.0148,
+        -0.0014
+      ],
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 5
+    },
+    {
+      "xyz": [
+        -0.0057,
+        0.0381,
+        0.0067
+      ],
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 6
+    },
+    {
+      "xyz": [
+        0.0004,
+        0.0279,
+        -0.0085
+      ],
+      "source": "part",
+      "part": "body",
+      "on_surface": true,
+      "id": 7
+    },
+    {
+      "xyz": [
+        -0.0006,
+        0.06,
+        0.0041
+      ],
+      "source": "part",
+      "part": "tip",
+      "on_surface": true,
+      "id": 8
+    },
+    {
+      "xyz": [
+        0.0075,
+        0.0275,
+        0.0022
+      ],
+      "source": "part",
+      "part": "tip",
+      "on_surface": true,
+      "id": 9
+    },
+    {
+      "xyz": [
+        -0.0038,
+        -0.0218,
+        0.0078
+      ],
+      "source": "curvature",
+      "saliency": 5505962.254,
+      "on_surface": true,
+      "id": 10
+    },
+    {
+      "xyz": [
+        -0.004,
+        -0.0491,
+        0.0075
+      ],
+      "source": "curvature",
+      "saliency": 3522829.5783,
+      "on_surface": true,
+      "id": 11
+    },
+    {
+      "xyz": [
+        0.0042,
+        0.0409,
+        0.0065
+      ],
+      "source": "curvature",
+      "saliency": 839335.9152,
+      "on_surface": true,
+      "id": 12
+    },
+    {
+      "xyz": [
+        -0.0036,
+        -0.0307,
+        -0.0084
+      ],
+      "source": "curvature",
+      "saliency": 387230.3884,
+      "on_surface": true,
+      "id": 13
+    },
+    {
+      "xyz": [
+        -0.0003,
+        -0.06,
+        -0.0071
+      ],
+      "source": "curvature",
+      "saliency": 274783.8493,
+      "on_surface": true,
+      "id": 14
+    },
+    {
+      "xyz": [
+        -0.0075,
+        0.0041,
+        0.0049
+      ],
+      "source": "curvature",
+      "saliency": 245464.2319,
+      "on_surface": true,
+      "id": 15
+    },
+    {
+      "xyz": [
+        -0.0027,
+        0.0088,
+        -0.0087
+      ],
+      "source": "fps",
+      "on_surface": true,
+      "id": 16
+    }
+  ]
+}

@@ -1,0 +1,705 @@
+{
+  "task": "insert the marker into the cup",
+  "stage_plan": "outputs/stage_plan/insert_marker.marks.json",
+  "selections": "outputs/selections/insert_marker.json",
+  "frames": null,
+  "roles": [
+    "grasp",
+    "transport_active",
+    "insert"
+  ],
+  "arm": "framed-chained",
+  "render_dir": "outputs/frames/insert_marker_opus",
+  "prompt_deltas": [
+    "hinge-hold-2026-09-09",
+    "goal-first-2026-09-10"
+  ],
+  "views": {
+    "grasp": [
+      "outputs/frames/insert_marker_opus/grasp/iso.png",
+      "outputs/frames/insert_marker_opus/grasp/iso-opp.png",
+      "outputs/frames/insert_marker_opus/grasp/top.png"
+    ],
+    "transport_active": [
+      "outputs/frames/insert_marker_opus/transport_active/iso.png",
+      "outputs/frames/insert_marker_opus/transport_active/iso-opp.png",
+      "outputs/frames/insert_marker_opus/transport_active/top.png"
+    ],
+    "insert": [
+      "outputs/frames/insert_marker_opus/insert/iso.png",
+      "outputs/frames/insert_marker_opus/insert/iso-opp.png",
+      "outputs/frames/insert_marker_opus/insert/top.png"
+    ]
+  },
+  "emissions": [
+    {
+      "stage": 0,
+      "name": "grasp the marker",
+      "active": "marker",
+      "passive": null,
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "roll"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "pitch"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "yaw"
+          }
+        ],
+        "trans": [
+          {
+            "term": "free",
+            "anchor": null,
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "roll"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "pitch"
+          },
+          {
+            "axis": null,
+            "relation": "free",
+            "reference": null,
+            "tol": null,
+            "row": "yaw"
+          }
+        ],
+        "trans": [
+          {
+            "term": "centered",
+            "anchor": "marker.body_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": "snug",
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "inside",
+            "anchor": "marker.body_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": "snug",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "verify": "Gripper is closed on the marker body with the grasp point at marker.body_center; marker pose unchanged from spawn.",
+      "goal": "The gripper closes on the marker at marker.body_center, holding the marker's body with the marker still at its spawn pose."
+    },
+    {
+      "stage": 1,
+      "name": "align marker above cup opening",
+      "active": "marker",
+      "passive": "cup",
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": "marker.up_axis",
+            "relation": "parallel",
+            "reference": "cup.up_axis",
+            "tol": "loose",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "free",
+            "anchor": null,
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": "marker.up_axis",
+            "relation": "parallel",
+            "reference": "cup.up_axis",
+            "tol": "moderate",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "centered",
+            "anchor": "cup.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": "snug",
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          },
+          {
+            "term": "above",
+            "anchor": "cup.opening_center",
+            "axis": null,
+            "sign": null,
+            "clearance": "small",
+            "slack": "moderate",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "verify": "At the subgoal marker.body_center lies within the opening radius of cup.opening_center in x/y and a small clearance above it in z, with marker.+up still aligned with cup.+up; along the path the marker stays upright while translation is unconstrained.",
+      "goal": "marker.body_center ends up hovering a short clearance above cup.opening_center, centered over the opening, with marker.+up still pointing the way cup.+up points"
+    },
+    {
+      "stage": 2,
+      "name": "insert marker into cup",
+      "active": "marker",
+      "passive": "cup",
+      "path_tsr": {
+        "rot": [
+          {
+            "axis": "marker.lateral_axis",
+            "relation": "perpendicular",
+            "reference": "cup.up_axis",
+            "tol": "moderate",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "free",
+            "anchor": null,
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": null,
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "subgoal_tsr": {
+        "rot": [
+          {
+            "axis": "marker.front_axis",
+            "relation": "parallel",
+            "reference": "cup.up_axis",
+            "tol": "tight",
+            "row": null
+          }
+        ],
+        "trans": [
+          {
+            "term": "inside",
+            "anchor": "cup.interior_center",
+            "axis": null,
+            "sign": null,
+            "clearance": null,
+            "slack": "moderate",
+            "tol": null,
+            "row": null,
+            "expr_lo": null,
+            "expr_hi": null,
+            "flags": []
+          }
+        ]
+      },
+      "verify": "marker.-front aligns with cup.-up (marker vertical, tip down) and marker.body_tip lies inside the cup interior; marker.+left stayed level throughout the tilt.",
+      "goal": "The marker ends vertical with marker.-front pointing the way cup.-up points and marker.body_tip inside the cup near cup.interior_center."
+    }
+  ],
+  "compiled": [
+    {
+      "stage": "grasp the marker",
+      "grounded": true,
+      "Bw": {
+        "path": [
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ],
+        "subgoal": [
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ]
+      },
+      "error": null,
+      "entry_poses": {
+        "marker": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            -0.25
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.86
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "cup": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.25
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.86
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      },
+      "x_source": "marker.front_axis",
+      "attempts": 1,
+      "rejection_slots": [],
+      "notes": [
+        "w = marker canonical frame at [-0.0001, -0.0005, -0.0002]: z = up_axis, x = marker.front_axis; rooted on body_poses['marker']"
+      ]
+    },
+    {
+      "stage": "align marker above cup opening",
+      "grounded": true,
+      "Bw": {
+        "path": [
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -0.5236,
+            0.5236
+          ],
+          [
+            -0.5236,
+            0.5236
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ],
+        "subgoal": [
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            -0.005,
+            0.005
+          ],
+          [
+            0.01,
+            0.06
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ]
+      },
+      "error": null,
+      "entry_poses": {
+        "marker": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            -0.25
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.86
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "cup": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.25
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.86
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      },
+      "goal_dirs": {
+        "+front": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "+left": [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "+up": [
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "goal_class": {
+        "+front": "level",
+        "+left": "level",
+        "+up": "up"
+      },
+      "sweep": {
+        "axis": "none",
+        "angle_deg": 0.0
+      },
+      "x_source": "marker lateral (up x front) at entry",
+      "free_rows": {
+        "path": [
+          "yaw"
+        ],
+        "subgoal": [
+          "yaw"
+        ]
+      },
+      "attempts": 1,
+      "rejection_slots": [],
+      "notes": [
+        "w = cup canonical frame at [-0.0, 0.0001, 0.0372]: z = up_axis, x = marker lateral (up x front) at entry; rooted on body_poses['cup']",
+        "align marker above cup opening.path: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free",
+        "align marker above cup opening.subgoal: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free"
+      ]
+    },
+    {
+      "stage": "insert marker into cup",
+      "grounded": true,
+      "Bw": {
+        "path": [
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -Infinity,
+            Infinity
+          ],
+          [
+            -3.1416,
+            3.1416
+          ],
+          [
+            -0.2618,
+            0.2618
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ],
+        "subgoal": [
+          [
+            -0.015,
+            0.015
+          ],
+          [
+            -0.0154,
+            0.0146
+          ],
+          [
+            -0.0536,
+            -0.0236
+          ],
+          [
+            -0.0873,
+            0.0873
+          ],
+          [
+            -0.0873,
+            0.0873
+          ],
+          [
+            -3.1416,
+            3.1416
+          ]
+        ]
+      },
+      "error": null,
+      "entry_poses": {
+        "marker": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0001
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.2506
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.9324
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "cup": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.25
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            0.86
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ]
+      },
+      "goal_dirs": {
+        "+front": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "+left": [
+          -1.0,
+          0.0,
+          0.0
+        ],
+        "+up": [
+          0.0,
+          -1.0,
+          0.0
+        ]
+      },
+      "goal_class": {
+        "+front": "up",
+        "+left": "level",
+        "+up": "level"
+      },
+      "sweep": {
+        "axis": "-left",
+        "angle_deg": 90.0
+      },
+      "x_source": "marker lateral (up x front) at entry",
+      "free_rows": {
+        "path": [
+          "roll",
+          "yaw"
+        ],
+        "subgoal": [
+          "yaw"
+        ]
+      },
+      "attempts": 1,
+      "rejection_slots": [],
+      "notes": [
+        "w = cup canonical frame at [-0.0, 0.0001, 0.0372]: z = up_axis, x = marker lateral (up x front) at entry; rooted on body_poses['cup']",
+        "insert marker into cup.path: goal attitude from 1 relation row(s); fixed ['pitch'], rest free",
+        "insert marker into cup.subgoal: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free",
+        "insert marker into cup.path: rotation admits the subgoal (64/64 sampled attitudes)"
+      ]
+    }
+  ],
+  "stages_reached": 3,
+  "stages_total": 3
+}

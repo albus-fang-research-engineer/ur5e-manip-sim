@@ -1,0 +1,32 @@
+[
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "{\"stage\": 0, \"name\": \"grasp the marker\", \"active\": \"marker\", \"passive\": null, \"goal\": \"The gripper closes on the marker at marker.body_center, holding the marker's body with the marker still at its spawn pose.\", \"path_tsr\": {\"rot\": \"free\", \"trans\": \"free\"}, \"subgoal_tsr\": {\"rot\": \"free\", \"trans\": [{\"term\": \"centered\", \"anchor\": \"marker.body_center\", \"tol\": \"snug\"}, {\"term\": \"inside\", \"anchor\": \"marker.body_center\", \"slack\": \"snug\"}]}, \"verify\": \"Gripper is closed on the marker body with the grasp point at marker.body_center; marker pose unchanged from spawn.\"}",
+    "views": 3,
+    "legend": true,
+    "entry": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "{\"stage\": 1, \"name\": \"align marker above cup opening\", \"active\": \"marker\", \"passive\": \"cup\", \"goal\": \"marker.body_center ends up hovering a short clearance above cup.opening_center, centered over the opening, with marker.+up still pointing the way cup.+up points\", \"path_tsr\": {\"rot\": [{\"axis\": \"marker.+up\", \"points\": \"cup.+up\", \"tol\": \"loose\"}], \"trans\": \"free\"}, \"subgoal_tsr\": {\"rot\": [{\"axis\": \"marker.+up\", \"points\": \"cup.+up\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"cup.opening_center\", \"tol\": \"snug\"}, {\"term\": \"above\", \"anchor\": \"cup.opening_center\", \"clearance\": \"small\", \"slack\": \"moderate\"}]}, \"verify\": \"At the subgoal marker.body_center lies within the opening radius of cup.opening_center in x/y and a small clearance above it in z, with marker.+up still aligned with cup.+up; along the path the marker stays upright while translation is unconstrained.\"}",
+    "views": 3,
+    "legend": true,
+    "entry": true
+  },
+  {
+    "touchpoint": "emit_constraints",
+    "attempts": 1,
+    "rejections": [],
+    "flags": [],
+    "raw": "{\"stage\": 2, \"name\": \"insert marker into cup\", \"active\": \"marker\", \"passive\": \"cup\", \"goal\": \"The marker ends vertical with marker.-front pointing the way cup.-up points and marker.body_tip inside the cup near cup.interior_center.\", \"path_tsr\": {\"rot\": [{\"axis\": \"marker.+left\", \"perpendicular_to\": \"cup.+up\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"free\"}]}, \"subgoal_tsr\": {\"rot\": [{\"axis\": \"marker.-front\", \"points\": \"cup.-up\", \"tol\": \"tight\"}], \"trans\": [{\"term\": \"inside\", \"anchor\": \"cup.interior_center\", \"slack\": \"moderate\"}]}, \"verify\": \"marker.-front aligns with cup.-up (marker vertical, tip down) and marker.body_tip lies inside the cup interior; marker.+left stayed level throughout the tilt.\"}",
+    "views": 3,
+    "legend": true,
+    "entry": true
+  }
+]

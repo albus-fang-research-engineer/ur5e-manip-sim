@@ -1,0 +1,146 @@
+{
+  "object": "marker",
+  "units": "meters",
+  "coordinates": "body frame of mjcf body 'object' (what PoseReader returns)",
+  "schema": "grounding symbol table: independent interaction POINTS and semantic AXES; frames are composed downstream as frame(origin=<point>, axis=<axis>). Axis -> frame +z. up_axis/front_axis/lateral_axis are the canonical frame.",
+  "provenance": {
+    "producer": "manip_sim.part_grounding",
+    "mask_provider": "oracle",
+    "parts": {
+      "body": {
+        "primitive": "line",
+        "n_points": 11236,
+        "rms_m": 0.00865,
+        "sigma_deg": 0.22,
+        "note": ""
+      },
+      "cap": {
+        "primitive": "ungrounded",
+        "n_points": 0,
+        "rms_m": null,
+        "sigma_deg": null,
+        "note": "0 points < 30"
+      },
+      "tip": {
+        "primitive": "blob",
+        "n_points": 3852,
+        "rms_m": 0.01041,
+        "sigma_deg": null,
+        "note": "outward axis only"
+      }
+    },
+    "depth_semantics": {
+      "method": "generalized winding number w.r.t. the grounding mesh",
+      "inside_threshold": 0.5,
+      "inconsistent_edges": 0,
+      "boundary_edges": 0,
+      "non_manifold_edges": 0,
+      "merged_vertices": 8192,
+      "vertices": 8549
+    },
+    "views": {
+      "+x": "outputs/grounding/insert_marker_gt_opus1/marker/views/px.png",
+      "-x": "outputs/grounding/insert_marker_gt_opus1/marker/views/nx.png",
+      "+y": "outputs/grounding/insert_marker_gt_opus1/marker/views/py.png",
+      "-y": "outputs/grounding/insert_marker_gt_opus1/marker/views/ny.png",
+      "top": "outputs/grounding/insert_marker_gt_opus1/marker/views/top.png",
+      "bottom": "outputs/grounding/insert_marker_gt_opus1/marker/views/bottom.png",
+      "iso": "outputs/grounding/insert_marker_gt_opus1/marker/views/iso.png",
+      "iso-opp": "outputs/grounding/insert_marker_gt_opus1/marker/views/isonopp.png"
+    }
+  },
+  "points": {
+    "body_center": {
+      "xyz": [
+        -0.0001,
+        -0.0005,
+        -0.0002
+      ],
+      "status": "grounded",
+      "comment": "line fit, rms 8.7 mm",
+      "depth_check": "interior",
+      "winding": 1.0
+    },
+    "body_tip": {
+      "xyz": [
+        0.0008,
+        -0.0365,
+        -0.0001
+      ],
+      "status": "grounded",
+      "comment": "far end of the line fit, rms 8.7 mm",
+      "depth_check": "interior",
+      "winding": 1.0
+    },
+    "tip_center": {
+      "xyz": [
+        -0.001,
+        0.0486,
+        0.0001
+      ],
+      "status": "grounded",
+      "comment": "blob fit, rms 10.4 mm",
+      "depth_check": "interior",
+      "winding": 1.0
+    }
+  },
+  "axes": {
+    "up_axis": {
+      "xyz": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "status": "grounded",
+      "comment": "canonical frame: rest up, supplied by the pose source",
+      "sigma_deg": 0.0
+    },
+    "front_axis": {
+      "xyz": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "status": "grounded",
+      "comment": "canonical frame: front, supplied by the caller (scene facing / Orient Anything)",
+      "sigma_deg": 0.0
+    },
+    "lateral_axis": {
+      "xyz": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "status": "grounded",
+      "comment": "canonical frame: up x front",
+      "sigma_deg": 0.0
+    },
+    "body_axis": {
+      "xyz": [
+        0.0249,
+        -0.9997,
+        0.003
+      ],
+      "status": "grounded",
+      "comment": "line fit, rms 8.7 mm, sigma 0.2 deg",
+      "sigma_deg": 0.22
+    },
+    "tip_axis": {
+      "xyz": [
+        -0.0223,
+        0.9997,
+        -0.0059
+      ],
+      "status": "grounded",
+      "comment": "blob fit, rms 10.4 mm",
+      "sigma_deg": null
+    }
+  },
+  "quantities": {
+    "body_length": {
+      "value": 0.0741,
+      "status": "grounded",
+      "comment": "line fit, rms 8.7 mm"
+    }
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "object": "cup",
+  "units": "meters",
+  "coordinates": "body frame of mjcf body 'object' (what PoseReader returns)",
+  "schema": "grounding symbol table: independent interaction POINTS and semantic AXES; frames are composed downstream as frame(origin=<point>, axis=<axis>). Axis -> frame +z. up_axis/front_axis/lateral_axis are the canonical frame.",
+  "provenance": {
+    "producer": "manip_sim.part_grounding",
+    "mask_provider": "oracle",
+    "parts": {
+      "rim": {
+        "primitive": "ungrounded",
+        "n_points": 0,
+        "rms_m": null,
+        "sigma_deg": null,
+        "note": "0 points < 30"
+      },
+      "opening": {
+        "primitive": "ring",
+        "n_points": 361,
+        "rms_m": 0.00102,
+        "sigma_deg": 0.01,
+        "note": "arc 100%"
+      },
+      "interior": {
+        "primitive": "blob",
+        "n_points": 9612,
+        "rms_m": 0.04268,
+        "sigma_deg": null,
+        "note": "outward axis only"
+      }
+    },
+    "depth_semantics": {
+      "method": "generalized winding number w.r.t. the grounding mesh",
+      "inside_threshold": 0.5,
+      "inconsistent_edges": 0,
+      "boundary_edges": 0,
+      "non_manifold_edges": 0,
+      "merged_vertices": 8190,
+      "vertices": 8399
+    },
+    "views": {
+      "+x": "outputs/grounding/insert_marker_gt_opus1/cup/views/px.png",
+      "-x": "outputs/grounding/insert_marker_gt_opus1/cup/views/nx.png",
+      "+y": "outputs/grounding/insert_marker_gt_opus1/cup/views/py.png",
+      "-y": "outputs/grounding/insert_marker_gt_opus1/cup/views/ny.png",
+      "top": "outputs/grounding/insert_marker_gt_opus1/cup/views/top.png",
+      "bottom": "outputs/grounding/insert_marker_gt_opus1/cup/views/bottom.png",
+      "iso": "outputs/grounding/insert_marker_gt_opus1/cup/views/iso.png",
+      "iso-opp": "outputs/grounding/insert_marker_gt_opus1/cup/views/isonopp.png"
+    }
+  },
+  "points": {
+    "opening_center": {
+      "xyz": [
+        -0.0,
+        0.0001,
+        0.0372
+      ],
+      "status": "grounded",
+      "comment": "ring fit, rms 1.0 mm",
+      "depth_check": "skip",
+      "winding": 0.0
+    },
+    "interior_center": {
+      "xyz": [
+        -0.0,
+        0.0005,
+        -0.0014
+      ],
+      "status": "grounded",
+      "comment": "blob fit, rms 42.7 mm",
+      "depth_check": "skip",
+      "winding": 0.0
+    }
+  },
+  "axes": {
+    "up_axis": {
+      "xyz": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "status": "grounded",
+      "comment": "canonical frame: rest up, supplied by the pose source",
+      "sigma_deg": 0.0
+    },
+    "opening_axis": {
+      "xyz": [
+        0.0017,
+        -0.0025,
+        1.0
+      ],
+      "status": "grounded",
+      "comment": "ring fit, rms 1.0 mm, sigma 0.0 deg",
+      "sigma_deg": 0.01
+    },
+    "interior_axis": {
+      "xyz": [
+        0.1369,
+        0.149,
+        0.9793
+      ],
+      "status": "grounded",
+      "comment": "blob fit, rms 42.7 mm",
+      "sigma_deg": null
+    }
+  },
+  "quantities": {
+    "opening_radius": {
+      "value": 0.0424,
+      "status": "grounded",
+      "comment": "ring fit, rms 1.0 mm"
+    }
+  }
+}

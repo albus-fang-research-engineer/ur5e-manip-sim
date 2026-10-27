@@ -1,0 +1,22 @@
+{
+  "provider": "oracle",
+  "stage_plan": "outputs/runs/gt_opus1/stage_plan.json",
+  "ungrounded": {
+    "marker": [
+      "cap"
+    ],
+    "cup": [
+      "rim"
+    ]
+  },
+  "grounded": {
+    "marker": {
+      "body": "line",
+      "tip": "blob"
+    },
+    "cup": {
+      "opening": "ring",
+      "interior": "blob"
+    }
+  }
+}
