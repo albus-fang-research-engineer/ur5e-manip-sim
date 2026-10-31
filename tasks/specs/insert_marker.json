@@ -8,5 +8,6 @@
   "opening": "opening_center",
   "rim_radius_m": 0.0423,
   "max_tilt_deg": 10.0,
+  "max_path_tilt_deg": 10.0,
   "min_depth_m": 0.04
 }

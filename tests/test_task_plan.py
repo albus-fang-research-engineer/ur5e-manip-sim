@@ -243,6 +243,27 @@ def test_decomposition_line_names_where_the_rotation_happened():
 
 # ------------------------------------------------------ run_pipeline wiring
 
+def test_given_grasp_is_that_pose_or_nothing():
+    import scripts.plan_task as pt
+    from manip_sim.omnimanip.planner import default_program
+    program = default_program("insert_marker")
+    q = np.arange(6.0)
+
+    def world(colliding=False, reachable=True):
+        kin = SimpleNamespace(fk=lambda _q: np.eye(4), data=SimpleNamespace(ncon=0),
+                              in_collision=lambda _q, allowed_prefix_pairs: colliding)
+        return kin, SimpleNamespace(solve_multiseed=lambda T, seeds: (q, reachable))
+
+    kin, ik = world()
+    cands, rec = pt.given_grasp(program, "marker", kin, ik, np.eye(4), q, [q], ())
+    assert len(cands) == 1 and rec["collision_free"] == 1 and rec["point_body"] == [0.0, 0.022, 0.0039]
+    for bad in (dict(colliding=True), dict(reachable=False)):
+        kin, ik = world(**bad)
+        assert pt.given_grasp(program, "marker", kin, ik, np.eye(4), q, [q], ())[0] == []
+    with pytest.raises(TaskPlanError):
+        pt.given_grasp(program, "cup", *world(), np.eye(4), q, [q], ())
+
+
 def test_plan_task_imports():
     import scripts.plan_task as pt  # noqa: F401
     assert callable(pt.main)

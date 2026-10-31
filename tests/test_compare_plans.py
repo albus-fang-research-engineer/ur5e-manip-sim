@@ -1,16 +1,17 @@
 """compare_plans' classification and violations on small hand-built rows."""
 
 import sys
+import json
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from scripts.compare_plans import (README_END, README_START, physics_outcome, replace_block,  # noqa: E402
-                                   span, split_run, violations)
+from scripts.compare_plans import (README_END, README_START, load_runs, physics_outcome,  # noqa: E402
+                                   replace_block, span, split_run, violations)
 
-SPEC = {"max_tilt_deg": 10.0, "min_depth_m": 0.04}
+SPEC = {"max_tilt_deg": 10.0, "max_path_tilt_deg": 10.0, "min_depth_m": 0.04, "rim_radius_m": 0.0423}
 
 
 def metrics(depth, off, slip=20.0):
@@ -27,6 +28,13 @@ def test_split_run():
     assert split_run("tsr5more_s3") == ("tsr5more", 3)
     with pytest.raises(ValueError):
         split_run("omni")
+
+
+def test_load_runs_keeps_only_the_named_methods(tmp_path):
+    for name in ("omni_s0", "same5_s0", "tsr5_s0"):
+        (tmp_path / f"{name}.report.json").write_text(json.dumps({"status": "failed"}))
+    assert [r["run"] for r in load_runs(tmp_path, tmp_path, {}, SPEC, ["omni", "same5"])] == ["omni_s0", "same5_s0"]
+    assert len(load_runs(tmp_path, tmp_path, {}, SPEC)) == 3
 
 
 def test_physics_outcomes():

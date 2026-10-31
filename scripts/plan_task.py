@@ -9,7 +9,9 @@ calls: it consumes the artifacts run_pipeline wrote.
               LOOKAHEAD over every downstream stage -> free reach to
               pre-grasp, straight approach -> T_ee_body MEASURED -> lift.
               The emitted grasp TSR is not used, as in pour-tea (a gripper
-              nominal is not in the emission vocabulary).
+              nominal is not in the emission vocabulary). --grasp-program
+              replaces the sampling with one given grasp, no wrist flip, so
+              planners can be compared from the same grip.
     per mover stage, in bound order
               compile the emission at the ACTUAL entry pose (compile_stage,
               the same call the emit gate made at its nominal entry) ->
@@ -92,6 +94,8 @@ def main() -> None:
     ap.add_argument("--n-goal-samples", type=int, default=120)
     ap.add_argument("--n-probe", type=int, default=8)
     ap.add_argument("--timeout", type=float, default=20.0)
+    ap.add_argument("--grasp-program", metavar="JSON", default=None,
+                    help="take the grasp from this program instead of sampling one")
     ap.add_argument("--out", default=None, help="default outputs/plans/vlm/<scene>_task_vlm.npz")
     add_scene_arg(ap)
     args = ap.parse_args()
@@ -104,6 +108,7 @@ def main() -> None:
                             "GRASP_ELEVATION_RAD (sim stand-in)": GRASP_ELEVATION_RAD,
                             "GRASP_PAD_BACKOFF_M (sim stand-in)": GRASP_PAD_BACKOFF_M},
               "status": "running", "grasp": {}, "stages": []}
+    started = time.perf_counter()
     try:
         plan(args, scene, out, report)
         report["status"] = "ok"
@@ -113,11 +118,27 @@ def main() -> None:
         print(f"\n[plan-task] FAILED {e}")
         for k, v in e.detail.items():
             print(f"    {k}: {v}")
+    report["seconds"] = round(time.perf_counter() - started, 1)
     rp = out.with_suffix(".report.json")
     rp.parent.mkdir(parents=True, exist_ok=True)
     rp.write_text(json.dumps(report, indent=2, default=_jsonable) + "\n")
     print(f"[plan-task] report -> {rp}")
     sys.exit(0 if report["status"] == "ok" else 2)
+
+
+def given_grasp(program, obj, kin, ik, T_obj, q_home, seeds, allowed) -> tuple[list, dict]:
+    """The candidate list for a grasp named by a program: that pose or nothing."""
+    from manip_sim.omnimanip.planner import grasp_pose, load_program    # only the study needs the baselines
+    g = load_program(program)["grasp"]
+    if g["object"] != obj:
+        raise TaskPlanError("grasp", "grasp", f"{program} grasps {g['object']}, the stage grasps {obj}")
+    T = grasp_pose(T_obj, g["point_body"], g["closing_body"], g["approach_world"], kin.fk(q_home))
+    q, ok = ik.solve_multiseed(T, seeds)
+    free = bool(ok) and not kin.in_collision(q, allowed_prefix_pairs=allowed)
+    rec = {"given": program, "point_body": g["point_body"], "ik_feasible": bool(ok), "collision_free": int(free)}
+    if ok and not free:
+        rec["offender"] = contact_offender(kin, allowed)
+    return ([(q, kin.fk(q))] if free else []), rec
 
 
 def contact_offender(kin, allowed) -> str:
@@ -208,40 +229,45 @@ def plan(args, scene, out: Path, report: dict) -> None:
     gtsr = backoff_along_approach(
         handle_grasp_tsr(T0[obj], gframe, a_h, elevation=GRASP_ELEVATION_RAD,
                          slide=max(gp.half_length, 1e-3)), GRASP_PAD_BACKOFF_M)
-    proposals = propose_handle_grasps(gtsr, rng, n=args.n_proposals,
-                                      slide_span=max(gp.half_length, 1e-3))
-    survivors, tally = classify_grasps(gtsr, proposals)
-    survivors.sort(key=lambda p: p.tsr_distance)
     grasp_allowed = (("gripper0", "gripper0"), ("gripper0", obj))
-    cands, n_tried, n_ik, offenders = [], 0, 0, Counter()
-    for p in survivors:
-        if len(cands) >= args.max_grasp_candidates:
-            break
-        for T in (p.T0_ee, wrist_flip(p.T0_ee)):
-            n_tried += 1
-            q, ok = ik.solve_multiseed(T, seeds)
-            if not ok:
-                continue
-            n_ik += 1
-            if kin.in_collision(q, allowed_prefix_pairs=grasp_allowed):
-                offenders[contact_offender(kin, grasp_allowed)] += 1
-                continue
-            cands.append((q, kin.fk(q)))
-    site_h = [round(float(p.T0_ee[2, 3] - scene.table_top_z), 4) for p in survivors]
-    report["grasp"] = {"part": gp.part, "primitive": gp.primitive,
-                       "slide_half_length_m": gp.half_length,
-                       "proposed": len(proposals), "classified": len(survivors),
-                       "ik_tried": n_tried, "ik_feasible": n_ik,
-                       "collision_free": len(cands),
-                       "offenders": dict(offenders.most_common()),
-                       "grip_site_height_above_table_m": [min(site_h, default=None),
-                                                          max(site_h, default=None)],
-                       "reachable": len(cands)}
-    print(f"[grasp] part {gp.part} ({gp.primitive}, slide +-{gp.half_length * 1000:.0f} mm): "
-          f"{len(proposals)} proposed -> {len(survivors)} classified -> {n_tried} poses "
-          f"(with wrist flips) -> {n_ik} IK-feasible -> {len(cands)} collision-free")
-    if offenders:
-        print(f"[grasp] collision offenders: {dict(offenders.most_common())}")
+    if args.grasp_program:
+        cands, report["grasp"] = given_grasp(args.grasp_program, obj, kin, ik, T0[obj],
+                                             q_home, seeds, grasp_allowed)
+        print(f"[grasp] given: {report['grasp']}")
+    else:
+        proposals = propose_handle_grasps(gtsr, rng, n=args.n_proposals,
+                                          slide_span=max(gp.half_length, 1e-3))
+        survivors, tally = classify_grasps(gtsr, proposals)
+        survivors.sort(key=lambda p: p.tsr_distance)
+        cands, n_tried, n_ik, offenders = [], 0, 0, Counter()
+        for p in survivors:
+            if len(cands) >= args.max_grasp_candidates:
+                break
+            for T in (p.T0_ee, wrist_flip(p.T0_ee)):
+                n_tried += 1
+                q, ok = ik.solve_multiseed(T, seeds)
+                if not ok:
+                    continue
+                n_ik += 1
+                if kin.in_collision(q, allowed_prefix_pairs=grasp_allowed):
+                    offenders[contact_offender(kin, grasp_allowed)] += 1
+                    continue
+                cands.append((q, kin.fk(q)))
+        site_h = [round(float(p.T0_ee[2, 3] - scene.table_top_z), 4) for p in survivors]
+        report["grasp"] = {"part": gp.part, "primitive": gp.primitive,
+                           "slide_half_length_m": gp.half_length,
+                           "proposed": len(proposals), "classified": len(survivors),
+                           "ik_tried": n_tried, "ik_feasible": n_ik,
+                           "collision_free": len(cands),
+                           "offenders": dict(offenders.most_common()),
+                           "grip_site_height_above_table_m": [min(site_h, default=None),
+                                                              max(site_h, default=None)],
+                           "reachable": len(cands)}
+        print(f"[grasp] part {gp.part} ({gp.primitive}, slide +-{gp.half_length * 1000:.0f} mm): "
+              f"{len(proposals)} proposed -> {len(survivors)} classified -> {n_tried} poses "
+              f"(with wrist flips) -> {n_ik} IK-feasible -> {len(cands)} collision-free")
+        if offenders:
+            print(f"[grasp] collision offenders: {dict(offenders.most_common())}")
     if not cands:
         raise TaskPlanError("grasp", "grasp", "no reachable, collision-free grasp",
                             report["grasp"])
@@ -293,7 +319,7 @@ def plan(args, scene, out: Path, report: dict) -> None:
 
     chosen, skips = None, []
     for sc, fr, q_grasp, T_g in scored:
-        if sc <= 0.0:
+        if sc <= 0.0 and not args.grasp_program:    # a given grasp has nothing to rank against
             break
         p_pre = T_g[:3, 3] - PREGRASP_STANDOFF * T_g[:3, 2]
         retreat, why = track_line(kin, ik, p_pre, q_grasp, T_g, APPROACH_STEPS, grasp_allowed)
