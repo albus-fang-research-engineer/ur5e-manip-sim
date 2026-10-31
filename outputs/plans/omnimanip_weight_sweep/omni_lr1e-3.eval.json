@@ -1,0 +1,69 @@
+{
+  "plan": "outputs/plans/compare/omni_lr1e-3.npz",
+  "spec": "insert_marker",
+  "goal": {
+    "lower_end": "tail_center",
+    "tilt_deg": 2.65,
+    "off_axis_mm": 0.5,
+    "depth_mm": 45.1
+  },
+  "checks": {
+    "first_end_lower": true,
+    "tilt": true,
+    "depth": true,
+    "inside_rim": true
+  },
+  "goal_pass": true,
+  "inserted": {
+    "n_points": 10,
+    "max_tilt_deg": 2.65,
+    "max_off_axis_mm": 0.5
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "colliding_points": 0,
+  "n_tracked": 267,
+  "ee_travel_m": 1.157,
+  "ee_rotation_deg": 174.6,
+  "joint_travel_rad": 9.38,
+  "max_joint_step_rad": 0.089,
+  "segments": [
+    {
+      "segment": "grasp",
+      "n_waypoints": 114,
+      "n_tracked": 117,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.56,
+      "ee_rotation_deg": 87.2,
+      "joint_travel_rad": 4.6,
+      "max_joint_step_rad": 0.021
+    },
+    {
+      "segment": "place:move",
+      "n_waypoints": 104,
+      "n_tracked": 131,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.512,
+      "ee_rotation_deg": 87.3,
+      "joint_travel_rad": 4.5,
+      "max_joint_step_rad": 0.089
+    },
+    {
+      "segment": "place:insert",
+      "n_waypoints": 19,
+      "n_tracked": 19,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.085,
+      "ee_rotation_deg": 0.1,
+      "joint_travel_rad": 0.28,
+      "max_joint_step_rad": 0.011
+    }
+  ]
+}

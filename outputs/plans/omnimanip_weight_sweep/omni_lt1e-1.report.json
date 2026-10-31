@@ -1,0 +1,72 @@
+{
+  "planner": "omnimanip",
+  "mode": "open-loop",
+  "program": "/workspace/manip_sim/omnimanip/programs/insert_marker.json",
+  "config": {
+    "weights": {
+      "lambda_trans": 0.1,
+      "lambda_rot": 0.0001,
+      "rot_radius": 0.1,
+      "d_min": 0.02
+    },
+    "max_ee_points": 60,
+    "pos_tol": 0.005,
+    "rot_tol_deg": 5.0,
+    "line_pos_step": 0.005,
+    "line_rot_step_deg": 1.0,
+    "ik_pos_tol": 0.001,
+    "ik_rot_tol": 0.005,
+    "max_joint_step": 0.2,
+    "x0_jitter": [
+      0.01,
+      0.05
+    ],
+    "seed": 0
+  },
+  "stages": [
+    {
+      "stage": "grasp",
+      "n_waypoints": 114
+    },
+    {
+      "stage": "place",
+      "solve": {
+        "position_error_mm": 49.45,
+        "angle_error_deg": 20.734,
+        "losses": {
+          "constraint": 0.00374,
+          "collision": 9.217e-06,
+          "path": 0.04071
+        },
+        "move_m": 0.405,
+        "rotation_deg": 111.0,
+        "n_iterations": 36,
+        "solver_message": "Optimization terminated successfully"
+      },
+      "obstacles": [
+        "table",
+        "cup_main"
+      ]
+    }
+  ],
+  "status": "failed",
+  "failure": {
+    "kind": "target_pose",
+    "stage": "place",
+    "message": "[place] target_pose: the solve missed the constraint",
+    "detail": {
+      "position_error_mm": 49.45,
+      "angle_error_deg": 20.734,
+      "losses": {
+        "constraint": 0.00374,
+        "collision": 9.217e-06,
+        "path": 0.04071
+      },
+      "move_m": 0.405,
+      "rotation_deg": 111.0,
+      "n_iterations": 36,
+      "solver_message": "Optimization terminated successfully"
+    }
+  },
+  "seconds": 1.1
+}

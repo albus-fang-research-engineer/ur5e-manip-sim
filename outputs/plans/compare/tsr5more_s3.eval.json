@@ -1,0 +1,93 @@
+{
+  "plan": "outputs/plans/compare/tsr5more_s3.npz",
+  "spec": "insert_marker",
+  "goal": {
+    "lower_end": "tail_center",
+    "tilt_deg": 5.0,
+    "off_axis_mm": 21.3,
+    "depth_mm": 48.7
+  },
+  "checks": {
+    "first_end_lower": true,
+    "tilt": true,
+    "depth": true,
+    "inside_rim": true
+  },
+  "goal_pass": true,
+  "inserted": {
+    "n_points": 25,
+    "max_tilt_deg": 26.5,
+    "max_off_axis_mm": 21.3
+  },
+  "transport": {
+    "travel_m": 0.738,
+    "rest_up_tilt_deg_at_travel": {
+      "0%": 0.1,
+      "25%": 3.0,
+      "50%": 7.1,
+      "75%": 10.5,
+      "100%": 85.0
+    },
+    "max_rest_up_tilt_deg": 85.0,
+    "total_rotation_deg": 86.3,
+    "rotation_done_at_half_travel_pct": 29.6
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "colliding_points": 0,
+  "n_tracked": 226,
+  "ee_travel_m": 1.355,
+  "ee_rotation_deg": 216.3,
+  "joint_travel_rad": 9.51,
+  "max_joint_step_rad": 0.113,
+  "segments": [
+    {
+      "segment": "grasp:reach",
+      "n_waypoints": 41,
+      "n_tracked": 99,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.617,
+      "ee_rotation_deg": 81.8,
+      "joint_travel_rad": 5.43,
+      "max_joint_step_rad": 0.076
+    },
+    {
+      "segment": "grasp:lift",
+      "n_waypoints": 12,
+      "n_tracked": 12,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.046,
+      "ee_rotation_deg": 0.0,
+      "joint_travel_rad": 0.13,
+      "max_joint_step_rad": 0.006
+    },
+    {
+      "segment": "transport_active",
+      "n_waypoints": 7,
+      "n_tracked": 34,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.507,
+      "ee_rotation_deg": 39.8,
+      "joint_travel_rad": 1.13,
+      "max_joint_step_rad": 0.108
+    },
+    {
+      "segment": "insert",
+      "n_waypoints": 19,
+      "n_tracked": 81,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.185,
+      "ee_rotation_deg": 94.7,
+      "joint_travel_rad": 2.82,
+      "max_joint_step_rad": 0.113
+    }
+  ]
+}
