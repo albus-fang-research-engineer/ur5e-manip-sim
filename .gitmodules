@@ -1,0 +1,3 @@
+[submodule "manip_sim/rekep/upstream"]
+	path = manip_sim/rekep/upstream
+	url = https://github.com/huangwl18/ReKep.git

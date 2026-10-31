@@ -1,0 +1,12 @@
+{
+  "task": "insert_marker",
+  "active": "marker",
+  "passive": "cup",
+  "first_end": "tail_center",
+  "other_end": "tip",
+  "rest_up_axis": "up_axis",
+  "opening": "opening_center",
+  "rim_radius_m": 0.0423,
+  "max_tilt_deg": 10.0,
+  "min_depth_m": 0.04
+}
