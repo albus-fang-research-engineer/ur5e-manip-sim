@@ -24,6 +24,98 @@ oracle bands). Each run writes `outputs/runs/<stamp>/run.json` with the
 commands issued and artifact paths. Any downstream script accepts
 `--grounding outputs/grounding/<scene>` to read the runtime symbol tables.
 
+# Representation study: TSRs vs ReKep vs OmniManip
+
+Does the way a task's constraints are written change how well a plan can meet
+them? The study runs three representations, each with its own planner, on one
+scene and grades every plan with the same code against one written spec. No VLM
+or LLM runs at plan time. `manip_sim/rekep/` and `manip_sim/omnimanip/` are
+self-contained baselines, and the rest of the repo does not import them.
+
+| | Constraints | Planner | Guarantee |
+|---|---|---|---|
+| Ours (`plan_task.py`) | TSRs: a band on each pose axis, for the subgoal and the path | Goal sampling, then CBiRRT projecting onto the path TSR | Hard: samples stay inside the bands |
+| ReKep (`manip_sim/rekep/`) | Python costs on keypoints | Upstream's subgoal and path solvers (annealing + SLSQP) | Soft: a weighted penalty, checked after the solve |
+| OmniManip (`manip_sim/omnimanip/`) | Aligned axes and a signed distance along one (Eqs. 2-5) | One SLSQP solve for the target pose, then straight moves (supp. A.4) | Soft: traded against `L_path` by its weights |
+
+The spec is `tasks/specs/insert_marker.json`: tail-first, at most 10° from
+vertical, tail at least 40 mm below the rim. Results are over seeds 0-4 at 0.50 m
+separation. Physics reuses `execute_task_plan.py` with no planner-specific code.
+"Tilt" under Transport is the marker's resting up axis from vertical; it must reach
+about 90° by the end, so the rows show how early it turns.
+
+<!-- comparison:start -->
+|  | Ours, 5° | Ours, 1° | Ours, 10° | Ours, 5°, more samples | ReKep | OmniManip |
+|---|---|---|---|---|---|---|
+| Plans found | 4/5 | 3/5 | 3/5 | 4/5 | 5/5 | 5/5 |
+| Meets the goal spec | 4/4 | 3/3 | 2/3 | 4/4 | 5/5 | 5/5 |
+| **Goal deviation:** final tilt | 4.2–6.0° | 1.0–1.2° | 2.7–12.0° | 3.3–5.3° | 0.6–1.1° | 0.1° |
+| Lower end off the cup's axis | 2.1–15.2 mm | 13.1–19.0 mm | 1.2–17.5 mm | 9.8–21.3 mm | 0.2–0.9 mm | 0.5 mm |
+| Depth below the rim | 50.5–62.9 mm | 51.9–59.7 mm | 50.2–55.4 mm | 48.2–64.1 mm | 45.0 mm | 45.1 mm |
+| **Constraint violation:** goal tilt over limit | 0/4 | 0/3 | 1/3 | 0/4 | 0/5 | 0/5 |
+| Worst tilt inside the rim | 4.6–13.1° | 1.5–63.7° | 7.9–12.0° | 3.3–26.5° | 0.6–1.4° | 0.1° |
+| Tilt over limit inside the rim | 1/4 | 2/3 | 1/3 | 2/4 | 0/5 | 0/5 |
+| Plans with a collision (deepest) | 2/4 (13.5 mm) | 1/3 (8.5 mm) | 3/3 (14.0 mm) | 3/4 (13.4 mm) | 0/5 | 0/5 |
+| **Transport:** tilt at 25% of travel | 0.4–6.6° | 0.8–4.1° | 0.2–3.1° | 3.0–4.1° | 2.1–20.3° | 26.2° |
+| Tilt at 50% | 0.3–11.3° | 1.9–9.7° | 0.3–7.2° | 7.0–9.3° | 25.6–52.4° | 52.5° |
+| Tilt at 75% | 14.3–46.2° | 11.2–56.0° | 5.4–34.3° | 10.5–33.6° | 70.4–79.5° | 78.7° |
+| Rotation done by half travel | 27–37% | 27–35% | 31–37% | 30–38% | 29–59% | 58% |
+| **Path:** end-effector travel | 1.40–1.52 m | 1.34–1.53 m | 1.40–1.48 m | 1.35–1.55 m | 1.34–1.46 m | 1.15 m |
+| Joint travel | 9.3–10.0 rad | 8.5–11.1 rad | 9.4–11.0 rad | 7.8–9.5 rad | 9.0–11.1 rad | 10.2–10.4 rad |
+| Planning time | 197.4–230.5 s | 192.8–230.2 s | 202.1–234.2 s | 756.5–1062.8 s | 181.4–255.0 s | 0.6–0.7 s |
+| **Physics:** in cup | 0/4 | 2/3 | 0/3 | 0/4 | 5/5 | 5/5 |
+| Beside the cup | 2/4 | 0/3 | 1/3 | 1/4 | 0/5 | 0/5 |
+| Object lost from the hand | 2/4 | 1/3 | 2/3 | 3/4 | 0/5 | 0/5 |
+| Tilt after release, in cup | – | 1.7–37.6° | – | – | 0.4–1.1° | 0.2–23.6° |
+<!-- comparison:end -->
+
+Every run, the OmniManip sweeps and the raw values are in
+`outputs/comparison/insert_marker.md` and `.json`.
+
+**Read these results with care:**
+- **Not yet planner and representation only.** Ours uses the TSRs Opus emitted in
+  `gt_opus1`, while the other two use hand-written programs. Hand-authored TSRs for
+  `insert_marker` do not exist yet.
+- **Grip is confounded.** ReKep and OmniManip are given a +22 mm grip, taken from a
+  plan of ours that worked, while ours samples its own. Across all 24 executed
+  plans, every grip at 21.5-22.2 mm held and every other grip lost the object, so
+  the physics rows mostly compare grips.
+- **Residuals are not rankable.** ReKep and OmniManip optimize toward a point and
+  TSR sampling lands anywhere inside its band, so compare pass/fail at a shared
+  tolerance. Ours at 1° is level with ReKep on final tilt.
+- **OmniManip's precision is a choice.** The paper gives no weights, and these are
+  set so `L_path` only breaks ties; the weight sweep shows the tilt it can trade.
+- **Transport tilt is partly the program's.** ReKep can state a path limit, but
+  the program here sets none during transport. OmniManip has no way to state one.
+- **One scene, few seeds.** OmniManip fails from 0.70 m apart: near a wrist
+  singularity at 0.70 and 0.80 m (at 0.80 m the check may be too strict for this
+  waypoint density), and in the final descent at 1.00 m. Tilt after release varies
+  widely between near-identical plans, so it needs many runs per condition.
+- **Open-loop.** All three plan once. This is fair for undisturbed kinematics, but
+  says nothing about ReKep's or OmniManip's reactive loops.
+
+Reproduce:
+```
+git submodule update --init manip_sim/rekep/upstream   # ReKep's solvers (no license, so not copied here)
+
+export MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa PYTHONPATH=.
+OUT=outputs/plans/compare; SCENE=scenes/insert_marker.json
+python scripts/plan_rekep.py     --scene $SCENE --seed 0 --out $OUT/rekep_s0.npz
+python scripts/plan_omnimanip.py --scene $SCENE --seed 0 --out $OUT/omni_s0.npz
+python scripts/plan_task_tol.py 5 --scene $SCENE --grounding outputs/grounding/insert_marker_gt_opus1 \
+    --stage-plan outputs/runs/gt_opus1/stage_plan.json --selections outputs/runs/gt_opus1/selections.json \
+    --emissions outputs/runs/gt_opus1/emissions_call3_opus.json --seed 0 --out $OUT/tsr5_s0.npz
+
+python scripts/eval_plan.py --scene $SCENE --spec tasks/specs/insert_marker.json --plan $OUT/*.npz
+python scripts/execute_task_plan.py --scene $SCENE --plan $OUT/rekep_s0.npz      # for each plan
+python3 scripts/compare_plans.py --spec tasks/specs/insert_marker.json --plans $OUT \
+    --metrics outputs/metrics/vlm --seconds $OUT/plan_task_seconds.json \
+    --weight-sweep outputs/plans/omnimanip_weight_sweep \
+    --separation-sweep outputs/plans/omnimanip_separation_sweep \
+    --out outputs/comparison/insert_marker --readme README.md
+```
+`outputs/runs/` is not in the repo, so reproducing ours needs a `gt_opus1` run.
+
 # Perception wing: FoundationPose + PointSO + ROS2 bridge
 
 Three new services following the existing `grasp` sidecar pattern. Everything

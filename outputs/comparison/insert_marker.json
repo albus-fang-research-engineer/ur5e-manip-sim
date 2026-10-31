@@ -1,0 +1,2834 @@
+{
+  "spec": {
+    "task": "insert_marker",
+    "active": "marker",
+    "passive": "cup",
+    "first_end": "tail_center",
+    "other_end": "tip",
+    "rest_up_axis": "up_axis",
+    "opening": "opening_center",
+    "rim_radius_m": 0.0423,
+    "max_tilt_deg": 10.0,
+    "min_depth_m": 0.04
+  },
+  "n_by_method": {
+    "omni": 5,
+    "rekep": 5,
+    "tsr10": 5,
+    "tsr1": 5,
+    "tsr5": 5,
+    "tsr5more": 5
+  },
+  "runs": [
+    {
+      "run": "omni_s0",
+      "method": "omni",
+      "seed": 0,
+      "status": "ok",
+      "failure": null,
+      "seconds": 0.6,
+      "own_residual": "0.5 mm, 0.054\u00b0",
+      "eval": {
+        "plan": "outputs/plans/compare/omni_s0.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 0.09,
+          "off_axis_mm": 0.5,
+          "depth_mm": 45.1
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 10,
+          "max_tilt_deg": 0.09,
+          "max_off_axis_mm": 0.5
+        },
+        "transport": {
+          "travel_m": 0.593,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 26.2,
+            "50%": 52.5,
+            "75%": 78.7,
+            "100%": 89.9
+          },
+          "max_rest_up_tilt_deg": 89.9,
+          "total_rotation_deg": 90.0,
+          "rotation_done_at_half_travel_pct": 58.4
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 282,
+        "ee_travel_m": 1.153,
+        "ee_rotation_deg": 177.2,
+        "joint_travel_rad": 10.18,
+        "max_joint_step_rad": 0.114,
+        "segments": [
+          {
+            "segment": "grasp",
+            "n_waypoints": 114,
+            "n_tracked": 117,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.56,
+            "ee_rotation_deg": 87.2,
+            "joint_travel_rad": 4.6,
+            "max_joint_step_rad": 0.021
+          },
+          {
+            "segment": "place:move",
+            "n_waypoints": 103,
+            "n_tracked": 146,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.508,
+            "ee_rotation_deg": 89.9,
+            "joint_travel_rad": 5.3,
+            "max_joint_step_rad": 0.114
+          },
+          {
+            "segment": "place:insert",
+            "n_waypoints": 19,
+            "n_tracked": 19,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.085,
+            "ee_rotation_deg": 0.1,
+            "joint_travel_rad": 0.28,
+            "max_joint_step_rad": 0.013
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 1.0,
+        "lowest_point_below_target_plane_m": 0.0656,
+        "lowest_point_from_target_axis_m": 0.0219
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 28.7
+    },
+    {
+      "run": "omni_s1",
+      "method": "omni",
+      "seed": 1,
+      "status": "ok",
+      "failure": null,
+      "seconds": 0.7,
+      "own_residual": "0.5 mm, 0.053\u00b0",
+      "eval": {
+        "plan": "outputs/plans/compare/omni_s1.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 0.1,
+          "off_axis_mm": 0.5,
+          "depth_mm": 45.1
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 10,
+          "max_tilt_deg": 0.1,
+          "max_off_axis_mm": 0.5
+        },
+        "transport": {
+          "travel_m": 0.593,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 26.2,
+            "50%": 52.5,
+            "75%": 78.7,
+            "100%": 89.9
+          },
+          "max_rest_up_tilt_deg": 89.9,
+          "total_rotation_deg": 90.1,
+          "rotation_done_at_half_travel_pct": 58.4
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 279,
+        "ee_travel_m": 1.153,
+        "ee_rotation_deg": 177.3,
+        "joint_travel_rad": 10.21,
+        "max_joint_step_rad": 0.084,
+        "segments": [
+          {
+            "segment": "grasp",
+            "n_waypoints": 114,
+            "n_tracked": 117,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.56,
+            "ee_rotation_deg": 87.2,
+            "joint_travel_rad": 4.6,
+            "max_joint_step_rad": 0.021
+          },
+          {
+            "segment": "place:move",
+            "n_waypoints": 103,
+            "n_tracked": 143,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.508,
+            "ee_rotation_deg": 90.0,
+            "joint_travel_rad": 5.36,
+            "max_joint_step_rad": 0.084
+          },
+          {
+            "segment": "place:insert",
+            "n_waypoints": 19,
+            "n_tracked": 19,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.085,
+            "ee_rotation_deg": 0.1,
+            "joint_travel_rad": 0.25,
+            "max_joint_step_rad": 0.01
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 9.2,
+        "lowest_point_below_target_plane_m": 0.0655,
+        "lowest_point_from_target_axis_m": 0.0257
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 28.6
+    },
+    {
+      "run": "omni_s2",
+      "method": "omni",
+      "seed": 2,
+      "status": "ok",
+      "failure": null,
+      "seconds": 0.7,
+      "own_residual": "0.5 mm, 0.055\u00b0",
+      "eval": {
+        "plan": "outputs/plans/compare/omni_s2.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 0.11,
+          "off_axis_mm": 0.5,
+          "depth_mm": 45.1
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 10,
+          "max_tilt_deg": 0.11,
+          "max_off_axis_mm": 0.5
+        },
+        "transport": {
+          "travel_m": 0.593,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 26.2,
+            "50%": 52.5,
+            "75%": 78.7,
+            "100%": 89.9
+          },
+          "max_rest_up_tilt_deg": 89.9,
+          "total_rotation_deg": 90.4,
+          "rotation_done_at_half_travel_pct": 58.4
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 280,
+        "ee_travel_m": 1.153,
+        "ee_rotation_deg": 177.6,
+        "joint_travel_rad": 10.45,
+        "max_joint_step_rad": 0.068,
+        "segments": [
+          {
+            "segment": "grasp",
+            "n_waypoints": 114,
+            "n_tracked": 117,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.56,
+            "ee_rotation_deg": 87.2,
+            "joint_travel_rad": 4.6,
+            "max_joint_step_rad": 0.021
+          },
+          {
+            "segment": "place:move",
+            "n_waypoints": 103,
+            "n_tracked": 144,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.508,
+            "ee_rotation_deg": 90.3,
+            "joint_travel_rad": 5.6,
+            "max_joint_step_rad": 0.068
+          },
+          {
+            "segment": "place:insert",
+            "n_waypoints": 19,
+            "n_tracked": 19,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.085,
+            "ee_rotation_deg": 0.1,
+            "joint_travel_rad": 0.25,
+            "max_joint_step_rad": 0.01
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 0.5,
+        "lowest_point_below_target_plane_m": 0.0656,
+        "lowest_point_from_target_axis_m": 0.0098
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 28.3
+    },
+    {
+      "run": "omni_s3",
+      "method": "omni",
+      "seed": 3,
+      "status": "ok",
+      "failure": null,
+      "seconds": 0.7,
+      "own_residual": "0.5 mm, 0.053\u00b0",
+      "eval": {
+        "plan": "outputs/plans/compare/omni_s3.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 0.09,
+          "off_axis_mm": 0.5,
+          "depth_mm": 45.1
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 10,
+          "max_tilt_deg": 0.09,
+          "max_off_axis_mm": 0.5
+        },
+        "transport": {
+          "travel_m": 0.593,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 26.2,
+            "50%": 52.5,
+            "75%": 78.7,
+            "100%": 89.9
+          },
+          "max_rest_up_tilt_deg": 89.9,
+          "total_rotation_deg": 90.0,
+          "rotation_done_at_half_travel_pct": 58.4
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 282,
+        "ee_travel_m": 1.153,
+        "ee_rotation_deg": 177.2,
+        "joint_travel_rad": 10.18,
+        "max_joint_step_rad": 0.117,
+        "segments": [
+          {
+            "segment": "grasp",
+            "n_waypoints": 114,
+            "n_tracked": 117,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.56,
+            "ee_rotation_deg": 87.2,
+            "joint_travel_rad": 4.6,
+            "max_joint_step_rad": 0.021
+          },
+          {
+            "segment": "place:move",
+            "n_waypoints": 103,
+            "n_tracked": 146,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.508,
+            "ee_rotation_deg": 89.9,
+            "joint_travel_rad": 5.3,
+            "max_joint_step_rad": 0.117
+          },
+          {
+            "segment": "place:insert",
+            "n_waypoints": 19,
+            "n_tracked": 19,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.085,
+            "ee_rotation_deg": 0.1,
+            "joint_travel_rad": 0.28,
+            "max_joint_step_rad": 0.013
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 0.2,
+        "lowest_point_below_target_plane_m": 0.0656,
+        "lowest_point_from_target_axis_m": 0.0075
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 28.6
+    },
+    {
+      "run": "omni_s4",
+      "method": "omni",
+      "seed": 4,
+      "status": "ok",
+      "failure": null,
+      "seconds": 0.6,
+      "own_residual": "0.5 mm, 0.054\u00b0",
+      "eval": {
+        "plan": "outputs/plans/compare/omni_s4.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 0.08,
+          "off_axis_mm": 0.5,
+          "depth_mm": 45.1
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 10,
+          "max_tilt_deg": 0.08,
+          "max_off_axis_mm": 0.5
+        },
+        "transport": {
+          "travel_m": 0.593,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 26.2,
+            "50%": 52.5,
+            "75%": 78.7,
+            "100%": 89.9
+          },
+          "max_rest_up_tilt_deg": 89.9,
+          "total_rotation_deg": 90.1,
+          "rotation_done_at_half_travel_pct": 58.4
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 287,
+        "ee_travel_m": 1.153,
+        "ee_rotation_deg": 177.4,
+        "joint_travel_rad": 10.25,
+        "max_joint_step_rad": 0.186,
+        "segments": [
+          {
+            "segment": "grasp",
+            "n_waypoints": 114,
+            "n_tracked": 117,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.56,
+            "ee_rotation_deg": 87.2,
+            "joint_travel_rad": 4.6,
+            "max_joint_step_rad": 0.021
+          },
+          {
+            "segment": "place:move",
+            "n_waypoints": 103,
+            "n_tracked": 151,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.508,
+            "ee_rotation_deg": 90.1,
+            "joint_travel_rad": 5.39,
+            "max_joint_step_rad": 0.186
+          },
+          {
+            "segment": "place:insert",
+            "n_waypoints": 19,
+            "n_tracked": 19,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.085,
+            "ee_rotation_deg": 0.1,
+            "joint_travel_rad": 0.26,
+            "max_joint_step_rad": 0.009
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 23.6,
+        "lowest_point_below_target_plane_m": 0.0656,
+        "lowest_point_from_target_axis_m": 0.014
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 28.8
+    },
+    {
+      "run": "rekep_s0",
+      "method": "rekep",
+      "seed": 0,
+      "status": "ok",
+      "failure": null,
+      "seconds": 210.9,
+      "own_residual": "cost 0.0004",
+      "eval": {
+        "plan": "outputs/plans/compare/rekep_s0.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 1.1,
+          "off_axis_mm": 0.9,
+          "depth_mm": 45.0
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 5,
+          "max_tilt_deg": 1.33,
+          "max_off_axis_mm": 1.6
+        },
+        "transport": {
+          "travel_m": 0.742,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 13.7,
+            "50%": 38.1,
+            "75%": 73.4,
+            "100%": 88.9
+          },
+          "max_rest_up_tilt_deg": 88.9,
+          "total_rotation_deg": 89.2,
+          "rotation_done_at_half_travel_pct": 43.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 193,
+        "ee_travel_m": 1.342,
+        "ee_rotation_deg": 182.2,
+        "joint_travel_rad": 9.88,
+        "max_joint_step_rad": 0.346,
+        "segments": [
+          {
+            "segment": "reach+approach",
+            "n_waypoints": 11,
+            "n_tracked": 90,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.6,
+            "ee_rotation_deg": 92.5,
+            "joint_travel_rad": 5.16,
+            "max_joint_step_rad": 0.253
+          },
+          {
+            "segment": "stage2",
+            "n_waypoints": 11,
+            "n_tracked": 93,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.657,
+            "ee_rotation_deg": 89.0,
+            "joint_travel_rad": 4.24,
+            "max_joint_step_rad": 0.346
+          },
+          {
+            "segment": "stage3",
+            "n_waypoints": 2,
+            "n_tracked": 10,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.085,
+            "ee_rotation_deg": 0.7,
+            "joint_travel_rad": 0.48,
+            "max_joint_step_rad": 0.164
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 0.5,
+        "lowest_point_below_target_plane_m": 0.0656,
+        "lowest_point_from_target_axis_m": 0.03
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 27.0
+    },
+    {
+      "run": "rekep_s1",
+      "method": "rekep",
+      "seed": 1,
+      "status": "ok",
+      "failure": null,
+      "seconds": 200.5,
+      "own_residual": "cost 0.0017",
+      "eval": {
+        "plan": "outputs/plans/compare/rekep_s1.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 0.98,
+          "off_axis_mm": 0.2,
+          "depth_mm": 45.0
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 4,
+          "max_tilt_deg": 1.45,
+          "max_off_axis_mm": 1.9
+        },
+        "transport": {
+          "travel_m": 0.859,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 20.3,
+            "50%": 52.4,
+            "75%": 79.5,
+            "100%": 89.1
+          },
+          "max_rest_up_tilt_deg": 89.1,
+          "total_rotation_deg": 89.3,
+          "rotation_done_at_half_travel_pct": 58.8
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 192,
+        "ee_travel_m": 1.46,
+        "ee_rotation_deg": 187.0,
+        "joint_travel_rad": 10.18,
+        "max_joint_step_rad": 0.321,
+        "segments": [
+          {
+            "segment": "reach+approach",
+            "n_waypoints": 11,
+            "n_tracked": 90,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.602,
+            "ee_rotation_deg": 94.3,
+            "joint_travel_rad": 4.94,
+            "max_joint_step_rad": 0.215
+          },
+          {
+            "segment": "stage2",
+            "n_waypoints": 11,
+            "n_tracked": 94,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.774,
+            "ee_rotation_deg": 91.1,
+            "joint_travel_rad": 4.98,
+            "max_joint_step_rad": 0.321
+          },
+          {
+            "segment": "stage3",
+            "n_waypoints": 2,
+            "n_tracked": 8,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.084,
+            "ee_rotation_deg": 1.6,
+            "joint_travel_rad": 0.26,
+            "max_joint_step_rad": 0.135
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 0.4,
+        "lowest_point_below_target_plane_m": 0.0656,
+        "lowest_point_from_target_axis_m": 0.0292
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 26.3
+    },
+    {
+      "run": "rekep_s2",
+      "method": "rekep",
+      "seed": 2,
+      "status": "ok",
+      "failure": null,
+      "seconds": 181.4,
+      "own_residual": "cost 0.0005",
+      "eval": {
+        "plan": "outputs/plans/compare/rekep_s2.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 1.01,
+          "off_axis_mm": 0.9,
+          "depth_mm": 45.0
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 5,
+          "max_tilt_deg": 1.38,
+          "max_off_axis_mm": 1.6
+        },
+        "transport": {
+          "travel_m": 0.749,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 2.1,
+            "50%": 25.6,
+            "75%": 70.4,
+            "100%": 89.0
+          },
+          "max_rest_up_tilt_deg": 89.0,
+          "total_rotation_deg": 89.3,
+          "rotation_done_at_half_travel_pct": 28.8
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 201,
+        "ee_travel_m": 1.351,
+        "ee_rotation_deg": 187.9,
+        "joint_travel_rad": 9.21,
+        "max_joint_step_rad": 0.299,
+        "segments": [
+          {
+            "segment": "reach+approach",
+            "n_waypoints": 11,
+            "n_tracked": 90,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.602,
+            "ee_rotation_deg": 94.3,
+            "joint_travel_rad": 4.94,
+            "max_joint_step_rad": 0.215
+          },
+          {
+            "segment": "stage2",
+            "n_waypoints": 11,
+            "n_tracked": 102,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.664,
+            "ee_rotation_deg": 92.7,
+            "joint_travel_rad": 3.93,
+            "max_joint_step_rad": 0.299
+          },
+          {
+            "segment": "stage3",
+            "n_waypoints": 2,
+            "n_tracked": 9,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.085,
+            "ee_rotation_deg": 0.9,
+            "joint_travel_rad": 0.34,
+            "max_joint_step_rad": 0.144
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 1.1,
+        "lowest_point_below_target_plane_m": 0.0656,
+        "lowest_point_from_target_axis_m": 0.0228
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 27.5
+    },
+    {
+      "run": "rekep_s3",
+      "method": "rekep",
+      "seed": 3,
+      "status": "ok",
+      "failure": null,
+      "seconds": 255.0,
+      "own_residual": "cost 0.0005",
+      "eval": {
+        "plan": "outputs/plans/compare/rekep_s3.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 1.0,
+          "off_axis_mm": 0.9,
+          "depth_mm": 45.0
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 5,
+          "max_tilt_deg": 1.39,
+          "max_off_axis_mm": 1.5
+        },
+        "transport": {
+          "travel_m": 0.749,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 11.8,
+            "50%": 39.6,
+            "75%": 74.2,
+            "100%": 89.0
+          },
+          "max_rest_up_tilt_deg": 89.0,
+          "total_rotation_deg": 89.3,
+          "rotation_done_at_half_travel_pct": 44.5
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 188,
+        "ee_travel_m": 1.351,
+        "ee_rotation_deg": 183.8,
+        "joint_travel_rad": 8.96,
+        "max_joint_step_rad": 0.237,
+        "segments": [
+          {
+            "segment": "reach+approach",
+            "n_waypoints": 11,
+            "n_tracked": 90,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.602,
+            "ee_rotation_deg": 94.3,
+            "joint_travel_rad": 4.94,
+            "max_joint_step_rad": 0.215
+          },
+          {
+            "segment": "stage2",
+            "n_waypoints": 11,
+            "n_tracked": 89,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.664,
+            "ee_rotation_deg": 88.6,
+            "joint_travel_rad": 3.7,
+            "max_joint_step_rad": 0.237
+          },
+          {
+            "segment": "stage3",
+            "n_waypoints": 2,
+            "n_tracked": 9,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.085,
+            "ee_rotation_deg": 0.9,
+            "joint_travel_rad": 0.32,
+            "max_joint_step_rad": 0.145
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 0.5,
+        "lowest_point_below_target_plane_m": 0.0656,
+        "lowest_point_from_target_axis_m": 0.0294
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 26.3
+    },
+    {
+      "run": "rekep_s4",
+      "method": "rekep",
+      "seed": 4,
+      "status": "ok",
+      "failure": null,
+      "seconds": 184.2,
+      "own_residual": "cost 0.0001",
+      "eval": {
+        "plan": "outputs/plans/compare/rekep_s4.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 0.56,
+          "off_axis_mm": 0.8,
+          "depth_mm": 45.0
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 5,
+          "max_tilt_deg": 0.56,
+          "max_off_axis_mm": 1.7
+        },
+        "transport": {
+          "travel_m": 0.742,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 15.8,
+            "50%": 41.9,
+            "75%": 75.3,
+            "100%": 89.5
+          },
+          "max_rest_up_tilt_deg": 89.5,
+          "total_rotation_deg": 90.4,
+          "rotation_done_at_half_travel_pct": 46.7
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 250,
+        "ee_travel_m": 1.367,
+        "ee_rotation_deg": 186.0,
+        "joint_travel_rad": 11.09,
+        "max_joint_step_rad": 0.301,
+        "segments": [
+          {
+            "segment": "reach+approach",
+            "n_waypoints": 11,
+            "n_tracked": 117,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.625,
+            "ee_rotation_deg": 95.5,
+            "joint_travel_rad": 5.43,
+            "max_joint_step_rad": 0.301
+          },
+          {
+            "segment": "stage2",
+            "n_waypoints": 15,
+            "n_tracked": 123,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.657,
+            "ee_rotation_deg": 90.5,
+            "joint_travel_rad": 5.33,
+            "max_joint_step_rad": 0.23
+          },
+          {
+            "segment": "stage3",
+            "n_waypoints": 2,
+            "n_tracked": 10,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.085,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.33,
+            "max_joint_step_rad": 0.163
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 0.4,
+        "lowest_point_below_target_plane_m": 0.0656,
+        "lowest_point_from_target_axis_m": 0.0294
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 29.1
+    },
+    {
+      "run": "tsr10_s0",
+      "method": "tsr10",
+      "seed": 0,
+      "status": "failed",
+      "failure": "grasp: grasp",
+      "seconds": 77.9,
+      "own_residual": null,
+      "eval": null,
+      "violations": null,
+      "physics": null,
+      "released": null,
+      "grasp_contacts": null,
+      "slip_max_mm": null
+    },
+    {
+      "run": "tsr10_s1",
+      "method": "tsr10",
+      "seed": 1,
+      "status": "ok",
+      "failure": null,
+      "seconds": 234.2,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr10_s1.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 2.66,
+          "off_axis_mm": 7.1,
+          "depth_mm": 53.8
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 8,
+          "max_tilt_deg": 7.87,
+          "max_off_axis_mm": 16.5
+        },
+        "transport": {
+          "travel_m": 0.807,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 0.7,
+            "50%": 1.6,
+            "75%": 5.4,
+            "100%": 87.4
+          },
+          "max_rest_up_tilt_deg": 87.4,
+          "total_rotation_deg": 87.5,
+          "rotation_done_at_half_travel_pct": 30.7
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 3.6,
+          "other": 0.0
+        },
+        "colliding_points": 4,
+        "n_tracked": 233,
+        "ee_travel_m": 1.403,
+        "ee_rotation_deg": 232.5,
+        "joint_travel_rad": 9.57,
+        "max_joint_step_rad": 0.119,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 39,
+            "n_tracked": 92,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.596,
+            "ee_rotation_deg": 88.3,
+            "joint_travel_rad": 4.43,
+            "max_joint_step_rad": 0.08
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 9,
+            "n_tracked": 34,
+            "colliding_points": 4,
+            "pairs_max_depth_mm": {
+              "cup_main <-> marker_main": 3.6
+            },
+            "ee_travel_m": 0.511,
+            "ee_rotation_deg": 38.3,
+            "joint_travel_rad": 0.81,
+            "max_joint_step_rad": 0.119
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 24,
+            "n_tracked": 95,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.25,
+            "ee_rotation_deg": 105.9,
+            "joint_travel_rad": 4.19,
+            "max_joint_step_rad": 0.103
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "lost",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 89.8,
+        "lowest_point_below_target_plane_m": 0.0746,
+        "lowest_point_from_target_axis_m": 0.3785
+      },
+      "grasp_contacts": 4,
+      "slip_max_mm": 510.2
+    },
+    {
+      "run": "tsr10_s2",
+      "method": "tsr10",
+      "seed": 2,
+      "status": "failed",
+      "failure": "grasp: grasp",
+      "seconds": 83.7,
+      "own_residual": null,
+      "eval": null,
+      "violations": null,
+      "physics": null,
+      "released": null,
+      "grasp_contacts": null,
+      "slip_max_mm": null
+    },
+    {
+      "run": "tsr10_s3",
+      "method": "tsr10",
+      "seed": 3,
+      "status": "ok",
+      "failure": null,
+      "seconds": 202.1,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr10_s3.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 11.96,
+          "off_axis_mm": 17.5,
+          "depth_mm": 55.4
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": false,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": false,
+        "inserted": {
+          "n_points": 2,
+          "max_tilt_deg": 11.96,
+          "max_off_axis_mm": 30.1
+        },
+        "transport": {
+          "travel_m": 0.87,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 3.1,
+            "50%": 7.2,
+            "75%": 27.6,
+            "100%": 83.3
+          },
+          "max_rest_up_tilt_deg": 84.6,
+          "total_rotation_deg": 84.7,
+          "rotation_done_at_half_travel_pct": 34.3
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 12.0,
+          "other": 0.0
+        },
+        "colliding_points": 3,
+        "n_tracked": 214,
+        "ee_travel_m": 1.484,
+        "ee_rotation_deg": 218.6,
+        "joint_travel_rad": 9.41,
+        "max_joint_step_rad": 0.113,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 44,
+            "n_tracked": 92,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.614,
+            "ee_rotation_deg": 89.8,
+            "joint_travel_rad": 4.54,
+            "max_joint_step_rad": 0.078
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 9,
+            "n_tracked": 33,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.512,
+            "ee_rotation_deg": 38.3,
+            "joint_travel_rad": 1.05,
+            "max_joint_step_rad": 0.113
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 23,
+            "n_tracked": 77,
+            "colliding_points": 3,
+            "pairs_max_depth_mm": {
+              "cup_main <-> marker_main": 12.0
+            },
+            "ee_travel_m": 0.312,
+            "ee_rotation_deg": 90.5,
+            "joint_travel_rad": 3.68,
+            "max_joint_step_rad": 0.103
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 1.96,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 1.96
+      },
+      "physics": "beside",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 31.0,
+        "lowest_point_below_target_plane_m": 0.0745,
+        "lowest_point_from_target_axis_m": 0.0623
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 56.2
+    },
+    {
+      "run": "tsr10_s4",
+      "method": "tsr10",
+      "seed": 4,
+      "status": "ok",
+      "failure": null,
+      "seconds": 212.7,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr10_s4.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 8.51,
+          "off_axis_mm": 1.2,
+          "depth_mm": 50.2
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 5,
+          "max_tilt_deg": 8.51,
+          "max_off_axis_mm": 34.6
+        },
+        "transport": {
+          "travel_m": 0.844,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 0.2,
+            "50%": 0.3,
+            "75%": 34.3,
+            "100%": 89.7
+          },
+          "max_rest_up_tilt_deg": 90.2,
+          "total_rotation_deg": 92.4,
+          "rotation_done_at_half_travel_pct": 37.4
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 14.0,
+          "other": 0.0
+        },
+        "colliding_points": 3,
+        "n_tracked": 246,
+        "ee_travel_m": 1.44,
+        "ee_rotation_deg": 253.0,
+        "joint_travel_rad": 10.98,
+        "max_joint_step_rad": 0.114,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 45,
+            "n_tracked": 93,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.595,
+            "ee_rotation_deg": 85.5,
+            "joint_travel_rad": 4.38,
+            "max_joint_step_rad": 0.076
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 7,
+            "n_tracked": 35,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.503,
+            "ee_rotation_deg": 47.3,
+            "joint_travel_rad": 0.97,
+            "max_joint_step_rad": 0.114
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 30,
+            "n_tracked": 106,
+            "colliding_points": 3,
+            "pairs_max_depth_mm": {
+              "cup_main <-> marker_main": 14.0
+            },
+            "ee_travel_m": 0.296,
+            "ee_rotation_deg": 120.2,
+            "joint_travel_rad": 5.49,
+            "max_joint_step_rad": 0.101
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "lost",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 90.0,
+        "lowest_point_below_target_plane_m": 0.0743,
+        "lowest_point_from_target_axis_m": 0.6123
+      },
+      "grasp_contacts": 2,
+      "slip_max_mm": 699.0
+    },
+    {
+      "run": "tsr1_s0",
+      "method": "tsr1",
+      "seed": 0,
+      "status": "ok",
+      "failure": null,
+      "seconds": 217.1,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr1_s0.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 0.97,
+          "off_axis_mm": 13.1,
+          "depth_mm": 51.9
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 53,
+          "max_tilt_deg": 63.69,
+          "max_off_axis_mm": 26.8
+        },
+        "transport": {
+          "travel_m": 0.749,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 4.1,
+            "50%": 9.7,
+            "75%": 16.2,
+            "100%": 89.1
+          },
+          "max_rest_up_tilt_deg": 89.1,
+          "total_rotation_deg": 90.3,
+          "rotation_done_at_half_travel_pct": 26.9
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 233,
+        "ee_travel_m": 1.338,
+        "ee_rotation_deg": 210.2,
+        "joint_travel_rad": 9.06,
+        "max_joint_step_rad": 0.11,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 49,
+            "n_tracked": 107,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.589,
+            "ee_rotation_deg": 82.7,
+            "joint_travel_rad": 4.81,
+            "max_joint_step_rad": 0.081
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 9,
+            "n_tracked": 34,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.513,
+            "ee_rotation_deg": 37.7,
+            "joint_travel_rad": 1.21,
+            "max_joint_step_rad": 0.103
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 18,
+            "n_tracked": 80,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.19,
+            "ee_rotation_deg": 89.8,
+            "joint_travel_rad": 2.9,
+            "max_joint_step_rad": 0.11
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 53.69
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 1.7,
+        "lowest_point_below_target_plane_m": 0.0654,
+        "lowest_point_from_target_axis_m": 0.0232
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 14.9
+    },
+    {
+      "run": "tsr1_s1",
+      "method": "tsr1",
+      "seed": 1,
+      "status": "ok",
+      "failure": null,
+      "seconds": 230.2,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr1_s1.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 1.22,
+          "off_axis_mm": 19.0,
+          "depth_mm": 59.7
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 4,
+          "max_tilt_deg": 1.46,
+          "max_off_axis_mm": 41.2
+        },
+        "transport": {
+          "travel_m": 0.949,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 0.8,
+            "50%": 1.9,
+            "75%": 56.0,
+            "100%": 90.9
+          },
+          "max_rest_up_tilt_deg": 90.9,
+          "total_rotation_deg": 91.0,
+          "rotation_done_at_half_travel_pct": 35.4
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 8.5,
+          "other": 0.0
+        },
+        "colliding_points": 7,
+        "n_tracked": 262,
+        "ee_travel_m": 1.53,
+        "ee_rotation_deg": 237.4,
+        "joint_travel_rad": 11.09,
+        "max_joint_step_rad": 0.119,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 45,
+            "n_tracked": 120,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.58,
+            "ee_rotation_deg": 89.4,
+            "joint_travel_rad": 4.47,
+            "max_joint_step_rad": 0.081
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 9,
+            "n_tracked": 34,
+            "colliding_points": 4,
+            "pairs_max_depth_mm": {
+              "cup_main <-> marker_main": 3.6
+            },
+            "ee_travel_m": 0.511,
+            "ee_rotation_deg": 38.3,
+            "joint_travel_rad": 0.81,
+            "max_joint_step_rad": 0.119
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 32,
+            "n_tracked": 96,
+            "colliding_points": 3,
+            "pairs_max_depth_mm": {
+              "cup_main <-> marker_main": 8.5
+            },
+            "ee_travel_m": 0.393,
+            "ee_rotation_deg": 109.7,
+            "joint_travel_rad": 5.67,
+            "max_joint_step_rad": 0.09
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "lost",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 89.8,
+        "lowest_point_below_target_plane_m": 0.0748,
+        "lowest_point_from_target_axis_m": 0.4404
+      },
+      "grasp_contacts": 4,
+      "slip_max_mm": 610.0
+    },
+    {
+      "run": "tsr1_s2",
+      "method": "tsr1",
+      "seed": 2,
+      "status": "failed",
+      "failure": "grasp: grasp",
+      "seconds": 81.0,
+      "own_residual": null,
+      "eval": null,
+      "violations": null,
+      "physics": null,
+      "released": null,
+      "grasp_contacts": null,
+      "slip_max_mm": null
+    },
+    {
+      "run": "tsr1_s3",
+      "method": "tsr1",
+      "seed": 3,
+      "status": "ok",
+      "failure": null,
+      "seconds": 192.8,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr1_s3.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 1.25,
+          "off_axis_mm": 13.4,
+          "depth_mm": 55.8
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 26,
+          "max_tilt_deg": 25.51,
+          "max_off_axis_mm": 21.9
+        },
+        "transport": {
+          "travel_m": 0.771,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 2.7,
+            "50%": 6.3,
+            "75%": 11.2,
+            "100%": 89.3
+          },
+          "max_rest_up_tilt_deg": 89.3,
+          "total_rotation_deg": 89.7,
+          "rotation_done_at_half_travel_pct": 28.2
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 235,
+        "ee_travel_m": 1.359,
+        "ee_rotation_deg": 218.4,
+        "joint_travel_rad": 8.5,
+        "max_joint_step_rad": 0.113,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 35,
+            "n_tracked": 110,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.588,
+            "ee_rotation_deg": 88.2,
+            "joint_travel_rad": 4.49,
+            "max_joint_step_rad": 0.081
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 8,
+            "n_tracked": 33,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.512,
+            "ee_rotation_deg": 38.3,
+            "joint_travel_rad": 1.05,
+            "max_joint_step_rad": 0.113
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 19,
+            "n_tracked": 80,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.213,
+            "ee_rotation_deg": 91.9,
+            "joint_travel_rad": 2.82,
+            "max_joint_step_rad": 0.111
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 15.51
+      },
+      "physics": "in_cup",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 37.6,
+        "lowest_point_below_target_plane_m": 0.0654,
+        "lowest_point_from_target_axis_m": 0.014
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 26.8
+    },
+    {
+      "run": "tsr1_s4",
+      "method": "tsr1",
+      "seed": 4,
+      "status": "failed",
+      "failure": "grasp: grasp",
+      "seconds": 59.3,
+      "own_residual": null,
+      "eval": null,
+      "violations": null,
+      "physics": null,
+      "released": null,
+      "grasp_contacts": null,
+      "slip_max_mm": null
+    },
+    {
+      "run": "tsr5_s0",
+      "method": "tsr5",
+      "seed": 0,
+      "status": "ok",
+      "failure": null,
+      "seconds": 218.1,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr5_s0.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 6.01,
+          "off_axis_mm": 3.7,
+          "depth_mm": 62.9
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 3,
+          "max_tilt_deg": 6.01,
+          "max_off_axis_mm": 40.5
+        },
+        "transport": {
+          "travel_m": 0.862,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 6.6,
+            "50%": 11.3,
+            "75%": 46.2,
+            "100%": 93.6
+          },
+          "max_rest_up_tilt_deg": 95.7,
+          "total_rotation_deg": 98.4,
+          "rotation_done_at_half_travel_pct": 27.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 12.4,
+          "other": 0.0
+        },
+        "colliding_points": 2,
+        "n_tracked": 265,
+        "ee_travel_m": 1.523,
+        "ee_rotation_deg": 245.5,
+        "joint_travel_rad": 9.88,
+        "max_joint_step_rad": 0.108,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 46,
+            "n_tracked": 126,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.661,
+            "ee_rotation_deg": 97.4,
+            "joint_travel_rad": 5.2,
+            "max_joint_step_rad": 0.081
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 10,
+            "n_tracked": 34,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.539,
+            "ee_rotation_deg": 40.6,
+            "joint_travel_rad": 1.23,
+            "max_joint_step_rad": 0.107
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 26,
+            "n_tracked": 93,
+            "colliding_points": 2,
+            "pairs_max_depth_mm": {
+              "cup_main <-> marker_main": 12.4
+            },
+            "ee_travel_m": 0.277,
+            "ee_rotation_deg": 107.5,
+            "joint_travel_rad": 3.31,
+            "max_joint_step_rad": 0.108
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "beside",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 22.7,
+        "lowest_point_below_target_plane_m": 0.0746,
+        "lowest_point_from_target_axis_m": 0.0689
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 18.8
+    },
+    {
+      "run": "tsr5_s1",
+      "method": "tsr5",
+      "seed": 1,
+      "status": "ok",
+      "failure": null,
+      "seconds": 230.5,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr5_s1.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 4.61,
+          "off_axis_mm": 14.0,
+          "depth_mm": 60.5
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 5,
+          "max_tilt_deg": 4.61,
+          "max_off_axis_mm": 38.2
+        },
+        "transport": {
+          "travel_m": 0.895,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 0.8,
+            "50%": 1.8,
+            "75%": 17.3,
+            "100%": 86.9
+          },
+          "max_rest_up_tilt_deg": 86.9,
+          "total_rotation_deg": 87.0,
+          "rotation_done_at_half_travel_pct": 34.7
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 13.5,
+          "other": 0.0
+        },
+        "colliding_points": 7,
+        "n_tracked": 227,
+        "ee_travel_m": 1.475,
+        "ee_rotation_deg": 237.8,
+        "joint_travel_rad": 9.31,
+        "max_joint_step_rad": 0.119,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 48,
+            "n_tracked": 93,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.579,
+            "ee_rotation_deg": 88.8,
+            "joint_travel_rad": 4.57,
+            "max_joint_step_rad": 0.084
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 9,
+            "n_tracked": 34,
+            "colliding_points": 4,
+            "pairs_max_depth_mm": {
+              "cup_main <-> marker_main": 3.6
+            },
+            "ee_travel_m": 0.511,
+            "ee_rotation_deg": 38.3,
+            "joint_travel_rad": 0.81,
+            "max_joint_step_rad": 0.119
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 24,
+            "n_tracked": 88,
+            "colliding_points": 3,
+            "pairs_max_depth_mm": {
+              "cup_main <-> marker_main": 13.5
+            },
+            "ee_travel_m": 0.339,
+            "ee_rotation_deg": 110.7,
+            "joint_travel_rad": 3.79,
+            "max_joint_step_rad": 0.094
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "lost",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 89.8,
+        "lowest_point_below_target_plane_m": 0.0748,
+        "lowest_point_from_target_axis_m": 0.4443
+      },
+      "grasp_contacts": 4,
+      "slip_max_mm": 617.0
+    },
+    {
+      "run": "tsr5_s2",
+      "method": "tsr5",
+      "seed": 2,
+      "status": "failed",
+      "failure": "grasp: grasp",
+      "seconds": 80.8,
+      "own_residual": null,
+      "eval": null,
+      "violations": null,
+      "physics": null,
+      "released": null,
+      "grasp_contacts": null,
+      "slip_max_mm": null
+    },
+    {
+      "run": "tsr5_s3",
+      "method": "tsr5",
+      "seed": 3,
+      "status": "ok",
+      "failure": null,
+      "seconds": 197.4,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr5_s3.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 6.02,
+          "off_axis_mm": 15.2,
+          "depth_mm": 55.7
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 12,
+          "max_tilt_deg": 13.07,
+          "max_off_axis_mm": 24.6
+        },
+        "transport": {
+          "travel_m": 0.788,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 2.8,
+            "50%": 6.6,
+            "75%": 14.3,
+            "100%": 86.6
+          },
+          "max_rest_up_tilt_deg": 86.6,
+          "total_rotation_deg": 86.8,
+          "rotation_done_at_half_travel_pct": 28.9
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 248,
+        "ee_travel_m": 1.395,
+        "ee_rotation_deg": 238.4,
+        "joint_travel_rad": 9.32,
+        "max_joint_step_rad": 0.112,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 45,
+            "n_tracked": 112,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.607,
+            "ee_rotation_deg": 93.4,
+            "joint_travel_rad": 4.49,
+            "max_joint_step_rad": 0.086
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 7,
+            "n_tracked": 33,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.512,
+            "ee_rotation_deg": 38.4,
+            "joint_travel_rad": 1.05,
+            "max_joint_step_rad": 0.112
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 23,
+            "n_tracked": 91,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.23,
+            "ee_rotation_deg": 106.6,
+            "joint_travel_rad": 3.64,
+            "max_joint_step_rad": 0.108
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 3.07
+      },
+      "physics": "beside",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 30.3,
+        "lowest_point_below_target_plane_m": 0.0745,
+        "lowest_point_from_target_axis_m": 0.077
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 56.0
+    },
+    {
+      "run": "tsr5_s4",
+      "method": "tsr5",
+      "seed": 4,
+      "status": "ok",
+      "failure": null,
+      "seconds": 208.0,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr5_s4.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 4.22,
+          "off_axis_mm": 2.1,
+          "depth_mm": 50.5
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 17,
+          "max_tilt_deg": 6.42,
+          "max_off_axis_mm": 17.9
+        },
+        "transport": {
+          "travel_m": 0.862,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 0.4,
+            "50%": 0.3,
+            "75%": 36.2,
+            "100%": 89.9
+          },
+          "max_rest_up_tilt_deg": 89.9,
+          "total_rotation_deg": 91.2,
+          "rotation_done_at_half_travel_pct": 37.2
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 243,
+        "ee_travel_m": 1.448,
+        "ee_rotation_deg": 245.1,
+        "joint_travel_rad": 9.97,
+        "max_joint_step_rad": 0.115,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 46,
+            "n_tracked": 87,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.586,
+            "ee_rotation_deg": 83.3,
+            "joint_travel_rad": 4.32,
+            "max_joint_step_rad": 0.078
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 10,
+            "n_tracked": 36,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.507,
+            "ee_rotation_deg": 47.3,
+            "joint_travel_rad": 1.1,
+            "max_joint_step_rad": 0.115
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 32,
+            "n_tracked": 108,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.309,
+            "ee_rotation_deg": 114.5,
+            "joint_travel_rad": 4.41,
+            "max_joint_step_rad": 0.086
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "lost",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 90.0,
+        "lowest_point_below_target_plane_m": 0.0743,
+        "lowest_point_from_target_axis_m": 0.5738
+      },
+      "grasp_contacts": 2,
+      "slip_max_mm": 626.4
+    },
+    {
+      "run": "tsr5more_s0",
+      "method": "tsr5more",
+      "seed": 0,
+      "status": "ok",
+      "failure": null,
+      "seconds": 756.5,
+      "own_residual": "path excess 0.0019",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr5more_s0.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 4.18,
+          "off_axis_mm": 11.4,
+          "depth_mm": 58.3
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 3,
+          "max_tilt_deg": 5.77,
+          "max_off_axis_mm": 32.7
+        },
+        "transport": {
+          "travel_m": 0.94,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 4.1,
+            "50%": 9.3,
+            "75%": 12.1,
+            "100%": 86.1
+          },
+          "max_rest_up_tilt_deg": 86.1,
+          "total_rotation_deg": 86.7,
+          "rotation_done_at_half_travel_pct": 38.4
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 13.4,
+          "other": 0.0
+        },
+        "colliding_points": 2,
+        "n_tracked": 234,
+        "ee_travel_m": 1.522,
+        "ee_rotation_deg": 226.6,
+        "joint_travel_rad": 9.37,
+        "max_joint_step_rad": 0.111,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 45,
+            "n_tracked": 98,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.582,
+            "ee_rotation_deg": 85.5,
+            "joint_travel_rad": 4.87,
+            "max_joint_step_rad": 0.087
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 8,
+            "n_tracked": 33,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.506,
+            "ee_rotation_deg": 40.4,
+            "joint_travel_rad": 1.04,
+            "max_joint_step_rad": 0.111
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 23,
+            "n_tracked": 91,
+            "colliding_points": 2,
+            "pairs_max_depth_mm": {
+              "cup_main <-> marker_main": 13.4
+            },
+            "ee_travel_m": 0.388,
+            "ee_rotation_deg": 100.7,
+            "joint_travel_rad": 3.32,
+            "max_joint_step_rad": 0.108
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "beside",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 22.5,
+        "lowest_point_below_target_plane_m": 0.0745,
+        "lowest_point_from_target_axis_m": 0.0774
+      },
+      "grasp_contacts": 5,
+      "slip_max_mm": 30.2
+    },
+    {
+      "run": "tsr5more_s1",
+      "method": "tsr5more",
+      "seed": 1,
+      "status": "ok",
+      "failure": null,
+      "seconds": 1062.8,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr5more_s1.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 3.26,
+          "off_axis_mm": 9.8,
+          "depth_mm": 64.1
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 4,
+          "max_tilt_deg": 3.26,
+          "max_off_axis_mm": 25.8
+        },
+        "transport": {
+          "travel_m": 0.8,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 3.4,
+            "50%": 7.0,
+            "75%": 30.1,
+            "100%": 87.0
+          },
+          "max_rest_up_tilt_deg": 88.9,
+          "total_rotation_deg": 89.0,
+          "rotation_done_at_half_travel_pct": 29.9
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.5,
+          "other": 0.0
+        },
+        "colliding_points": 1,
+        "n_tracked": 227,
+        "ee_travel_m": 1.364,
+        "ee_rotation_deg": 213.5,
+        "joint_travel_rad": 7.78,
+        "max_joint_step_rad": 0.114,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 34,
+            "n_tracked": 106,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.563,
+            "ee_rotation_deg": 84.9,
+            "joint_travel_rad": 4.02,
+            "max_joint_step_rad": 0.084
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.007
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 11,
+            "n_tracked": 33,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.508,
+            "ee_rotation_deg": 38.7,
+            "joint_travel_rad": 1.07,
+            "max_joint_step_rad": 0.106
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 19,
+            "n_tracked": 76,
+            "colliding_points": 1,
+            "pairs_max_depth_mm": {
+              "cup_main <-> marker_main": 0.5
+            },
+            "ee_travel_m": 0.247,
+            "ee_rotation_deg": 89.9,
+            "joint_travel_rad": 2.55,
+            "max_joint_step_rad": 0.114
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 0.0
+      },
+      "physics": "lost",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 89.8,
+        "lowest_point_below_target_plane_m": 0.0746,
+        "lowest_point_from_target_axis_m": 0.142
+      },
+      "grasp_contacts": 6,
+      "slip_max_mm": 304.1
+    },
+    {
+      "run": "tsr5more_s2",
+      "method": "tsr5more",
+      "seed": 2,
+      "status": "ok",
+      "failure": null,
+      "seconds": 803.3,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr5more_s2.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 5.32,
+          "off_axis_mm": 17.5,
+          "depth_mm": 48.2
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 10,
+          "max_tilt_deg": 12.07,
+          "max_off_axis_mm": 38.1
+        },
+        "transport": {
+          "travel_m": 0.923,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 3.8,
+            "50%": 8.4,
+            "75%": 33.6,
+            "100%": 85.5
+          },
+          "max_rest_up_tilt_deg": 85.5,
+          "total_rotation_deg": 86.0,
+          "rotation_done_at_half_travel_pct": 30.5
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 12.5,
+          "other": 0.0
+        },
+        "colliding_points": 5,
+        "n_tracked": 219,
+        "ee_travel_m": 1.549,
+        "ee_rotation_deg": 216.8,
+        "joint_travel_rad": 8.94,
+        "max_joint_step_rad": 0.116,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 40,
+            "n_tracked": 98,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.626,
+            "ee_rotation_deg": 91.5,
+            "joint_travel_rad": 5.05,
+            "max_joint_step_rad": 0.075
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.14,
+            "max_joint_step_rad": 0.006
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 8,
+            "n_tracked": 32,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.51,
+            "ee_rotation_deg": 33.1,
+            "joint_travel_rad": 0.99,
+            "max_joint_step_rad": 0.113
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 20,
+            "n_tracked": 77,
+            "colliding_points": 5,
+            "pairs_max_depth_mm": {
+              "cup_main <-> marker_main": 12.5
+            },
+            "ee_travel_m": 0.367,
+            "ee_rotation_deg": 92.2,
+            "joint_travel_rad": 2.76,
+            "max_joint_step_rad": 0.116
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 2.07
+      },
+      "physics": "lost",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 90.0,
+        "lowest_point_below_target_plane_m": 0.0747,
+        "lowest_point_from_target_axis_m": 0.3871
+      },
+      "grasp_contacts": 4,
+      "slip_max_mm": 601.8
+    },
+    {
+      "run": "tsr5more_s3",
+      "method": "tsr5more",
+      "seed": 3,
+      "status": "ok",
+      "failure": null,
+      "seconds": 941.3,
+      "own_residual": "path excess 0.0000",
+      "eval": {
+        "plan": "outputs/plans/compare/tsr5more_s3.npz",
+        "spec": "insert_marker",
+        "goal": {
+          "lower_end": "tail_center",
+          "tilt_deg": 5.0,
+          "off_axis_mm": 21.3,
+          "depth_mm": 48.7
+        },
+        "checks": {
+          "first_end_lower": true,
+          "tilt": true,
+          "depth": true,
+          "inside_rim": true
+        },
+        "goal_pass": true,
+        "inserted": {
+          "n_points": 25,
+          "max_tilt_deg": 26.5,
+          "max_off_axis_mm": 21.3
+        },
+        "transport": {
+          "travel_m": 0.738,
+          "rest_up_tilt_deg_at_travel": {
+            "0%": 0.1,
+            "25%": 3.0,
+            "50%": 7.1,
+            "75%": 10.5,
+            "100%": 85.0
+          },
+          "max_rest_up_tilt_deg": 85.0,
+          "total_rotation_deg": 86.3,
+          "rotation_done_at_half_travel_pct": 29.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "colliding_points": 0,
+        "n_tracked": 226,
+        "ee_travel_m": 1.355,
+        "ee_rotation_deg": 216.3,
+        "joint_travel_rad": 9.51,
+        "max_joint_step_rad": 0.113,
+        "segments": [
+          {
+            "segment": "grasp:reach",
+            "n_waypoints": 41,
+            "n_tracked": 99,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.617,
+            "ee_rotation_deg": 81.8,
+            "joint_travel_rad": 5.43,
+            "max_joint_step_rad": 0.076
+          },
+          {
+            "segment": "grasp:lift",
+            "n_waypoints": 12,
+            "n_tracked": 12,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.046,
+            "ee_rotation_deg": 0.0,
+            "joint_travel_rad": 0.13,
+            "max_joint_step_rad": 0.006
+          },
+          {
+            "segment": "transport_active",
+            "n_waypoints": 7,
+            "n_tracked": 34,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.507,
+            "ee_rotation_deg": 39.8,
+            "joint_travel_rad": 1.13,
+            "max_joint_step_rad": 0.108
+          },
+          {
+            "segment": "insert",
+            "n_waypoints": 19,
+            "n_tracked": 81,
+            "colliding_points": 0,
+            "pairs_max_depth_mm": {},
+            "ee_travel_m": 0.185,
+            "ee_rotation_deg": 94.7,
+            "joint_travel_rad": 2.82,
+            "max_joint_step_rad": 0.113
+          }
+        ]
+      },
+      "violations": {
+        "goal_tilt_over_deg": 0.0,
+        "goal_depth_short_mm": 0.0,
+        "goal_outside_rim": false,
+        "goal_wrong_end": false,
+        "inside_tilt_over_deg": 16.5
+      },
+      "physics": "lost",
+      "released": {
+        "long_axis_tilt_from_passive_up_deg": 90.0,
+        "lowest_point_below_target_plane_m": 0.0747,
+        "lowest_point_from_target_axis_m": 0.4543
+      },
+      "grasp_contacts": 3,
+      "slip_max_mm": 560.3
+    },
+    {
+      "run": "tsr5more_s4",
+      "method": "tsr5more",
+      "seed": 4,
+      "status": "failed",
+      "failure": "grasp: grasp",
+      "seconds": 118.2,
+      "own_residual": null,
+      "eval": null,
+      "violations": null,
+      "physics": null,
+      "released": null,
+      "grasp_contacts": null,
+      "slip_max_mm": null
+    }
+  ]
+}
