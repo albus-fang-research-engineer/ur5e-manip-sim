@@ -1,0 +1,59 @@
+{
+  "plan": "outputs/plans/compare_eps003/same1_s1.npz",
+  "grasped": "marker",
+  "passive": "cup",
+  "segments": {
+    "grasp:reach": {
+      "n_targets": 109,
+      "n_env_steps": 346,
+      "max_track_err": 0.010668126940375111,
+      "mean_track_err": 0.0079426629205511,
+      "stalled": false
+    },
+    "grasp:lift": {
+      "n_targets": 12,
+      "n_env_steps": 18,
+      "max_track_err": 0.011684219446376432,
+      "mean_track_err": 0.009137117764311226,
+      "stalled": false,
+      "slip_max_mm": 0.9,
+      "slip_max_deg": 0.5
+    },
+    "transport_active": {
+      "n_targets": 44,
+      "n_env_steps": 128,
+      "max_track_err": 0.012183914266087392,
+      "mean_track_err": 0.008447795700612055,
+      "stalled": false,
+      "slip_max_mm": 6.9,
+      "slip_max_deg": 1.7
+    },
+    "insert": {
+      "n_targets": 114,
+      "n_env_steps": 327,
+      "max_track_err": 0.010243142487739276,
+      "mean_track_err": 0.008077889431503702,
+      "stalled": false,
+      "slip_max_mm": 28.4,
+      "slip_max_deg": 17.0
+    }
+  },
+  "grasp_contacts": 5,
+  "T_ee_body_delta_mm": 2.0,
+  "target_point_body": [
+    -0.0,
+    0.0001,
+    0.0372
+  ],
+  "held_end": {
+    "long_axis_tilt_from_passive_up_deg": 17.4,
+    "lowest_point_below_target_plane_m": 0.0545,
+    "lowest_point_from_target_axis_m": 0.0194
+  },
+  "held_contacts": 4,
+  "released_end": {
+    "long_axis_tilt_from_passive_up_deg": 38.5,
+    "lowest_point_below_target_plane_m": 0.0654,
+    "lowest_point_from_target_axis_m": 0.0147
+  }
+}

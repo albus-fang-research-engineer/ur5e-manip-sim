@@ -1,5 +1,5 @@
 {
-  "plan": "outputs/plans/compare/omni_lr1e-3.npz",
+  "plan": "outputs/plans/omnimanip_weight_sweep/omni_lr1e-3.npz",
   "spec": "insert_marker",
   "goal": {
     "lower_end": "tail_center",
@@ -14,10 +14,24 @@
     "inside_rim": true
   },
   "goal_pass": true,
+  "path_pass": true,
   "inserted": {
     "n_points": 10,
     "max_tilt_deg": 2.65,
     "max_off_axis_mm": 0.5
+  },
+  "transport": {
+    "travel_m": 0.597,
+    "rest_up_tilt_deg_at_travel": {
+      "0%": 0.1,
+      "25%": 25.4,
+      "50%": 50.9,
+      "75%": 76.4,
+      "100%": 87.4
+    },
+    "max_rest_up_tilt_deg": 87.4,
+    "total_rotation_deg": 87.4,
+    "rotation_done_at_half_travel_pct": 58.4
   },
   "max_penetration_mm": {
     "self": 0.0,

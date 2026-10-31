@@ -1,0 +1,156 @@
+{
+  "scene": "scenes/insert_marker.json",
+  "grounding": "outputs/grounding/insert_marker_gt_opus1",
+  "stage_plan": "outputs/runs/gt_opus1/stage_plan.json",
+  "selections": "outputs/runs/gt_opus1/selections.json",
+  "emissions": "outputs/runs/gt_opus1/emissions_call3_opus.json",
+  "seed": 3,
+  "constants": {
+    "SYNTH_START_CLEARANCE_M": 0.05,
+    "GRASP_ELEVATION_RAD (sim stand-in)": 1.5707963267948966,
+    "GRASP_PAD_BACKOFF_M (sim stand-in)": 0.005
+  },
+  "status": "ok",
+  "grasp": {
+    "given": "manip_sim/omnimanip/programs/insert_marker.json",
+    "point_body": [
+      0.0,
+      0.022,
+      0.0039
+    ],
+    "ik_feasible": true,
+    "collision_free": 1,
+    "lookahead": [
+      {
+        "score": 0.109,
+        "fractions": [
+          0.875,
+          0.125
+        ],
+        "slide_offset_mm": -22.5
+      }
+    ],
+    "chosen_score": 0.109,
+    "chosen_slide_offset_mm": -22.5,
+    "skips": []
+  },
+  "stages": [
+    {
+      "role": "transport_active",
+      "name": "align marker above cup opening",
+      "entry": "chained",
+      "compile_notes": [
+        "w = cup canonical frame at [-0.0, 0.0001, 0.0372]: z = up_axis, x = marker lateral (up x front) at entry; rooted on body_poses['cup']",
+        "align marker above cup opening.path: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free",
+        "align marker above cup opening.subgoal: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free"
+      ],
+      "goal_funnel": {
+        "n_sampled": 120,
+        "accept_rate": 1.0,
+        "n_ik": 119,
+        "n_collision_free": 85,
+        "n_contained": 85,
+        "offenders": {
+          "fixed_mount0_pedestal <-> robot0_upper_arm_link": 11,
+          "cup_main <-> gripper0_right_left_inner_finger": 7,
+          "cup_main <-> gripper0_right_right_inner_finger": 6,
+          "robot0_upper_arm_link <-> table": 6,
+          "cup_main <-> marker_main": 4
+        },
+        "n_rounds": 1
+      },
+      "planning": {
+        "goal_rank_used": 0,
+        "failed_before": [],
+        "n_waypoints": 27,
+        "max_path_excess": 0.0
+      },
+      "reorient_in_stage_deg": 34.0,
+      "lowest_end_at_goal": {
+        "lowest_point_body": [
+          0.0012,
+          -0.0589,
+          -0.0094
+        ],
+        "lowest_point_world_z": 0.898,
+        "depth_below_target_m": -0.023,
+        "radial_from_target_axis_m": 0.0557,
+        "nearest_symbol": "body_tip",
+        "nearest_symbol_distance_m": 0.0243
+      }
+    },
+    {
+      "role": "insert",
+      "name": "insert marker into cup",
+      "entry": "chained",
+      "compile_notes": [
+        "w = cup canonical frame at [-0.0, 0.0001, 0.0372]: z = up_axis, x = marker lateral (up x front) at entry; rooted on body_poses['cup']",
+        "insert marker into cup.path: goal attitude from 1 relation row(s); fixed ['pitch'], rest free",
+        "insert marker into cup.subgoal: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free",
+        "insert marker into cup.path: rotation admits the subgoal (64/64 sampled attitudes)"
+      ],
+      "goal_funnel": {
+        "n_sampled": 120,
+        "accept_rate": 1.0,
+        "n_ik": 64,
+        "n_collision_free": 13,
+        "n_contained": 13,
+        "offenders": {
+          "robot0_upper_arm_link <-> table": 29,
+          "robot0_forearm_link <-> table": 13,
+          "marker_main <-> table": 4,
+          "cup_main <-> gripper0_right_right_inner_finger": 2,
+          "cup_main <-> gripper0_right_left_inner_finger": 1,
+          "fixed_mount0_pedestal <-> robot0_upper_arm_link": 1,
+          "robot0_wrist_1_link <-> table": 1
+        },
+        "n_rounds": 1
+      },
+      "planning": {
+        "goal_rank_used": 0,
+        "failed_before": [],
+        "n_waypoints": 66,
+        "max_path_excess": 0.0
+      },
+      "reorient_in_stage_deg": 85.5,
+      "lowest_end_at_goal": {
+        "lowest_point_body": [
+          0.0043,
+          -0.0601,
+          -0.008
+        ],
+        "lowest_point_world_z": 0.82,
+        "depth_below_target_m": 0.055,
+        "radial_from_target_axis_m": 0.0082,
+        "nearest_symbol": "body_tip",
+        "nearest_symbol_distance_m": 0.0252
+      }
+    }
+  ],
+  "emit_model": null,
+  "emit_arm": "framed-chained",
+  "decomposition": "transport_active: 34 deg inside the stage (under its path TSR); insert: 86 deg inside the stage (under its path TSR)",
+  "plan": {
+    "path": "outputs/plans/compare_eps003/same10_s3.npz",
+    "n_waypoints": 256,
+    "segments": [
+      [
+        "grasp:reach",
+        151
+      ],
+      [
+        "grasp:lift",
+        12
+      ],
+      [
+        "transport_active",
+        27
+      ],
+      [
+        "insert",
+        66
+      ]
+    ]
+  },
+  "seconds": 199.0
+}

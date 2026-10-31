@@ -14,6 +14,7 @@
     "inside_rim": true
   },
   "goal_pass": true,
+  "path_pass": false,
   "inserted": {
     "n_points": 25,
     "max_tilt_deg": 26.5,
