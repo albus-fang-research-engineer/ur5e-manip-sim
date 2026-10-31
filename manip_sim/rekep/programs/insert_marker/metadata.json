@@ -1,0 +1,12 @@
+{
+  "keypoints": [
+    {"object": "marker", "xyz": [0.0, 0.022, 0.0039]},
+    {"object": "marker", "point": "tip"},
+    {"object": "marker", "point": "tail_center"},
+    {"object": "cup", "point": "opening_center"}
+  ],
+  "num_stages": 3,
+  "grasp_keypoints": [0, -1, -1],
+  "release_keypoints": [-1, -1, 0],
+  "target": {"object": "cup", "point": "opening_center", "up_axis": "up_axis"}
+}

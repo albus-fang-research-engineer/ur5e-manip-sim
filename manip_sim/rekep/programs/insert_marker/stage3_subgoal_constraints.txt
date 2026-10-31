@@ -1,0 +1,8 @@
+def stage3_subgoal_constraint1(end_effector, keypoints):
+    """Keep the marker upright, tail (keypoint 2) down from tip (keypoint 1)."""
+    shaft = keypoints[1] - keypoints[2]
+    return 1 - shaft[2] / np.linalg.norm(shaft)
+
+def stage3_subgoal_constraint2(end_effector, keypoints):
+    """Lower the tail 4.5 cm below the cup opening (keypoint 3)."""
+    return np.linalg.norm(keypoints[2] - (keypoints[3] - np.array([0, 0, 0.045])))
