@@ -84,6 +84,7 @@ class MinkTracker:
     iterate can be anywhere: through the elbow singularity the arm folds away from
     the target. Upstream's controller stops short instead, so a miss is solved again
     with damping, keeping the iterate nearest the target (the start if none is nearer).
+    solve_near does the same with every joint held within max_step of the start.
     """
 
     def __init__(self, kin, lm_damping: float = 1.0, damping: float = 1e-3):
@@ -98,7 +99,7 @@ class MinkTracker:
         return (float(np.linalg.norm(T[:3, 3] - T_site[:3, 3])),
                 float(np.max(np.abs(R.from_matrix(T[:3, :3].T @ T_site[:3, :3]).as_rotvec()))))
 
-    def _nearest(self, T_site, q0, iters: int, dt: float = 0.05) -> np.ndarray:
+    def _nearest(self, T_site, q0, iters: int, dt: float = 0.05, max_step: float = np.inf) -> np.ndarray:
         mink, ik = self.mink._mink, self.mink
         qfull = self.kin.data.qpos.copy()
         qfull[self.kin.qpos_ids] = q0
@@ -110,10 +111,18 @@ class MinkTracker:
             v = mink.solve_ik(ik.config, [self.task, ik.posture], dt, ik.solver,
                               damping=self.damping, limits=ik.limits)
             ik.config.integrate_inplace(v, dt)
+            q = ik.config.q[self.kin.qpos_ids]
             err = np.linalg.norm(self.task.compute_error(ik.config))
-            if err < best_err:
-                best, best_err = ik.config.q[self.kin.qpos_ids].copy(), err
+            if err < best_err and np.max(np.abs(q - q0)) <= max_step:
+                best, best_err = q.copy(), err
         return best
+
+    def solve_near(self, T_site, position_tolerance, orientation_tolerance, max_iterations,
+                   initial_joint_pos, max_step: float) -> IKResult:
+        q = self._nearest(T_site, initial_joint_pos, max_iterations, max_step=max_step)
+        pos_err, rot_err = self._errors(q, T_site)
+        return IKResult(pos_err <= position_tolerance and rot_err <= orientation_tolerance,
+                        pos_err, max_iterations, q, rot_err)
 
     def solve_site(self, T_site, position_tolerance, orientation_tolerance, max_iterations, initial_joint_pos) -> IKResult:
         q, _ = self.mink.solve(T_site, initial_joint_pos, iters=max_iterations,

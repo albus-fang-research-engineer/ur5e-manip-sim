@@ -18,7 +18,7 @@ try:
 except ImportError as e:
     pytest.skip(str(e), allow_module_level=True)
 from manip_sim.planning import ArmKinematics  # noqa: E402
-from manip_sim.rekep.adapter import (T_RK_SITE, T_SITE_RK, MinkTracker, ReKepIK, body_pose,  # noqa: E402
+from manip_sim.rekep.adapter import (T_RK_SITE, T_SITE_RK, IKResult, MinkTracker, ReKepIK, body_pose,  # noqa: E402
                                      farthest_point_sampling, hull_distance, hull_planes,
                                      rekep_to_site, scene_sdf, sdf_shape, site_to_rekep)
 from manip_sim.rekep.planner import Config, ReKepPlanner, _ChainFailure, default_program_dir  # noqa: E402
@@ -143,7 +143,32 @@ def test_mink_tracker_stops_short_of_a_pose_out_of_reach(sim):
         r = tracker.solve_site(T, 1e-3, 5e-3, 200, q0)
         start = np.linalg.norm(T0[:3, 3] - T[:3, 3])
         assert not r.success and r.position_error < start
+        r = tracker.solve_near(T, 1e-3, 5e-3, 200, q0, 0.35)
+        assert np.max(np.abs(r.cspace_position - q0)) <= 0.35 and r.position_error < start
     kin.set_q(q0)
+
+
+def test_soft_ik_does_not_switch_elbow_branches_in_one_step():
+    q_a = np.array([0.0, -1.0, 0.0, -4.2, -0.2, 2.0])
+    flipped = np.array([0.0, -6.9, -1.0, -0.8, 0.1, 5.4])         # a hit on the other branch
+    wrist = np.array([0.0, -1.0, 0.1, -2.8, -0.2, 0.7])           # a big step on the same branch
+    class Tracker:
+        def __init__(self, q):
+            self.q, self.near = q, []
+        def solve_site(self, T, pos_tol, rot_tol, iters, q0):
+            return IKResult(True, 0.0, iters, self.q, 0.0)
+        def solve_near(self, T, pos_tol, rot_tol, iters, q0, max_step):
+            self.near.append(max_step)
+            return IKResult(False, 0.05, iters, q0 + max_step, 0.0)
+    planner = ReKepPlanner.__new__(ReKepPlanner)
+    planner.cfg, planner.tracking, planner.targets = Config(soft_ik=True), [], []
+    planner.track_ik = Tracker(flipped)
+    assert np.allclose(planner._ik_step(np.eye(4), np.eye(4), q_a, 0)[-1], q_a + 0.35)
+    assert planner.track_ik.near == [0.35] and planner.tracking[-1][0] == 0.05
+    q_a[2] = 0.1
+    planner.track_ik = Tracker(wrist)
+    assert np.allclose(planner._ik_step(np.eye(4), np.eye(4), q_a, 0)[-1], wrist)
+    assert planner.track_ik.near == []
 
 
 def test_ik_solve_takes_the_solvers_frame(sim):

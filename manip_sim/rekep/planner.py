@@ -25,6 +25,9 @@ Other differences from upstream's main.py, each because of this sim:
               (bisecting a pose step whose joint step exceeds the limit). soft_ik
               keeps the IK's best attempt at a pose it misses; the report has the
               worst miss, and the grader measures the joint path that resulted.
+              A step that switches elbow branches after every bisection is
+              re-solved within the joint step limit, since a controller cannot
+              switch branches either.
               The loop's plans also keep the pose each waypoint was solved for.
 
 upstream_loop runs main.py's loop instead of one solve per stage: solve, move
@@ -57,6 +60,7 @@ from .vendor import (PathSolver, SubgoalSolver, get_linear_interpolation_steps,
 
 UPSTREAM_COMMIT = "63c43fd"
 FINGER_OFFSET = 0.05                 # m, virtual keypoint along the closing axis
+ELBOW = 2                            # arm joint order: pan, lift, elbow, wrist 1-3
 
 
 @dataclass
@@ -191,6 +195,11 @@ class ReKepPlanner:
         if not r.success and not c.soft_ik:
             raise _ChainFailure(f"no IK within tolerance ({r.position_error * 1000:.1f} mm)")
         step = float(np.max(np.abs(r.cspace_position - q_a)))
+        if step > c.max_joint_step and depth == 0 and c.soft_ik and hasattr(self.track_ik, "solve_near") \
+                and q_a[ELBOW] * r.cspace_position[ELBOW] <= 0:
+            # the solve switched elbow branches, which a controller moving the arm cannot do
+            r = self.track_ik.solve_near(T_b, c.path_pos_tol, c.path_rot_tol, 200, q_a, c.max_joint_step)
+            step = float(np.max(np.abs(r.cspace_position - q_a)))
         if step <= c.max_joint_step or (depth == 0 and c.soft_ik):
             self.tracking.append((r.position_error, r.rotation_error))
             self.targets.append(T_b)
