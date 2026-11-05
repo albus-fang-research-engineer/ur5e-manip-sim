@@ -25,6 +25,7 @@ Other differences from upstream's main.py, each because of this sim:
               (bisecting a pose step whose joint step exceeds the limit). soft_ik
               keeps the IK's best attempt at a pose it misses; the report has the
               worst miss, and the grader measures the joint path that resulted.
+              The loop's plans also keep the pose each waypoint was solved for.
 
 upstream_loop runs main.py's loop instead of one solve per stage: solve, move
 through action_steps_per_iter poses, solve again from where the arm is, and
@@ -108,6 +109,7 @@ class Plan:
     grasped: str
     T0: dict[str, np.ndarray]
     target: dict | None
+    targets: np.ndarray | None = None    # upstream_loop: T_site each waypoint was solved for
 
 
 class ReKepPlanner:
@@ -191,6 +193,7 @@ class ReKepPlanner:
         step = float(np.max(np.abs(r.cspace_position - q_a)))
         if step <= c.max_joint_step or (depth == 0 and c.soft_ik):
             self.tracking.append((r.position_error, r.rotation_error))
+            self.targets.append(T_b)
             return [r.cspace_position]
         if depth == 0:
             raise _ChainFailure(f"joint step {step:.2f} rad survives "
@@ -260,7 +263,7 @@ class ReKepPlanner:
             poses = self._dense_poses(T_start, path)
             if stage.is_grasp:
                 poses.append(T_goal)
-            self.tracking = []
+            self.tracking, self.targets = [], [T_start]
             try:
                 chain = self._ik_chain(poses, q_start)
             except _ChainFailure as e:
@@ -299,7 +302,7 @@ class ReKepPlanner:
         c, stage = self.cfg, self.program.stages[index]
         sdf = scene_sdf(self.kin, self.bounds_min, self.bounds_max, c.sdf_voxel_size, (self.held,))
         np.random.seed([c.seed, index, len(self.report["stages"])])
-        t0, chain, first, self.tracking = time.time(), [q], True, []
+        t0, chain, first, self.tracking, self.targets = time.time(), [q], True, [], [T_site]
         for i in range(c.max_loop_iters):
             points, mask = self._keypoints(T_site)
             back = self._backtrack_to(index, points)
@@ -334,11 +337,12 @@ class ReKepPlanner:
         label = "reach+approach"
         if q_grasp is not None:
             chain, T_site, row = q_grasp[None], self.kin.fk(q_grasp), {"stage": label, "given": True}
+            self.targets = [T_site]
         else:
             chain, T_site, row = self._solve_stage(0, label, self.kin.fk(self.q_home), self.q_home)
         row["colliding_waypoints"] = self._colliding(chain)
         self.report["stages"].append(row)
-        segments, q = [(label, chain)], chain[-1]
+        segments, targets, q = [(label, chain)], list(self.targets), chain[-1]
         q_grasp = q
         self.held = self.program.grasped_object
         self.T_ee_body = np.linalg.inv(T_site) @ self.T0[self.held]
@@ -349,6 +353,7 @@ class ReKepPlanner:
             row["colliding_waypoints"] = self._colliding(chain)
             self.report["stages"].append(row)
             segments.append((label, chain))
+            targets += self.targets
             q = chain[-1]
             if back == 0:
                 raise TaskPlanError("backtrack", label, "backtracked to the grasp, which this plan cannot redo", {})
@@ -358,7 +363,7 @@ class ReKepPlanner:
                     stage_ids=np.concatenate([np.full(len(s), i) for i, (_, s) in enumerate(segments)]),
                     stage_labels=np.array([lab for lab, _ in segments]),
                     q_home=self.q_home, q_grasp=q_grasp, T_ee_body=self.T_ee_body,
-                    grasped=self.held, T0=self.T0, target=self._target())
+                    grasped=self.held, T0=self.T0, target=self._target(), targets=np.array(targets))
 
     def _colliding(self, chain: np.ndarray) -> int:
         kin = self.kin

@@ -78,17 +78,50 @@ class IKResult:
 
 
 class MinkTracker:
-    """MinkIK behind solve_site, for moving through poses rather than the solvers' cost."""
+    """MinkIK behind solve_site, for moving through poses rather than the solvers' cost.
 
-    def __init__(self, kin):
+    MinkIK is undamped and returns its last iterate. On a pose out of reach that
+    iterate can be anywhere: through the elbow singularity the arm folds away from
+    the target. Upstream's controller stops short instead, so a miss is solved again
+    with damping, keeping the iterate nearest the target (the start if none is nearer).
+    """
+
+    def __init__(self, kin, lm_damping: float = 1.0, damping: float = 1e-3):
+        import mink
         self.kin, self.mink = kin, MinkIK(kin)
+        self.task = mink.FrameTask(frame_name="gripper0_right_grip_site", frame_type="site",
+                                   position_cost=1.0, orientation_cost=1.0, lm_damping=lm_damping)
+        self.damping = damping
+
+    def _errors(self, q, T_site) -> tuple[float, float]:
+        T = self.kin.fk(q)
+        return (float(np.linalg.norm(T[:3, 3] - T_site[:3, 3])),
+                float(np.max(np.abs(R.from_matrix(T[:3, :3].T @ T_site[:3, :3]).as_rotvec()))))
+
+    def _nearest(self, T_site, q0, iters: int, dt: float = 0.05) -> np.ndarray:
+        mink, ik = self.mink._mink, self.mink
+        qfull = self.kin.data.qpos.copy()
+        qfull[self.kin.qpos_ids] = q0
+        ik.config.update(qfull)
+        ik.posture.set_target(qfull)
+        self.task.set_target(mink.SE3.from_matrix(T_site))
+        best, best_err = np.array(q0, float), np.linalg.norm(self.task.compute_error(ik.config))
+        for _ in range(iters):
+            v = mink.solve_ik(ik.config, [self.task, ik.posture], dt, ik.solver,
+                              damping=self.damping, limits=ik.limits)
+            ik.config.integrate_inplace(v, dt)
+            err = np.linalg.norm(self.task.compute_error(ik.config))
+            if err < best_err:
+                best, best_err = ik.config.q[self.kin.qpos_ids].copy(), err
+        return best
 
     def solve_site(self, T_site, position_tolerance, orientation_tolerance, max_iterations, initial_joint_pos) -> IKResult:
         q, _ = self.mink.solve(T_site, initial_joint_pos, iters=max_iterations,
                                pos_tol=position_tolerance, rot_tol=orientation_tolerance)
-        T = self.kin.fk(q)
-        pos_err = float(np.linalg.norm(T[:3, 3] - T_site[:3, 3]))
-        rot_err = float(np.max(np.abs(R.from_matrix(T[:3, :3].T @ T_site[:3, :3]).as_rotvec())))
+        pos_err, rot_err = self._errors(q, T_site)
+        if pos_err > position_tolerance or rot_err > orientation_tolerance:
+            q = self._nearest(T_site, initial_joint_pos, max_iterations)
+            pos_err, rot_err = self._errors(q, T_site)
         return IKResult(pos_err <= position_tolerance and rot_err <= orientation_tolerance,
                         pos_err, max_iterations, q, rot_err)
 

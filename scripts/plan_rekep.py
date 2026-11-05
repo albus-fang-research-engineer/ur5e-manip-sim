@@ -78,6 +78,7 @@ def main() -> None:
              q_home=plan.q_home, q_grasp=plan.q_grasp, T_ee_body=plan.T_ee_body,
              grasped=np.array(plan.grasped), planner=np.array("rekep"),
              program=np.array(str(program)), **(plan.target or {}),
+             **({} if plan.targets is None else {"targets": plan.targets}),
              **{f"T0_{n}": T for n, T in plan.T0.items()})
     report_path.write_text(json.dumps(planner.report, indent=2) + "\n")
     print(f"[plan-rekep] {len(plan.path)} waypoints in {planner.report['seconds']} s -> {out}")

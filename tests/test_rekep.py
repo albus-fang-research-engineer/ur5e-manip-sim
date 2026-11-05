@@ -92,7 +92,7 @@ def test_soft_ik_keeps_a_pose_the_chain_misses(sim):
     T_far = T.copy()
     T_far[:3, 3] += [5.0, 0, 0]
     planner = ReKepPlanner.__new__(ReKepPlanner)
-    planner.track_ik, planner.tracking = ReKepIK(kin, q0), []
+    planner.track_ik, planner.tracking, planner.targets = ReKepIK(kin, q0), [], []
     planner.cfg = Config()
     with pytest.raises(_ChainFailure):
         planner._ik_step(T, T_far, q0, 0)
@@ -129,6 +129,20 @@ def test_mink_tracker_reaches_a_pose_and_reports_a_miss(sim):
     assert r.success and r.position_error <= 2e-3
     T[:3, 3] += [5.0, 0, 0]
     assert not tracker.solve_site(T, 2e-3, 8e-3, 50, q0).success
+    kin.set_q(q0)
+
+
+def test_mink_tracker_stops_short_of_a_pose_out_of_reach(sim):
+    _, _, kin = sim
+    q0 = kin.data.qpos[kin.qpos_ids].copy()
+    T0 = kin.fk(q0)
+    tracker = MinkTracker(kin)
+    for dx in ([0.6, 0, 0], [0, 0.8, 0.3], [5.0, 0, 0]):
+        T = T0.copy()
+        T[:3, 3] += dx
+        r = tracker.solve_site(T, 1e-3, 5e-3, 200, q0)
+        start = np.linalg.norm(T0[:3, 3] - T[:3, 3])
+        assert not r.success and r.position_error < start
     kin.set_q(q0)
 
 
