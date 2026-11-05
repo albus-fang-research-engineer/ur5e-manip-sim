@@ -431,9 +431,14 @@ def plan_constrained(
     eps: float = 0.12,
     n_shortcut: int = 80,
     rng: np.random.Generator | None = None,
+    goal_test=None,
 ) -> PlanResult:
     """CBiRRT (Berenson et al.): bidirectional RRT whose every extension is
     projected onto the TSR manifold by project_config.
+
+    goal_test: q -> bool, for a goal that is a region: the plan also ends at the
+    first node of the start tree it accepts, whichever arm configuration that is.
+    q_goal then only seeds the search.
 
     Implemented directly rather than via OMPL's ProjectedStateSpace: the
     TSR residual is zero (with zero Jacobian) on a full-dimensional region,
@@ -493,17 +498,23 @@ def plan_constrained(
                    np.linalg.norm(tree["q"][i] - q_target) <= eps)
 
     a, b = 0, 1
-    bridge = None
+    bridge, region_hit = None, None
     while _time.time() < t_end:
         q_rand = rng.uniform(lo_s, hi_s)
+        n_start = len(trees[0]["q"])
         ia, _ = grow(trees[a], q_rand)
         ib, reached = grow(trees[b], trees[a]["q"][ia])
         if reached:
             bridge = (a, ia, b, ib)
             break
+        if goal_test is not None:
+            region_hit = next((i for i in range(n_start, len(trees[0]["q"]))
+                               if goal_test(trees[0]["q"][i])), None)
+            if region_hit is not None:
+                break
         a, b = b, a
 
-    if bridge is None:
+    if bridge is None and region_hit is None:
         return PlanResult(False, reason=f"no path in {timeout}s",
                           solve_time=timeout,
                           stats={"tree_sizes": [len(t["q"]) for t in trees]})
@@ -515,13 +526,16 @@ def plan_constrained(
             i = tree["parent"][i]
         return out
 
-    a, ia, b, ib = bridge
-    half_a = backtrack(trees[a], ia)[::-1]
-    half_b = backtrack(trees[b], ib)
-    path = half_a + half_b
-    if a == 1:                                    # tree a rooted at goal
-        path = path[::-1]
-    path = np.array(path)
+    if region_hit is not None:
+        path = np.array(backtrack(trees[0], region_hit)[::-1])
+    else:
+        a, ia, b, ib = bridge
+        half_a = backtrack(trees[a], ia)[::-1]
+        half_b = backtrack(trees[b], ib)
+        path = half_a + half_b
+        if a == 1:                                # tree a rooted at goal
+            path = path[::-1]
+        path = np.array(path)
 
     # shortcut smoothing (constrained: shortcuts are projected segments)
     for _ in range(n_shortcut):
@@ -566,4 +580,5 @@ def plan_constrained(
                       max_excess=max_exc,
                       stats={"n_waypoints": len(qs),
                              "tree_sizes": [len(t["q"]) for t in trees],
-                             "start_nudge_m": start_nudge})
+                             "start_nudge_m": start_nudge,
+                             "ended_in_goal_region": region_hit is not None})

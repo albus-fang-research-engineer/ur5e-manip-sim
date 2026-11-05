@@ -1,0 +1,39 @@
+{
+  "plan": "outputs/plans/pour_obstacle/ours10g_s3.npz",
+  "carrying": {
+    "max_tilt_deg": 13.5,
+    "tilt_at_quarters_deg": [
+      11.3,
+      13.1,
+      57.6
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 26.9,
+    "spout_wander_mm": 5.9,
+    "tilt_axis_off_level_deg": 9.7
+  },
+  "end": {
+    "lateral_mm": 24.8,
+    "height_mm": 69.1,
+    "tilt_deg": 89.0,
+    "spout_off_down_deg": 5.5,
+    "stream_off_mm": 29.5
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {},
+  "colliding_points": 0,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

@@ -1,0 +1,41 @@
+{
+  "plan": "outputs/plans/pour_obstacle/ours_s4.npz",
+  "carrying": {
+    "max_tilt_deg": 5.5,
+    "tilt_at_quarters_deg": [
+      5.5,
+      9.3,
+      59.8
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 23.4,
+    "spout_wander_mm": 6.4,
+    "tilt_axis_off_level_deg": 1.6
+  },
+  "end": {
+    "lateral_mm": 21.3,
+    "height_mm": 56.4,
+    "tilt_deg": 97.5,
+    "spout_off_down_deg": 7.5,
+    "stream_off_mm": 27.4
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.4
+  },
+  "pairs_max_depth_mm": {
+    "obstacle_main <-> teapot_main": 0.4
+  },
+  "colliding_points": 1,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

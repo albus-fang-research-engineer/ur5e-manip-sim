@@ -32,8 +32,12 @@ def main() -> None:
     ap.add_argument("--out", default=None, help="default: outputs/plans/omnimanip/<scene>_omnimanip.npz")
     ap.add_argument("--robot", default="UR5e")
     ap.add_argument("--seed", type=int, default=0, help="jitters the solver's start; 0 starts at the pose")
+    ap.add_argument("--spec", default=None, help="task spec whose q_grasp the plan starts from")
     ap.add_argument("--lambda-trans", type=float, default=Weights.lambda_trans)
     ap.add_argument("--lambda-rot", type=float, default=Weights.lambda_rot)
+    ap.add_argument("--mover", choices=("line", "rrt"), default=Config.mover,
+                    help="line: the paper's straight move; rrt: RRT-Connect to the same target, collision-checked")
+    ap.add_argument("--rrt-timeout", type=float, default=Config.rrt_timeout)
     add_scene_arg(ap)
     args = ap.parse_args()
 
@@ -44,11 +48,11 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
 
     env, _ = make_env(scene, robot=args.robot, has_renderer=False)
-    cfg = Config(seed=args.seed, weights=Weights(lambda_trans=args.lambda_trans, lambda_rot=args.lambda_rot))
+    cfg = Config(seed=args.seed, mover=args.mover, rrt_timeout=args.rrt_timeout, weights=Weights(lambda_trans=args.lambda_trans, lambda_rot=args.lambda_rot))
     planner = OmniManipPlanner(env, scene, program, cfg)
     t0 = time.time()
     try:
-        plan = planner.plan()
+        plan = planner.plan(np.asarray(json.loads(Path(args.spec).read_text())["q_grasp"]) if args.spec else None)
     except TaskPlanError as e:
         planner.report.update(status="failed", failure=e.as_dict(),
                               seconds=round(time.time() - t0, 1))

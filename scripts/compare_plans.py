@@ -7,8 +7,9 @@ is retyped: <plan>.report.json, <plan>.eval.json (scripts/eval_plan.py) and
         --seconds outputs/plans/compare/plan_task_seconds.json \\
         --weight-sweep outputs/plans/omnimanip_weight_sweep \\
         --separation-sweep outputs/plans/omnimanip_separation_sweep \\
-        --methods same5 same1 same10 rekep omni \\
-        --out outputs/comparison/insert_marker_same_grasp --readme README.md
+        --planner-sweep outputs/plans/separation_sweep \\
+        --methods hand5 hand1 hand10 rekep omni \\
+        --out outputs/comparison/insert_marker_hand_tsrs --readme README.md
 
 Writes <out>.json (every run's row) and <out>.md (the tables). With --readme, the
 summary also replaces the block between the markers in that file.
@@ -29,6 +30,7 @@ from pathlib import Path
 METHODS = {"tsr5": "Ours, 5°", "tsr1": "Ours, 1°", "tsr10": "Ours, 10°",
            "tsr5more": "Ours, 5°, more samples", "same5": "Ours, 5°, same grasp",
            "same1": "Ours, 1°, same grasp", "same10": "Ours, 10°, same grasp",
+           "hand5": "Ours, 5°, hand TSRs", "hand1": "Ours, 1°, hand TSRs", "hand10": "Ours, 10°, hand TSRs",
            "rekep": "ReKep", "omni": "OmniManip"}
 LOST_SLIP_MM = 100.0              # past this the object is not in the hand any more
 README_START, README_END = "<!-- comparison:start -->", "<!-- comparison:end -->"
@@ -201,6 +203,33 @@ def sweep_rows(directory: Path, key_header: tuple, key) -> list[tuple]:
     return rows
 
 
+def separation_rows(sweep: Path, omni: Path | None) -> list[tuple]:
+    """Plans per separation and method, with how many meet the spec without a
+    collision, from runs named <method>_sep<cm>_s<seed> and OmniManip's sep<cm>."""
+    found: dict[tuple[int, str], list[dict | None]] = {}
+    for path in sweep.glob("*.report.json"):
+        m = re.fullmatch(r"(.+)_sep(\d+)_s\d+", path.name[:-len(".report.json")])
+        if m:
+            ev = path.with_name(path.name.replace(".report.json", ".eval.json"))
+            found.setdefault((int(m.group(2)), m.group(1)), []).append(json.loads(ev.read_text()) if ev.exists() else None)
+    for path in omni.glob("sep*.report.json") if omni else ():
+        ev = path.with_name(path.name.replace(".report.json", ".eval.json"))
+        found.setdefault((int(re.search(r"(\d+)", path.name).group(1)), "omni"), []).append(
+            json.loads(ev.read_text()) if ev.exists() else None)
+    methods = [m for m in METHODS if any(k[1] == m for k in found)]
+
+    def cell(evs):
+        plans = [e for e in evs if e]
+        clean = [e for e in plans if e["goal_pass"] and e["path_pass"] and not any(e["max_penetration_mm"].values())]
+        deepest = max((max(e["max_penetration_mm"].values()) for e in plans), default=0.0)
+        return f"{len(plans)}/{len(evs)} found, {len(clean)}/{len(evs)} clean" + (f", deepest {deepest:.1f} mm" if deepest else "")
+
+    rows = [("Separation m", *(METHODS[m] for m in methods))]
+    for sep in sorted({k[0] for k in found}):
+        rows.append((sep / 100, *(cell(found[(sep, m)]) if (sep, m) in found else "–" for m in methods)))
+    return rows
+
+
 def replace_block(text: str, block: str) -> str:
     start, end = text.index(README_START) + len(README_START), text.index(README_END)
     return text[:start] + "\n" + block + "\n" + text[end:]
@@ -216,6 +245,7 @@ def main() -> None:
     ap.add_argument("--methods", nargs="+", choices=list(METHODS), help="only these columns (default all)")
     ap.add_argument("--weight-sweep", type=Path)
     ap.add_argument("--separation-sweep", type=Path)
+    ap.add_argument("--planner-sweep", type=Path, help="every planner over the separations, kinematics only")
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--readme", type=Path)
     args = ap.parse_args()
@@ -236,6 +266,9 @@ def main() -> None:
             return (int(re.search(r"(\d+)", path.name).group(1)) / 100,)
         sections += ["## OmniManip separation sweep (kinematics only)",
                      markdown_table(sweep_rows(args.separation_sweep, ("Separation m",), separation))]
+    if args.planner_sweep:
+        sections += ["## Planners over separation (kinematics only)",
+                     markdown_table(separation_rows(args.planner_sweep, args.separation_sweep))]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.with_suffix(".md").write_text("\n\n".join(sections) + "\n")
     args.out.with_suffix(".json").write_text(json.dumps(

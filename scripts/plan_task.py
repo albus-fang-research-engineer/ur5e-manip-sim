@@ -79,6 +79,7 @@ PREGRASP_STANDOFF = 0.08          # same as plan_pour_tea
 LIFT_HEIGHT = 0.05
 APPROACH_STEPS = 12
 GOALS_TRIED = 10                  # ranked goals walked per stage
+DISTINCT_CONFIG_RAD = 0.1         # IK solutions closer than this are one arm configuration
 
 
 def main() -> None:
@@ -127,18 +128,27 @@ def main() -> None:
 
 
 def given_grasp(program, obj, kin, ik, T_obj, q_home, seeds, allowed) -> tuple[list, dict]:
-    """The candidate list for a grasp named by a program: that pose or nothing."""
+    """The candidates for a grasp named by a program: that pose, once per distinct
+    arm configuration clear of everything, the first IK finds first."""
     from manip_sim.omnimanip.planner import grasp_pose, load_program    # only the study needs the baselines
     g = load_program(program)["grasp"]
     if g["object"] != obj:
         raise TaskPlanError("grasp", "grasp", f"{program} grasps {g['object']}, the stage grasps {obj}")
     T = grasp_pose(T_obj, g["point_body"], g["closing_body"], g["approach_world"], kin.fk(q_home))
-    q, ok = ik.solve_multiseed(T, seeds)
-    free = bool(ok) and not kin.in_collision(q, allowed_prefix_pairs=allowed)
-    rec = {"given": program, "point_body": g["point_body"], "ik_feasible": bool(ok), "collision_free": int(free)}
-    if ok and not free:
-        rec["offender"] = contact_offender(kin, allowed)
-    return ([(q, kin.fk(q))] if free else []), rec
+    rec, cands, n_ik = {"given": program, "point_body": g["point_body"]}, [], 0
+    for seed in seeds:
+        q, ok = ik.solve_multiseed(T, [seed])
+        if not ok:
+            continue
+        n_ik += 1
+        # IK can answer a full turn away, the same pose but out of the planner's reach
+        q = q + 2 * np.pi * np.round((q_home - q) / (2 * np.pi))
+        if kin.in_collision(q, allowed_prefix_pairs=allowed):
+            rec["offender"] = contact_offender(kin, allowed)
+        elif all(np.linalg.norm(q - c) > DISTINCT_CONFIG_RAD for c, _ in cands):
+            cands.append((q, kin.fk(q)))
+    rec.update(ik_feasible=n_ik, collision_free=len(cands))
+    return cands, rec
 
 
 def contact_offender(kin, allowed) -> str:
@@ -219,22 +229,22 @@ def plan(args, scene, out: Path, report: dict) -> None:
 
     # ---- GRASP ----------------------------------------------------------
     print("\n================ grasp ================")
-    pool = load_pool(asset_dirs[obj])
-    cand = pool.get(int(sels[grasp_role].candidate_id), {})
-    gp = grasp_part(frames_docs[obj], cand.get("part"))
-    sec = np.array([0.0, 0.0, 1.0]) if abs(gp.axis[2]) < 0.9 else np.array([1.0, 0.0, 0.0])
-    gframe = Frame(f"{obj}.{gp.part}", gp.center, gp.axis, sec)
-    T0_w = T0[obj] @ gframe.T()
-    a_h = topdown_approach_h(T0_w)
-    gtsr = backoff_along_approach(
-        handle_grasp_tsr(T0[obj], gframe, a_h, elevation=GRASP_ELEVATION_RAD,
-                         slide=max(gp.half_length, 1e-3)), GRASP_PAD_BACKOFF_M)
     grasp_allowed = (("gripper0", "gripper0"), ("gripper0", obj))
     if args.grasp_program:
         cands, report["grasp"] = given_grasp(args.grasp_program, obj, kin, ik, T0[obj],
                                              q_home, seeds, grasp_allowed)
         print(f"[grasp] given: {report['grasp']}")
     else:
+        pool = load_pool(asset_dirs[obj])
+        cand = pool.get(int(sels[grasp_role].candidate_id), {})
+        gp = grasp_part(frames_docs[obj], cand.get("part"))
+        sec = np.array([0.0, 0.0, 1.0]) if abs(gp.axis[2]) < 0.9 else np.array([1.0, 0.0, 0.0])
+        gframe = Frame(f"{obj}.{gp.part}", gp.center, gp.axis, sec)
+        T0_w = T0[obj] @ gframe.T()
+        a_h = topdown_approach_h(T0_w)
+        gtsr = backoff_along_approach(
+            handle_grasp_tsr(T0[obj], gframe, a_h, elevation=GRASP_ELEVATION_RAD,
+                             slide=max(gp.half_length, 1e-3)), GRASP_PAD_BACKOFF_M)
         proposals = propose_handle_grasps(gtsr, rng, n=args.n_proposals,
                                           slide_span=max(gp.half_length, 1e-3))
         survivors, tally = classify_grasps(gtsr, proposals)
@@ -290,12 +300,18 @@ def plan(args, scene, out: Path, report: dict) -> None:
     for q_g, T_g in cands:
         fr, sc = probe_fractions(ik, kin, T_g, T0[obj], probe_samples, seeds)
         scored.append((sc, fr, q_g, T_g))
-    scored.sort(key=lambda s: (-s[0], float(np.linalg.norm(s[2] - q_home))))
-    axis_w = T0[obj][:3, :3] @ gp.axis
-    centre_w = (T0[obj] @ np.r_[gp.center, 1.0])[:3]
+    if not args.grasp_program:        # a given grasp's configurations stay in IK order
+        scored.sort(key=lambda s: (-s[0], float(np.linalg.norm(s[2] - q_home))))
+    def slide_offset_mm(T):
+        if args.grasp_program:
+            return None
+        axis_w = T0[obj][:3, :3] @ gp.axis
+        centre_w = (T0[obj] @ np.r_[gp.center, 1.0])[:3]
+        return round(1000 * float((T[:3, 3] - centre_w) @ axis_w), 1)
+
     report["grasp"]["lookahead"] = [
         {"score": round(sc, 3), "fractions": [round(f, 3) for f in fr],
-         "slide_offset_mm": round(1000 * float((T_g[:3, 3] - centre_w) @ axis_w), 1)}
+         "slide_offset_mm": slide_offset_mm(T_g)}
         for sc, fr, _, T_g in scored]
     for row in report["grasp"]["lookahead"]:
         print(f"    probe {row}")
@@ -338,8 +354,7 @@ def plan(args, scene, out: Path, report: dict) -> None:
                             "score survived approach + reach",
                             {"skips": skips, "lookahead": report["grasp"]["lookahead"]})
     q_grasp, T_g, res1, approach, sc = chosen
-    report["grasp"].update(chosen_score=round(sc, 3), chosen_slide_offset_mm=round(
-        1000 * float((T_g[:3, 3] - centre_w) @ axis_w), 1), skips=skips)
+    report["grasp"].update(chosen_score=round(sc, 3), chosen_slide_offset_mm=slide_offset_mm(T_g), skips=skips)
     segments = [("grasp:reach", np.vstack([res1.path, approach]))]
 
     T_ee_body = np.linalg.inv(kin.fk(q_grasp)) @ T0[obj]

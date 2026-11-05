@@ -1,0 +1,41 @@
+{
+  "plan": "outputs/plans/pour_compare/rekepnogate_s1.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.1,
+      21.9,
+      56.3
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 15.8,
+    "spout_wander_mm": 27.4,
+    "tilt_axis_off_level_deg": 9.0
+  },
+  "end": {
+    "lateral_mm": 0.4,
+    "height_mm": 49.9,
+    "tilt_deg": 85.7,
+    "spout_off_down_deg": 6.9,
+    "stream_off_mm": 5.9
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 3.1,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 3.1
+  },
+  "colliding_points": 4,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

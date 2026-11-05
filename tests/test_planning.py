@@ -67,6 +67,21 @@ def test_projection_pulls_random_configs_onto_manifold(scene):
     assert ok >= 12    # near-total convergence expected
 
 
+def test_a_goal_region_ends_the_plan_without_reaching_the_goal_configuration(scene):
+    _, kin, q_home, att, pair, _ = scene
+    rng = np.random.default_rng(0)
+    start = att.body_pose(kin.fk(q_home))[:3, 3]
+    moved = lambda q: np.linalg.norm(att.body_pose(kin.fk(q))[:3, 3] - start) > 0.03
+    # at this step one extension covers at most 1 rad, so the trees cannot join on the first pass and the region ends it
+    q_goal = np.clip(q_home + np.array([2.0, 0.0, 0.0, 0.0, 0.0, 0.0]), *kin.joint_range.T)
+    q_goal = project_config(kin, att, [pair.path], q_goal)[0]
+    res = plan_constrained(kin, att, [pair.path], q_home, q_goal, timeout=30, eps=0.005, rng=rng, goal_test=moved)
+    assert res.ok, res.reason
+    assert res.stats["ended_in_goal_region"]
+    assert moved(res.path[-1])
+    assert np.linalg.norm(res.path[0] - q_home) < 0.05
+
+
 def test_full_stage2_plan(scene):
     _, kin, q_home, att, pair, tp = scene
     rng = np.random.default_rng(0)

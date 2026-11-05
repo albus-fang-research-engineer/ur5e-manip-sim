@@ -7,11 +7,20 @@ end-effector moves:
     grasp   "Move to 8cm in front of the grasp pose, move forward and close"
     place   "move to v cm in front of the target pose, move to the target pose
             and open the gripper"
+    pour    one move to the pouring pose, as grasp then pour are the paper's two
+            stages for this task (its Fig. 2): the spout's axis aligned down at the
+            target, so the straight move tilts the pot on its way there
 
 There is deliberately no motion planner, lift, reachability term or retry: the
 paper describes none, and adding them would measure something else. Unreachable
 targets and broken IK lines are typed failures, and collisions are left for
 eval_plan to report. A.5 lists both as failure causes of the original system.
+
+Config(mover="rrt") is the one exception, kept apart as its own variant: the same
+target pose, reached by collision-checked RRT-Connect with the held object in the
+check and no constraint on the path. Its move replaces only the free-space move; a
+place still inserts along its straight line. It separates what the representation
+does (one target pose, nothing on the path) from what the straight-line executor does.
 
 Differences from the paper, each because of this comparison:
 
@@ -33,7 +42,8 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R, Slerp
 
 from ..frames import load_symbols
-from ..planning import ArmKinematics
+from ..grasping import free_tsr
+from ..planning import ArmKinematics, AttachedArmKinematics, AttachedObject, plan_constrained
 from ..rekep.adapter import (ROBOT_PREFIXES, ReKepIK, body_pose, collision_vertices,
                              farthest_point_sampling, geom_vertices, hull_planes)
 from ..task_plan import TaskPlanError
@@ -55,6 +65,9 @@ class Config:
     max_joint_step: float = 0.2      # rad between line waypoints: a flip, or fast joints near a wrist singularity
     x0_jitter: tuple[float, float] = (0.01, 0.05)  # m, rad; seed 0 starts exactly at the pose
     seed: int = 0
+    mover: str = "line"              # or "rrt": RRT-Connect to the target, collision-checked, path free
+    rrt_timeout: float = 60.0        # s, as ours' CBiRRT
+    rrt_eps: float = 0.03            # rad between collision-checked configs, as ours' --eps
 
 
 @dataclass
@@ -105,8 +118,8 @@ def grasp_pose(T_object: np.ndarray, point_body, closing_body, approach_world,
 def load_program(path: str | Path) -> dict:
     program = json.loads(Path(path).read_text())
     stages = program["stages"]
-    if len(stages) != 1 or stages[0]["action"] != "place":
-        raise ValueError(f"{path}: only grasp then one place is implemented")
+    if len(stages) != 1 or stages[0]["action"] not in ("place", "pour"):
+        raise ValueError(f"{path}: only grasp then one place or pour is implemented")
     return program
 
 
@@ -152,15 +165,18 @@ class OmniManipPlanner:
         sa, sp = self.symbols[a["object"]], self.symbols[p["object"]]
         T_p = self.T0[p["object"]]
         axis_a = sa.axes[a["axis"]] / np.linalg.norm(sa.axes[a["axis"]])
-        axis_p = T_p[:3, :3] @ sp.axes[p["axis"]]
+        axis_p = p.get("sign", 1) * T_p[:3, :3] @ sp.axes[p["axis"]]
         return Constraint(sa.points[a["point"]], axis_a, T_p[:3, :3] @ sp.points[p["point"]] + T_p[:3, 3],
                           axis_p / np.linalg.norm(axis_p), float(stage["d_m"]))
 
     def _line(self, label: str, T_a, T_b, q_a) -> np.ndarray:
-        """IK along the straight move. It takes the first solution from the last
+        c = self.cfg
+        return self._chain(label, line_poses(T_a, T_b, c.line_pos_step, np.radians(c.line_rot_step_deg)), q_a)
+
+    def _chain(self, label: str, poses: list[np.ndarray], q_a) -> np.ndarray:
+        """IK along a Cartesian move. It takes the first solution from the last
         waypoint and fails on a jump, as a Cartesian move would."""
         c = self.cfg
-        poses = line_poses(T_a, T_b, c.line_pos_step, np.radians(c.line_rot_step_deg))
         chain = [q_a]
         for i, T in enumerate(poses[1:], 1):
             r = self.ik.solve_site(T, c.ik_pos_tol, c.ik_rot_tol, 200, chain[-1])
@@ -172,19 +188,45 @@ class OmniManipPlanner:
             chain.append(r.cspace_position)
         return np.array(chain)
 
-    def plan(self) -> Plan:
+    def _rrt(self, label: str, T_b, q_a, grasped: str, T_ee_body) -> np.ndarray:
+        """RRT-Connect from q_a to an IK solution at T_b: CBiRRT with every axis free,
+        collisions checked with the held object riding the hand."""
+        c = self.cfg
+        r = self.ik.solve_site(T_b, c.ik_pos_tol, c.ik_rot_tol, 200, q_a)
+        if not r.success:
+            raise TaskPlanError("ik_goal", label, f"no IK at the target ({r.position_error * 1000:.1f} mm)",
+                                {"T": np.round(T_b, 4).tolist()})
+        attached = AttachedObject(T_ee_body)
+        kin = AttachedArmKinematics(self.env, attached, self.env.objects[grasped].joints[0], grasped)
+        res = plan_constrained(kin, attached, [free_tsr()], q_a, r.cspace_position,
+                               timeout=c.rrt_timeout, eps=c.rrt_eps, rng=np.random.default_rng(c.seed))
+        self.report["rrt"] = {"ok": res.ok, "reason": res.reason, "seconds": round(res.solve_time, 1), **res.stats}
+        if not res.ok:
+            raise TaskPlanError("rrt", label, res.reason, res.stats)
+        return res.path
+
+    def _move(self, label: str, T_a, T_b, q_a, grasped: str, T_ee_body) -> np.ndarray:
+        if self.cfg.mover == "rrt":
+            return self._rrt(label, T_b, q_a, grasped, T_ee_body)
+        return self._line(label, T_a, T_b, q_a)
+
+    def plan(self, q_grasp: np.ndarray | None = None) -> Plan:
+        """q_grasp: start there, holding the object, instead of the grasp move."""
         c, program = self.cfg, self.program
         g = program["grasp"]
         grasped = g["object"]
 
-        T_grasp = grasp_pose(self.T0[grasped], g["point_body"], g["closing_body"],
-                             g["approach_world"], self.T_home)
-        T_pre = T_grasp.copy()
-        T_pre[:3, 3] -= T_grasp[:3, 2] * g["standoff_m"]
-        to_pre = self._line("grasp", self.T_home, T_pre, self.q_home)
-        forward = self._line("grasp", T_pre, T_grasp, to_pre[-1])
-        reach = np.vstack([to_pre, forward[1:]])
-        q_grasp = reach[-1]
+        if q_grasp is None:
+            T_grasp = grasp_pose(self.T0[grasped], g["point_body"], g["closing_body"],
+                                 g["approach_world"], self.T_home)
+            T_pre = T_grasp.copy()
+            T_pre[:3, 3] -= T_grasp[:3, 2] * g["standoff_m"]
+            to_pre = self._line("grasp", self.T_home, T_pre, self.q_home)
+            forward = self._line("grasp", T_pre, T_grasp, to_pre[-1])
+            reach = np.vstack([to_pre, forward[1:]])
+            q_grasp = reach[-1]
+        else:
+            reach = q_grasp[None]
         T_grasp = self.kin.fk(q_grasp)
         T_ee_body = np.linalg.inv(T_grasp) @ self.T0[grasped]
         self.report["stages"].append({"stage": "grasp", "n_waypoints": len(reach)})
@@ -197,20 +239,26 @@ class OmniManipPlanner:
         ee_points, obstacles = self._ee_points(), self._obstacles(grasped)
         T_target, solve = solve_target_pose(T_grasp, T_ee_body, constraint, ee_points, obstacles,
                                             c.weights, x0)
-        row = {"stage": "place", "solve": solve, "obstacles": [o.name for o in obstacles]}
+        action = stage["action"]
+        row = {"stage": action, "solve": solve, "obstacles": [o.name for o in obstacles]}
         self.report["stages"].append(row)
-        print(f"[place] target: {solve['position_error_mm']} mm, {solve['angle_error_deg']} deg, "
+        print(f"[{action}] target: {solve['position_error_mm']} mm, {solve['angle_error_deg']} deg, "
               f"losses {solve['losses']}")
         if solve["position_error_mm"] > c.pos_tol * 1000 or solve["angle_error_deg"] > c.rot_tol_deg:
-            raise TaskPlanError("target_pose", "place", "the solve missed the constraint", solve)
+            raise TaskPlanError("target_pose", action, "the solve missed the constraint", solve)
 
-        T_above = T_target.copy()
-        T_above[:3, 3] += constraint.axis_passive * stage["v_m"]
-        move = self._line("place:move", T_grasp, T_above, q_grasp)
-        insert = self._line("place:insert", T_above, T_target, move[-1])
-        row["n_waypoints"] = len(move) + len(insert)
+        if action == "place":
+            T_above = T_target.copy()
+            T_above[:3, 3] += constraint.axis_passive * stage["v_m"]
+            move = self._move("place:move", T_grasp, T_above, q_grasp, grasped, T_ee_body)
+            last = ("place:insert", self._line("place:insert", T_above, T_target, move[-1]))
+            first = ("place:move", move)
+        else:
+            first, last = None, ("pour:move", self._move("pour:move", T_grasp, T_target, q_grasp, grasped, T_ee_body))
+        moves = [s for s in (first, last) if s]
+        row["n_waypoints"] = sum(len(s) for _, s in moves)
 
-        segments = [("grasp", reach), ("place:move", move), ("place:insert", insert)]
+        segments = [("grasp", reach), *moves]
         self.kin.set_q(self.q_home)
         self.report["status"] = "ok"
         target = program.get("target")

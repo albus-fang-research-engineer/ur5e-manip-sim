@@ -1,0 +1,920 @@
+{
+  "ours10g": [
+    {
+      "run": "ours10g_s0",
+      "seconds": 248,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/ours10g_s0.npz",
+        "carrying": {
+          "max_tilt_deg": 8.9,
+          "tilt_at_quarters_deg": [
+            7.6,
+            41.9,
+            73.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 25.9,
+          "spout_wander_mm": 4.7,
+          "tilt_axis_off_level_deg": 8.4
+        },
+        "end": {
+          "lateral_mm": 25.9,
+          "height_mm": 95.0,
+          "tilt_deg": 98.0,
+          "spout_off_down_deg": 10.9,
+          "stream_off_mm": 37.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s1",
+      "seconds": 240,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/ours10g_s1.npz",
+        "carrying": {
+          "max_tilt_deg": 7.6,
+          "tilt_at_quarters_deg": [
+            5.1,
+            30.6,
+            77.5
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 25.7,
+          "spout_wander_mm": 4.4,
+          "tilt_axis_off_level_deg": 7.7
+        },
+        "end": {
+          "lateral_mm": 22.5,
+          "height_mm": 93.2,
+          "tilt_deg": 98.4,
+          "spout_off_down_deg": 11.1,
+          "stream_off_mm": 15.1
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s2",
+      "seconds": 260,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/ours10g_s2.npz",
+        "carrying": {
+          "max_tilt_deg": 8.9,
+          "tilt_at_quarters_deg": [
+            8.5,
+            38.6,
+            73.5
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 32.3,
+          "spout_wander_mm": 1.8,
+          "tilt_axis_off_level_deg": 11.2
+        },
+        "end": {
+          "lateral_mm": 32.1,
+          "height_mm": 88.7,
+          "tilt_deg": 93.2,
+          "spout_off_down_deg": 9.4,
+          "stream_off_mm": 46.7
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s3",
+      "seconds": 252,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/ours10g_s3.npz",
+        "carrying": {
+          "max_tilt_deg": 8.0,
+          "tilt_at_quarters_deg": [
+            6.7,
+            29.6,
+            64.6
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 25.0,
+          "spout_wander_mm": 5.2,
+          "tilt_axis_off_level_deg": 11.1
+        },
+        "end": {
+          "lateral_mm": 24.8,
+          "height_mm": 69.1,
+          "tilt_deg": 89.0,
+          "spout_off_down_deg": 5.5,
+          "stream_off_mm": 29.5
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s4",
+      "seconds": 287,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/ours10g_s4.npz",
+        "carrying": {
+          "max_tilt_deg": 7.9,
+          "tilt_at_quarters_deg": [
+            8.5,
+            43.6,
+            75.0
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 28.7,
+          "spout_wander_mm": 3.7,
+          "tilt_axis_off_level_deg": 9.8
+        },
+        "end": {
+          "lateral_mm": 25.8,
+          "height_mm": 85.0,
+          "tilt_deg": 96.1,
+          "spout_off_down_deg": 10.6,
+          "stream_off_mm": 41.5
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    }
+  ],
+  "ours5g": [
+    {
+      "run": "ours5g_s0",
+      "seconds": 221,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/ours5g_s0.npz",
+        "carrying": {
+          "max_tilt_deg": 4.2,
+          "tilt_at_quarters_deg": [
+            4.4,
+            37.9,
+            68.3
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 26.0,
+          "spout_wander_mm": 4.7,
+          "tilt_axis_off_level_deg": 5.6
+        },
+        "end": {
+          "lateral_mm": 26.0,
+          "height_mm": 94.9,
+          "tilt_deg": 93.9,
+          "spout_off_down_deg": 6.0,
+          "stream_off_mm": 30.3
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s1",
+      "seconds": 248,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/ours5g_s1.npz",
+        "carrying": {
+          "max_tilt_deg": 3.1,
+          "tilt_at_quarters_deg": [
+            3.2,
+            41.3,
+            72.2
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 18.7,
+          "spout_wander_mm": 4.1,
+          "tilt_axis_off_level_deg": 4.2
+        },
+        "end": {
+          "lateral_mm": 18.7,
+          "height_mm": 78.9,
+          "tilt_deg": 93.4,
+          "spout_off_down_deg": 3.5,
+          "stream_off_mm": 21.9
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s2",
+      "seconds": 265,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/ours5g_s2.npz",
+        "carrying": {
+          "max_tilt_deg": 3.9,
+          "tilt_at_quarters_deg": [
+            3.9,
+            40.2,
+            72.5
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 32.3,
+          "spout_wander_mm": 1.9,
+          "tilt_axis_off_level_deg": 7.0
+        },
+        "end": {
+          "lateral_mm": 31.7,
+          "height_mm": 88.4,
+          "tilt_deg": 91.6,
+          "spout_off_down_deg": 4.8,
+          "stream_off_mm": 39.2
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s3",
+      "seconds": 291,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/ours5g_s3.npz",
+        "carrying": {
+          "max_tilt_deg": 3.9,
+          "tilt_at_quarters_deg": [
+            3.2,
+            13.4,
+            58.2
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 26.2,
+          "spout_wander_mm": 4.9,
+          "tilt_axis_off_level_deg": 7.0
+        },
+        "end": {
+          "lateral_mm": 24.7,
+          "height_mm": 68.9,
+          "tilt_deg": 89.7,
+          "spout_off_down_deg": 1.2,
+          "stream_off_mm": 25.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s4",
+      "seconds": 273,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/ours5g_s4.npz",
+        "carrying": {
+          "max_tilt_deg": 3.9,
+          "tilt_at_quarters_deg": [
+            3.9,
+            40.8,
+            72.6
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 28.3,
+          "spout_wander_mm": 3.5,
+          "tilt_axis_off_level_deg": 6.2
+        },
+        "end": {
+          "lateral_mm": 25.9,
+          "height_mm": 84.8,
+          "tilt_deg": 93.0,
+          "spout_off_down_deg": 6.1,
+          "stream_off_mm": 34.9
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    }
+  ],
+  "rekeploop": [
+    {
+      "run": "rekeploop_s0",
+      "seconds": 269,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/rekeploop_s0.npz",
+        "carrying": {
+          "max_tilt_deg": 1.4,
+          "tilt_at_quarters_deg": [
+            0.4,
+            1.4,
+            58.0
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 25.9,
+          "spout_wander_mm": 105.4,
+          "tilt_axis_off_level_deg": 51.2
+        },
+        "end": {
+          "lateral_mm": 0.1,
+          "height_mm": 50.0,
+          "tilt_deg": 83.8,
+          "spout_off_down_deg": 10.2,
+          "stream_off_mm": 8.8
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 1.9,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {
+          "mug_main <-> teapot_main": 1.9
+        },
+        "colliding_points": 2,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "rekeploop_s1",
+      "seconds": 252,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/rekeploop_s1.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.7,
+            0.1,
+            33.6
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 16.8,
+          "spout_wander_mm": 51.8,
+          "tilt_axis_off_level_deg": 28.5
+        },
+        "end": {
+          "lateral_mm": 0.1,
+          "height_mm": 50.0,
+          "tilt_deg": 81.7,
+          "spout_off_down_deg": 10.1,
+          "stream_off_mm": 8.8
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 3.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {
+          "mug_main <-> teapot_main": 3.0
+        },
+        "colliding_points": 2,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "rekeploop_s2",
+      "seconds": 258,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/rekeploop_s2.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.2,
+            20.5,
+            65.5
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 18.4,
+          "spout_wander_mm": 31.9,
+          "tilt_axis_off_level_deg": 44.1
+        },
+        "end": {
+          "lateral_mm": 0.1,
+          "height_mm": 50.0,
+          "tilt_deg": 82.1,
+          "spout_off_down_deg": 9.4,
+          "stream_off_mm": 8.2
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 3.2,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {
+          "mug_main <-> teapot_main": 3.2
+        },
+        "colliding_points": 4,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "rekeploop_s3",
+      "seconds": 240,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/rekeploop_s3.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.6,
+            13.6,
+            54.6
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 18.4,
+          "spout_wander_mm": 32.2,
+          "tilt_axis_off_level_deg": 26.1
+        },
+        "end": {
+          "lateral_mm": 0.1,
+          "height_mm": 50.1,
+          "tilt_deg": 89.4,
+          "spout_off_down_deg": 5.6,
+          "stream_off_mm": 4.8
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 3.1,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {
+          "mug_main <-> teapot_main": 3.1
+        },
+        "colliding_points": 3,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "rekeploop_s4",
+      "seconds": 256,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/rekeploop_s4.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.4,
+            10.6,
+            65.6
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 23.4,
+          "spout_wander_mm": 31.6,
+          "tilt_axis_off_level_deg": 10.0
+        },
+        "end": {
+          "lateral_mm": 1.8,
+          "height_mm": 55.7,
+          "tilt_deg": 82.3,
+          "spout_off_down_deg": 8.8,
+          "stream_off_mm": 7.9
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 3.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {
+          "mug_main <-> teapot_main": 3.0
+        },
+        "colliding_points": 3,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    }
+  ],
+  "omni": [
+    {
+      "run": "omni_s0",
+      "seconds": 16,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/omni_s0.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.8,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.2
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s1",
+      "seconds": 16,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/omni_s1.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.5
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s2",
+      "seconds": 16,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/omni_s2.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.5
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s3",
+      "seconds": 15,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/omni_s3.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.8,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.1
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s4",
+      "seconds": 17,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_compare/omni_s4.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.6
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    }
+  ]
+}

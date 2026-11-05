@@ -1,0 +1,39 @@
+{
+  "plan": "outputs/plans/pour_compare/omni_s2.npz",
+  "carrying": {
+    "max_tilt_deg": 71.2,
+    "tilt_at_quarters_deg": [
+      14.0,
+      39.1,
+      64.1
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 42.7,
+    "spout_wander_mm": 21.1,
+    "tilt_axis_off_level_deg": 0.5
+  },
+  "end": {
+    "lateral_mm": 0.5,
+    "height_mm": 69.7,
+    "tilt_deg": 89.1,
+    "spout_off_down_deg": 0.9,
+    "stream_off_mm": 0.6
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {},
+  "colliding_points": 0,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": false,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": false
+}

@@ -1,0 +1,41 @@
+{
+  "plan": "outputs/plans/pour_box12/rekepup05_s3.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.3,
+      26.0,
+      83.9
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 41.3,
+    "spout_wander_mm": 26.5,
+    "tilt_axis_off_level_deg": 16.7
+  },
+  "end": {
+    "lateral_mm": 0.8,
+    "height_mm": 50.4,
+    "tilt_deg": 82.6,
+    "spout_off_down_deg": 9.7,
+    "stream_off_mm": 8.5
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 3.2,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 3.2
+  },
+  "colliding_points": 7,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

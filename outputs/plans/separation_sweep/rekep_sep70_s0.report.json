@@ -1,0 +1,76 @@
+{
+  "planner": "rekep",
+  "mode": "open-loop",
+  "upstream_commit": "63c43fd",
+  "program": "/workspace/manip_sim/rekep/programs/insert_marker",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "attempts": 1,
+      "failures": [],
+      "solve_seconds": 86.2,
+      "subgoal_violations": [
+        0.00332,
+        0.00021
+      ],
+      "path_max_violation": 0.0,
+      "n_waypoints": 12,
+      "max_joint_step_rad": 0.273,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "attempts": 5,
+      "failures": [
+        {
+          "attempt": 0,
+          "kind": "joint_path",
+          "reason": "no IK within tolerance (6.4 mm)"
+        },
+        {
+          "attempt": 1,
+          "kind": "joint_path",
+          "reason": "joint step 0.40 rad survives 4 bisections"
+        },
+        {
+          "attempt": 2,
+          "kind": "joint_path",
+          "reason": "joint step 0.35 rad survives 4 bisections"
+        },
+        {
+          "attempt": 3,
+          "kind": "joint_path",
+          "reason": "no IK within tolerance (3.3 mm)"
+        }
+      ],
+      "solve_seconds": 62.5,
+      "subgoal_violations": [
+        0.00038,
+        2e-05,
+        0.0
+      ],
+      "path_max_violation": 0.0,
+      "n_waypoints": 15,
+      "max_joint_step_rad": 0.22,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage3",
+      "attempts": 1,
+      "failures": [],
+      "solve_seconds": 45.6,
+      "subgoal_violations": [
+        0.00011,
+        0.0,
+        0.0,
+        -0.01
+      ],
+      "path_max_violation": 0.0,
+      "n_waypoints": 2,
+      "max_joint_step_rad": 0.264,
+      "colliding_waypoints": 0
+    }
+  ],
+  "status": "ok",
+  "seconds": 613.5
+}

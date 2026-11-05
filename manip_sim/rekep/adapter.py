@@ -28,6 +28,8 @@ import numpy as np
 from scipy.spatial import ConvexHull, QhullError
 from scipy.spatial.transform import Rotation as R
 
+from ..planning import MinkIK
+
 # rekep x = site z (approach), rekep y = site y, rekep z = -site x (closing)
 T_SITE_RK = np.eye(4)
 T_SITE_RK[:3, :3] = np.array([[0, 0, -1], [0, 1, 0], [1, 0, 0]], float)
@@ -72,6 +74,23 @@ class IKResult:
     position_error: float
     num_descents: int
     cspace_position: np.ndarray
+    rotation_error: float = 0.0      # largest axis, rad; not one of Lula's fields
+
+
+class MinkTracker:
+    """MinkIK behind solve_site, for moving through poses rather than the solvers' cost."""
+
+    def __init__(self, kin):
+        self.kin, self.mink = kin, MinkIK(kin)
+
+    def solve_site(self, T_site, position_tolerance, orientation_tolerance, max_iterations, initial_joint_pos) -> IKResult:
+        q, _ = self.mink.solve(T_site, initial_joint_pos, iters=max_iterations,
+                               pos_tol=position_tolerance, rot_tol=orientation_tolerance)
+        T = self.kin.fk(q)
+        pos_err = float(np.linalg.norm(T[:3, 3] - T_site[:3, 3]))
+        rot_err = float(np.max(np.abs(R.from_matrix(T[:3, :3].T @ T_site[:3, :3]).as_rotvec())))
+        return IKResult(pos_err <= position_tolerance and rot_err <= orientation_tolerance,
+                        pos_err, max_iterations, q, rot_err)
 
 
 class ReKepIK:
@@ -107,9 +126,9 @@ class ReKepIK:
             Rm = d.site_xmat[k.site_id].reshape(3, 3)
             ep = T_site[:3, 3] - d.site_xpos[k.site_id]
             er = Rm @ R.from_matrix(Rm.T @ T_site[:3, :3]).as_rotvec()
-            pos_err = float(np.linalg.norm(ep))
-            if pos_err <= position_tolerance and np.max(np.abs(er)) <= orientation_tolerance:
-                return IKResult(True, pos_err, i, q)
+            pos_err, rot_err = float(np.linalg.norm(ep)), float(np.max(np.abs(er)))
+            if pos_err <= position_tolerance and rot_err <= orientation_tolerance:
+                return IKResult(True, pos_err, i, q, rot_err)
             if i == max_iterations:
                 break
             mujoco.mj_jacSite(m, d, jacp, jacr, k.site_id)
@@ -117,7 +136,7 @@ class ReKepIK:
             dq = J.T @ np.linalg.solve(J @ J.T + reg, np.r_[ep, er])
             q = np.clip(q + np.clip(dq, -self.max_step, self.max_step),
                         k.joint_range[:, 0], k.joint_range[:, 1])
-        return IKResult(False, pos_err, max_iterations, q)
+        return IKResult(False, pos_err, max_iterations, q, rot_err)
 
 
 # ---------------------------------------------------------------- geometry

@@ -14,10 +14,24 @@ Other differences from upstream's main.py, each because of this sim:
               Planning assumes it holds; execute_task_plan measures whether it did.
   failures    upstream executes whatever the solvers return. Here a solve must
               pass its constraints and IK or the stage retries with a new seed,
-              then raises TaskPlanError.
+              then raises TaskPlanError. soft_path keeps upstream's way for the
+              path solve: its violations go in the report and are the grader's.
+              soft_subgoal does the same for the subgoal solve, which also checks
+              the stage's path constraints at the subgoal: only IK can reject it.
+              soft_ik drops the IK rejections too, so with all three the first
+              solve is what the stage returns, as upstream would execute it.
   joint path  upstream sends poses to an operational-space controller. The
               executor tracks joint paths, so poses become a continuous IK chain
-              (bisecting a pose step whose joint step exceeds the limit).
+              (bisecting a pose step whose joint step exceeds the limit). soft_ik
+              keeps the IK's best attempt at a pose it misses; the report has the
+              worst miss, and the grader measures the joint path that resulted.
+
+upstream_loop runs main.py's loop instead of one solve per stage: solve, move
+through action_steps_per_iter poses, solve again from where the arm is, and
+backtrack on its tolerance, until a path fits in those steps. Nothing is
+rejected, and the solvers keep upstream's tolerance. It stays kinematic: moving
+to a pose is mink's IK, which stands in for upstream's Fetch controller, so a
+pose out of reach leaves the arm short and the next solve starts from there.
   collisions  ReKep's cost is soft and skips most arm links, so plans are not
               rejected for collision: the report counts colliding waypoints.
 """
@@ -34,11 +48,11 @@ from scipy.spatial.transform import Rotation as R, Slerp
 from ..frames import load_symbols
 from ..planning import ArmKinematics, AttachedArmKinematics, AttachedObject
 from ..task_plan import TaskPlanError
-from .adapter import (COLLISION_POINT_PREFIXES, ReKepIK, body_pose, collision_vertices,
+from .adapter import (COLLISION_POINT_PREFIXES, MinkTracker, ReKepIK, body_pose, collision_vertices,
                       rekep_to_site, scene_sdf, site_to_rekep)
 from .program import load_program
 from .vendor import (PathSolver, SubgoalSolver, get_linear_interpolation_steps,
-                     spline_interpolate_poses)
+                     scale_collision_cost, spline_interpolate_poses)
 
 UPSTREAM_COMMIT = "63c43fd"
 FINGER_OFFSET = 0.05                 # m, virtual keypoint along the closing axis
@@ -68,6 +82,14 @@ class Config:
     max_bisections: int = 4
     path_pos_tol: float = 1e-3       # tracked waypoints, tighter than the cost's IK
     path_rot_tol: float = 5e-3
+    soft_path: bool = False
+    soft_subgoal: bool = False
+    soft_ik: bool = False
+    upstream_loop: bool = False
+    action_steps_per_iter: int = 5   # upstream's main config
+    backtrack_tolerance: float = 0.10
+    max_loop_iters: int = 60         # upstream has no limit: a stuck stage would spin
+    collision_scale: float = 1.0     # on upstream's collision weights, 0.8 subgoal and 0.5 path
     seed: int = 0
 
 
@@ -103,6 +125,7 @@ class ReKepPlanner:
             for k in self.program.keypoints]
         self.bounds_min, self.bounds_max = self._workspace()
         self.ik = ReKepIK(self.kin, self.q_home)
+        self.track_ik = MinkTracker(self.kin) if self.cfg.upstream_loop else self.ik
         solver_cfg = {
             "bounds_min": self.bounds_min, "bounds_max": self.bounds_max,
             "sampling_maxfun": self.cfg.sampling_maxfun,
@@ -114,9 +137,10 @@ class ReKepPlanner:
             "opt_interpolate_pos_step_size": self.cfg.opt_interpolate_pos_step_size,
             "opt_interpolate_rot_step_size": self.cfg.opt_interpolate_rot_step_size,
         }
+        scale_collision_cost(self.cfg.collision_scale)
         self.subgoal_solver = SubgoalSolver(solver_cfg, self.ik, self.q_home)
         self.path_solver = PathSolver(solver_cfg, self.ik, self.q_home)
-        self.report: dict = {"planner": "rekep", "mode": "open-loop",
+        self.report: dict = {"planner": "rekep", "mode": "upstream-loop" if self.cfg.upstream_loop else "open-loop",
                              "upstream_commit": UPSTREAM_COMMIT,
                              "program": str(program_dir), "stages": []}
 
@@ -161,11 +185,12 @@ class ReKepPlanner:
 
     def _ik_step(self, T_a, T_b, q_a, depth) -> list[np.ndarray]:
         c = self.cfg
-        r = self.ik.solve_site(T_b, c.path_pos_tol, c.path_rot_tol, 200, q_a)
-        if not r.success:
+        r = self.track_ik.solve_site(T_b, c.path_pos_tol, c.path_rot_tol, 200, q_a)
+        if not r.success and not c.soft_ik:
             raise _ChainFailure(f"no IK within tolerance ({r.position_error * 1000:.1f} mm)")
         step = float(np.max(np.abs(r.cspace_position - q_a)))
-        if step <= c.max_joint_step:
+        if step <= c.max_joint_step or (depth == 0 and c.soft_ik):
+            self.tracking.append((r.position_error, r.rotation_error))
             return [r.cspace_position]
         if depth == 0:
             raise _ChainFailure(f"joint step {step:.2f} rad survives "
@@ -209,13 +234,13 @@ class ReKepPlanner:
         start = site_to_rekep(T_start)
         failures = []
         for attempt in range(c.attempts):
-            np.random.seed(c.seed + 1000 * index + attempt)
+            np.random.seed([c.seed, index, attempt])
             t0 = time.time()
             sub, dbg = self.subgoal_solver.solve(
                 start, points, mask, stage.subgoal, stage.path, sdf, collision,
                 stage.is_grasp, q_start, from_scratch=True)
             viol = self._violations(dbg, "subgoal_violation", "path_violation")
-            if not dbg["ik_feasible"] or any(v > c.constraint_tolerance for v in viol):
+            if (not dbg["ik_feasible"] and not c.soft_ik) or (not c.soft_subgoal and any(v > c.constraint_tolerance for v in viol)):
                 failures.append({"attempt": attempt, "kind": "subgoal", "ik": bool(dbg["ik_feasible"]),
                                  "violations": np.round(viol, 4).tolist()})
                 continue
@@ -227,7 +252,7 @@ class ReKepPlanner:
                 start, site_to_rekep(T_pre), points, mask, stage.path, sdf, collision,
                 q_start, from_scratch=True)
             pviol = self._violations(pdbg, "path_violation")
-            if not np.all(pdbg["ik_feasible"]) or any(v > c.constraint_tolerance for v in pviol):
+            if (not np.all(pdbg["ik_feasible"]) and not c.soft_ik) or (not c.soft_path and any(v > c.constraint_tolerance for v in pviol)):
                 failures.append({"attempt": attempt, "kind": "path",
                                  "ik": np.asarray(pdbg["ik_feasible"]).tolist(),
                                  "max_violation": round(max(pviol, default=0.0), 4)})
@@ -235,6 +260,7 @@ class ReKepPlanner:
             poses = self._dense_poses(T_start, path)
             if stage.is_grasp:
                 poses.append(T_goal)
+            self.tracking = []
             try:
                 chain = self._ik_chain(poses, q_start)
             except _ChainFailure as e:
@@ -245,13 +271,94 @@ class ReKepPlanner:
                    "subgoal_violations": np.round(viol, 5).tolist(),
                    "path_max_violation": round(max(pviol, default=0.0), 5),
                    "n_waypoints": int(len(chain)),
-                   "max_joint_step_rad": round(float(np.max(np.abs(np.diff(chain, axis=0)))), 3)}
+                   "max_joint_step_rad": round(float(np.max(np.abs(np.diff(chain, axis=0)))), 3),
+                   "tracking_max_mm": round(max(p for p, _ in self.tracking) * 1000, 2),
+                   "tracking_max_deg": round(float(np.degrees(max(r for _, r in self.tracking))), 2),
+                   "tracking_misses": sum(p > c.path_pos_tol or r > c.path_rot_tol for p, r in self.tracking)}
             print(f"[{label}] attempt {attempt + 1}: {len(chain)} waypoints, "
                   f"violations {row['subgoal_violations']}, {row['solve_seconds']} s")
             return chain, self.kin.fk(chain[-1]), row
         self.kin.set_q(self.q_home)
         raise TaskPlanError(failures[-1]["kind"], label,
                             f"no solution in {c.attempts} attempts", {"failures": failures})
+
+    def _backtrack_to(self, index: int, points: np.ndarray) -> int | None:
+        """main.py's check: None to carry on, else the stage to go back to."""
+        stages, c = self.program.stages, self.cfg
+        def violated(i):
+            return any(f(points[0], points[1:]) > c.backtrack_tolerance for f in stages[i].path)
+        if index == 0 or not violated(index):
+            return None
+        for i in range(index - 1, -1, -1):
+            if not stages[i].path or not violated(i):
+                return i
+        return 0
+
+    def _loop_stage(self, index: int, label: str, T_site, q) -> tuple[np.ndarray, np.ndarray, dict, int | None]:
+        """-> (joint path including q, T_site at its end, report row, stage to backtrack to)."""
+        c, stage = self.cfg, self.program.stages[index]
+        sdf = scene_sdf(self.kin, self.bounds_min, self.bounds_max, c.sdf_voxel_size, (self.held,))
+        np.random.seed([c.seed, index, len(self.report["stages"])])
+        t0, chain, first, self.tracking = time.time(), [q], True, []
+        for i in range(c.max_loop_iters):
+            points, mask = self._keypoints(T_site)
+            back = self._backtrack_to(index, points)
+            done = False
+            if back is None:
+                collision = self._collision_points(q, T_site)
+                start = site_to_rekep(T_site)
+                sub, _ = self.subgoal_solver.solve(start, points, mask, stage.subgoal, stage.path, sdf,
+                                                   collision, stage.is_grasp, q, from_scratch=first)
+                path, _ = self.path_solver.solve(start, sub, points, mask, stage.path, sdf,
+                                                 collision, q, from_scratch=first)
+                first = False
+                poses = self._dense_poses(T_site, path)
+                done = len(poses) <= c.action_steps_per_iter
+                segment = self._ik_chain(poses[:c.action_steps_per_iter], q)
+                chain += list(segment[1:])
+                q, T_site = segment[-1], self.kin.fk(segment[-1])
+            if done or back is not None:
+                chain = np.array(chain)
+                row = {"stage": label, "iterations": i + 1, "backtrack_to": back,
+                       "solve_seconds": round(time.time() - t0, 1), "n_waypoints": int(len(chain)),
+                       "max_joint_step_rad": round(float(np.max(np.abs(np.diff(chain, axis=0)))), 3) if len(chain) > 1 else 0.0,
+                       "tracking_max_mm": round(max((p for p, _ in self.tracking), default=0.0) * 1000, 2),
+                       "tracking_max_deg": round(float(np.degrees(max((r for _, r in self.tracking), default=0.0))), 2),
+                       "tracking_misses": sum(p > c.path_pos_tol or r > c.path_rot_tol for p, r in self.tracking)}
+                print(f"[{label}] {i + 1} iterations, {len(chain)} waypoints, backtrack {back}, {row['solve_seconds']} s")
+                return chain, T_site, row, back
+        raise TaskPlanError("loop", label, f"not finished in {c.max_loop_iters} iterations", {})
+
+    def _plan_loop(self, q_grasp: np.ndarray | None) -> Plan:
+        c, stages = self.cfg, self.program.stages
+        label = "reach+approach"
+        if q_grasp is not None:
+            chain, T_site, row = q_grasp[None], self.kin.fk(q_grasp), {"stage": label, "given": True}
+        else:
+            chain, T_site, row = self._solve_stage(0, label, self.kin.fk(self.q_home), self.q_home)
+        row["colliding_waypoints"] = self._colliding(chain)
+        self.report["stages"].append(row)
+        segments, q = [(label, chain)], chain[-1]
+        q_grasp = q
+        self.held = self.program.grasped_object
+        self.T_ee_body = np.linalg.inv(T_site) @ self.T0[self.held]
+        index = 1
+        while index < len(stages):
+            label = f"stage{index + 1}"
+            chain, T_site, row, back = self._loop_stage(index, label, T_site, q)
+            row["colliding_waypoints"] = self._colliding(chain)
+            self.report["stages"].append(row)
+            segments.append((label, chain))
+            q = chain[-1]
+            if back == 0:
+                raise TaskPlanError("backtrack", label, "backtracked to the grasp, which this plan cannot redo", {})
+            index = index + 1 if back is None else back
+        self.report["status"] = "ok"
+        return Plan(path=np.vstack([s for _, s in segments]),
+                    stage_ids=np.concatenate([np.full(len(s), i) for i, (_, s) in enumerate(segments)]),
+                    stage_labels=np.array([lab for lab, _ in segments]),
+                    q_home=self.q_home, q_grasp=q_grasp, T_ee_body=self.T_ee_body,
+                    grasped=self.held, T0=self.T0, target=self._target())
 
     def _colliding(self, chain: np.ndarray) -> int:
         kin = self.kin
@@ -262,14 +369,20 @@ class ReKepPlanner:
         self.kin.set_q(self.q_home)
         return int(n)
 
-    def plan(self) -> Plan:
+    def plan(self, q_grasp: np.ndarray | None = None) -> Plan:
+        """q_grasp: start there, holding the object, instead of solving the grasp stage."""
+        if self.cfg.upstream_loop:
+            return self._plan_loop(q_grasp)
         program = self.program
         grasped = program.grasped_object
         q, T_site = self.q_home, self.kin.fk(self.q_home)
-        segments, q_grasp = [], None
+        segments, given = [], q_grasp
         for i, stage in enumerate(program.stages):
             label = "reach+approach" if stage.is_grasp else f"stage{i + 1}"
-            chain, T_site, row = self._solve_stage(i, label, T_site, q)
+            if stage.is_grasp and given is not None:
+                chain, T_site, row = given[None], self.kin.fk(given), {"stage": label, "given": True}
+            else:
+                chain, T_site, row = self._solve_stage(i, label, T_site, q)
             row["colliding_waypoints"] = self._colliding(chain)
             self.report["stages"].append(row)
             segments.append((label, chain))

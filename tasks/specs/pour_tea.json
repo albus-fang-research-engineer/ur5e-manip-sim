@@ -1,0 +1,27 @@
+{
+  "task": "pour_tea",
+  "active": "teapot",
+  "passive": "mug",
+  "spout": "spout_tip",
+  "tilt_axis": "tilt_axis",
+  "pour_axis": "pour_axis",
+  "up_axis": "up_axis",
+  "opening": "opening_center",
+  "rim_radius_m": 0.0441,
+  "max_carry_tilt_deg": 15.0,
+  "pour_height_m": [
+    0.04,
+    0.1
+  ],
+  "max_spout_off_down_deg": 15.0,
+  "max_pivot_m": 0.005,
+  "path_tol_m": 0.002,
+  "q_grasp": [
+    -0.8216022482450807,
+    -0.4107856507224277,
+    0.9698326731272848,
+    -1.8232209960628323,
+    -0.7224342185419215,
+    -0.39907116560585526
+  ]
+}

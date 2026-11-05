@@ -5,6 +5,7 @@ stage loop itself is exercised by scripts/plan_rekep.py."""
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -17,10 +18,10 @@ try:
 except ImportError as e:
     pytest.skip(str(e), allow_module_level=True)
 from manip_sim.planning import ArmKinematics  # noqa: E402
-from manip_sim.rekep.adapter import (T_RK_SITE, T_SITE_RK, ReKepIK, body_pose,  # noqa: E402
+from manip_sim.rekep.adapter import (T_RK_SITE, T_SITE_RK, MinkTracker, ReKepIK, body_pose,  # noqa: E402
                                      farthest_point_sampling, hull_distance, hull_planes,
                                      rekep_to_site, scene_sdf, sdf_shape, site_to_rekep)
-from manip_sim.rekep.planner import default_program_dir  # noqa: E402
+from manip_sim.rekep.planner import Config, ReKepPlanner, _ChainFailure, default_program_dir  # noqa: E402
 from manip_sim.rekep.program import load_program  # noqa: E402
 from manip_sim.scene import load_scene, make_env  # noqa: E402
 
@@ -81,6 +82,53 @@ def test_ik_reports_failure_on_an_unreachable_pose(sim):
     T[:3, 3] += [5.0, 0, 0]
     r = ReKepIK(kin, q0).solve_site(T, max_iterations=20, initial_joint_pos=q0)
     assert not r.success and r.num_descents == 20
+    kin.set_q(q0)
+
+
+def test_soft_ik_keeps_a_pose_the_chain_misses(sim):
+    _, _, kin = sim
+    q0 = kin.data.qpos[kin.qpos_ids].copy()
+    T = kin.fk(q0)
+    T_far = T.copy()
+    T_far[:3, 3] += [5.0, 0, 0]
+    planner = ReKepPlanner.__new__(ReKepPlanner)
+    planner.track_ik, planner.tracking = ReKepIK(kin, q0), []
+    planner.cfg = Config()
+    with pytest.raises(_ChainFailure):
+        planner._ik_step(T, T_far, q0, 0)
+    planner.cfg = Config(soft_ik=True)
+    assert len(planner._ik_step(T, T_far, q0, 0)) == 1
+    assert planner.tracking[-1][0] > 1.0
+    kin.set_q(q0)
+
+
+def test_backtrack_goes_to_the_nearest_stage_that_still_holds():
+    planner = ReKepPlanner.__new__(ReKepPlanner)
+    planner.cfg = Config()
+    high, low = (lambda ee, kp: 0.5), (lambda ee, kp: 0.0)
+    def stages(*paths):
+        return SimpleNamespace(stages=[SimpleNamespace(path=list(p)) for p in paths])
+    points = np.zeros((3, 3))
+    planner.program = stages([], [low], [low])
+    assert planner._backtrack_to(2, points) is None
+    planner.program = stages([], [low], [high])
+    assert planner._backtrack_to(2, points) == 1
+    planner.program = stages([], [high], [high])
+    assert planner._backtrack_to(2, points) == 0
+    planner.program = stages([], [high])
+    assert planner._backtrack_to(0, points) is None
+
+
+def test_mink_tracker_reaches_a_pose_and_reports_a_miss(sim):
+    _, _, kin = sim
+    q0 = kin.data.qpos[kin.qpos_ids].copy()
+    T = kin.fk(q0)
+    T[:3, 3] += [0.05, 0.02, -0.02]
+    tracker = MinkTracker(kin)
+    r = tracker.solve_site(T, 2e-3, 8e-3, 200, q0)
+    assert r.success and r.position_error <= 2e-3
+    T[:3, 3] += [5.0, 0, 0]
+    assert not tracker.solve_site(T, 2e-3, 8e-3, 50, q0).success
     kin.set_q(q0)
 
 

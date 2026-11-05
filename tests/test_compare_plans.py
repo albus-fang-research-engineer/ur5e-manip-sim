@@ -9,7 +9,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.compare_plans import (README_END, README_START, load_runs, physics_outcome,  # noqa: E402
-                                   replace_block, span, split_run, violations)
+                                   replace_block, separation_rows, span, split_run, violations)
 
 SPEC = {"max_tilt_deg": 10.0, "max_path_tilt_deg": 10.0, "min_depth_m": 0.04, "rim_radius_m": 0.0423}
 
@@ -35,6 +35,18 @@ def test_load_runs_keeps_only_the_named_methods(tmp_path):
         (tmp_path / f"{name}.report.json").write_text(json.dumps({"status": "failed"}))
     assert [r["run"] for r in load_runs(tmp_path, tmp_path, {}, SPEC, ["omni", "same5"])] == ["omni_s0", "same5_s0"]
     assert len(load_runs(tmp_path, tmp_path, {}, SPEC)) == 3
+
+
+def test_separation_rows_count_clean_plans_per_method(tmp_path):
+    grade = {"goal_pass": True, "path_pass": True, "max_penetration_mm": {"table": 0.0}}
+    for name, ev in (("rekep_sep30_s0", grade), ("rekep_sep30_s1", {**grade, "max_penetration_mm": {"table": 2.5}}),
+                     ("rekep_sep30_s2", None), ("hand5_sep30_s0", grade)):
+        (tmp_path / f"{name}.report.json").write_text("{}")
+        if ev:
+            (tmp_path / f"{name}.eval.json").write_text(json.dumps(ev))
+    assert separation_rows(tmp_path, None) == [
+        ("Separation m", "Ours, 5°, hand TSRs", "ReKep"),
+        (0.3, "1/1 found, 1/1 clean", "2/3 found, 1/3 clean, deepest 2.5 mm")]
 
 
 def test_physics_outcomes():

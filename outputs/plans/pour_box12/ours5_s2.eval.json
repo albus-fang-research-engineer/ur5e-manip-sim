@@ -1,0 +1,41 @@
+{
+  "plan": "outputs/plans/pour_box12/ours5_s2.npz",
+  "carrying": {
+    "max_tilt_deg": 7.0,
+    "tilt_at_quarters_deg": [
+      5.0,
+      3.9,
+      56.2
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 31.8,
+    "spout_wander_mm": 1.9,
+    "tilt_axis_off_level_deg": 6.9
+  },
+  "end": {
+    "lateral_mm": 31.7,
+    "height_mm": 88.4,
+    "tilt_deg": 91.6,
+    "spout_off_down_deg": 4.8,
+    "stream_off_mm": 39.2
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.2
+  },
+  "pairs_max_depth_mm": {
+    "obstacle_main <-> teapot_main": 0.2
+  },
+  "colliding_points": 1,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

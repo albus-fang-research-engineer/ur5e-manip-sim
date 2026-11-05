@@ -1,0 +1,64 @@
+{
+  "planner": "rekep",
+  "mode": "open-loop",
+  "upstream_commit": "63c43fd",
+  "program": "manip_sim/rekep/programs/pour_tea",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "given": true,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "attempts": 1,
+      "failures": [],
+      "solve_seconds": 99.1,
+      "subgoal_violations": [
+        1e-05,
+        0.0,
+        0.0
+      ],
+      "path_max_violation": 0.002,
+      "n_waypoints": 8,
+      "max_joint_step_rad": 0.27,
+      "colliding_waypoints": 4
+    }
+  ],
+  "status": "failed",
+  "failure": {
+    "kind": "joint_path",
+    "stage": "stage3",
+    "message": "[stage3] joint_path: no solution in 5 attempts",
+    "detail": {
+      "failures": [
+        {
+          "attempt": 0,
+          "kind": "joint_path",
+          "reason": "no IK within tolerance (2.2 mm)"
+        },
+        {
+          "attempt": 1,
+          "kind": "joint_path",
+          "reason": "no IK within tolerance (2.2 mm)"
+        },
+        {
+          "attempt": 2,
+          "kind": "joint_path",
+          "reason": "no IK within tolerance (2.2 mm)"
+        },
+        {
+          "attempt": 3,
+          "kind": "joint_path",
+          "reason": "no IK within tolerance (2.2 mm)"
+        },
+        {
+          "attempt": 4,
+          "kind": "joint_path",
+          "reason": "no IK within tolerance (2.2 mm)"
+        }
+      ]
+    }
+  },
+  "seconds": 486.5
+}

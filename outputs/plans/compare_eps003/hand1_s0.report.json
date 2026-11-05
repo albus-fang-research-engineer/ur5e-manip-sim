@@ -1,0 +1,149 @@
+{
+  "scene": "scenes/insert_marker.json",
+  "grounding": null,
+  "stage_plan": "tasks/hand_tsr/insert_marker/stage_plan.json",
+  "selections": "tasks/hand_tsr/insert_marker/selections.json",
+  "emissions": "tasks/hand_tsr/insert_marker/emissions.json",
+  "seed": 0,
+  "constants": {
+    "SYNTH_START_CLEARANCE_M": 0.05,
+    "GRASP_ELEVATION_RAD (sim stand-in)": 1.5707963267948966,
+    "GRASP_PAD_BACKOFF_M (sim stand-in)": 0.005
+  },
+  "status": "ok",
+  "grasp": {
+    "given": "manip_sim/omnimanip/programs/insert_marker.json",
+    "point_body": [
+      0.0,
+      0.022,
+      0.0039
+    ],
+    "ik_feasible": true,
+    "collision_free": 1,
+    "lookahead": [
+      {
+        "score": 0.016,
+        "fractions": [
+          0.125,
+          0.125
+        ],
+        "slide_offset_mm": null
+      }
+    ],
+    "chosen_score": 0.016,
+    "chosen_slide_offset_mm": null,
+    "skips": []
+  },
+  "stages": [
+    {
+      "role": "transport_active",
+      "name": "align marker above cup opening",
+      "entry": "chained",
+      "compile_notes": [
+        "w = cup canonical frame at [-0.0, 0.0001, 0.0374]: z = up_axis, x = world.x; rooted on body_poses['cup']",
+        "align marker above cup opening.subgoal: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free",
+        "align marker above cup opening.path: rotation admits the subgoal (64/64 sampled attitudes)"
+      ],
+      "goal_funnel": {
+        "n_sampled": 120,
+        "accept_rate": 1.0,
+        "n_ik": 69,
+        "n_collision_free": 47,
+        "n_contained": 47,
+        "offenders": {
+          "robot0_upper_arm_link <-> table": 21,
+          "fixed_mount0_pedestal <-> robot0_upper_arm_link": 1
+        },
+        "n_rounds": 1
+      },
+      "planning": {
+        "goal_rank_used": 0,
+        "failed_before": [],
+        "n_waypoints": 111,
+        "max_path_excess": 0.0
+      },
+      "reorient_in_stage_deg": 89.9,
+      "lowest_end_at_goal": {
+        "lowest_point_body": [
+          -0.0024,
+          -0.0604,
+          -0.007
+        ],
+        "lowest_point_world_z": 0.9135,
+        "depth_below_target_m": -0.0384,
+        "radial_from_target_axis_m": 0.0102,
+        "nearest_symbol": "tail_center",
+        "nearest_symbol_distance_m": 0.0073
+      }
+    },
+    {
+      "role": "insert",
+      "name": "insert marker into cup",
+      "entry": "chained",
+      "compile_notes": [
+        "w = cup canonical frame at [-0.0, 0.0001, 0.0374]: z = up_axis, x = world.x; rooted on body_poses['cup']",
+        "insert marker into cup.path: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free",
+        "insert marker into cup.subgoal: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free"
+      ],
+      "goal_funnel": {
+        "n_sampled": 120,
+        "accept_rate": 1.0,
+        "n_ik": 61,
+        "n_collision_free": 24,
+        "n_contained": 24,
+        "offenders": {
+          "robot0_upper_arm_link <-> table": 22,
+          "robot0_forearm_link <-> table": 11,
+          "fixed_mount0_pedestal <-> robot0_upper_arm_link": 2,
+          "robot0_wrist_1_link <-> table": 2
+        },
+        "n_rounds": 1
+      },
+      "planning": {
+        "goal_rank_used": 0,
+        "failed_before": [],
+        "n_waypoints": 12,
+        "max_path_excess": 0.0
+      },
+      "reorient_in_stage_deg": 8.3,
+      "lowest_end_at_goal": {
+        "lowest_point_body": [
+          -0.0007,
+          -0.0604,
+          0.0076
+        ],
+        "lowest_point_world_z": 0.8349,
+        "depth_below_target_m": 0.0402,
+        "radial_from_target_axis_m": 0.012,
+        "nearest_symbol": "tail_center",
+        "nearest_symbol_distance_m": 0.0077
+      }
+    }
+  ],
+  "emit_model": null,
+  "emit_arm": "hand",
+  "decomposition": "transport_active: 90 deg inside the stage (under its path TSR); insert: 8 deg inside the stage (under its path TSR)",
+  "plan": {
+    "path": "outputs/plans/compare_eps003/hand1_s0.npz",
+    "n_waypoints": 261,
+    "segments": [
+      [
+        "grasp:reach",
+        126
+      ],
+      [
+        "grasp:lift",
+        12
+      ],
+      [
+        "transport_active",
+        111
+      ],
+      [
+        "insert",
+        12
+      ]
+    ]
+  },
+  "seconds": 426.0
+}

@@ -1,0 +1,42 @@
+{
+  "plan": "outputs/plans/pour_box12/rekephigh_s0.npz",
+  "carrying": {
+    "max_tilt_deg": 2.6,
+    "tilt_at_quarters_deg": [
+      2.1,
+      0.3,
+      45.0
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 57.5,
+    "spout_wander_mm": 26.0,
+    "tilt_axis_off_level_deg": 3.0
+  },
+  "end": {
+    "lateral_mm": 5.1,
+    "height_mm": 101.1,
+    "tilt_deg": 94.9,
+    "spout_off_down_deg": 5.7,
+    "stream_off_mm": 15.2
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 3.3,
+    "other": 5.5
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 3.3,
+    "obstacle_main <-> teapot_main": 5.5
+  },
+  "colliding_points": 23,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": false
+  },
+  "goal_pass": true,
+  "path_pass": false
+}

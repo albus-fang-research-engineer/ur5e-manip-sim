@@ -1,0 +1,156 @@
+{
+  "scene": "outputs/plans/omnimanip_separation_sweep/sep40.scene.json",
+  "grounding": null,
+  "stage_plan": "tasks/hand_tsr/insert_marker/stage_plan.json",
+  "selections": "tasks/hand_tsr/insert_marker/selections.json",
+  "emissions": "tasks/hand_tsr/insert_marker/emissions.json",
+  "seed": 2,
+  "constants": {
+    "SYNTH_START_CLEARANCE_M": 0.05,
+    "GRASP_ELEVATION_RAD (sim stand-in)": 1.5707963267948966,
+    "GRASP_PAD_BACKOFF_M (sim stand-in)": 0.005
+  },
+  "status": "ok",
+  "grasp": {
+    "given": "manip_sim/omnimanip/programs/insert_marker.json",
+    "point_body": [
+      0.0,
+      0.022,
+      0.0039
+    ],
+    "offender": "robot0_upper_arm_link <-> table",
+    "ik_feasible": 5,
+    "collision_free": 2,
+    "lookahead": [
+      {
+        "score": 0.0,
+        "fractions": [
+          0.375,
+          0.0
+        ],
+        "slide_offset_mm": null
+      },
+      {
+        "score": 0.031,
+        "fractions": [
+          0.25,
+          0.125
+        ],
+        "slide_offset_mm": null
+      }
+    ],
+    "chosen_score": 0.0,
+    "chosen_slide_offset_mm": null,
+    "skips": []
+  },
+  "stages": [
+    {
+      "role": "transport_active",
+      "name": "align marker above cup opening",
+      "entry": "chained",
+      "compile_notes": [
+        "w = cup canonical frame at [-0.0, 0.0001, 0.0374]: z = up_axis, x = world.x; rooted on body_poses['cup']",
+        "align marker above cup opening.subgoal: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free",
+        "align marker above cup opening.path: rotation admits the subgoal (64/64 sampled attitudes)"
+      ],
+      "goal_funnel": {
+        "n_sampled": 120,
+        "accept_rate": 1.0,
+        "n_ik": 61,
+        "n_collision_free": 39,
+        "n_contained": 39,
+        "offenders": {
+          "robot0_upper_arm_link <-> table": 20,
+          "fixed_mount0_pedestal <-> robot0_upper_arm_link": 2
+        },
+        "n_rounds": 1
+      },
+      "planning": {
+        "goal_rank_used": 0,
+        "failed_before": [],
+        "n_waypoints": 22,
+        "max_path_excess": 0.0
+      },
+      "reorient_in_stage_deg": 87.0,
+      "lowest_end_at_goal": {
+        "lowest_point_body": [
+          0.0043,
+          -0.0603,
+          -0.0071
+        ],
+        "lowest_point_world_z": 0.9139,
+        "depth_below_target_m": -0.0387,
+        "radial_from_target_axis_m": 0.0082,
+        "nearest_symbol": "tail_center",
+        "nearest_symbol_distance_m": 0.0082
+      }
+    },
+    {
+      "role": "insert",
+      "name": "insert marker into cup",
+      "entry": "chained",
+      "compile_notes": [
+        "w = cup canonical frame at [-0.0, 0.0001, 0.0374]: z = up_axis, x = world.x; rooted on body_poses['cup']",
+        "insert marker into cup.path: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free",
+        "insert marker into cup.subgoal: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free"
+      ],
+      "goal_funnel": {
+        "n_sampled": 120,
+        "accept_rate": 1.0,
+        "n_ik": 58,
+        "n_collision_free": 30,
+        "n_contained": 30,
+        "offenders": {
+          "robot0_upper_arm_link <-> table": 18,
+          "robot0_forearm_link <-> table": 10
+        },
+        "n_rounds": 1
+      },
+      "planning": {
+        "goal_rank_used": 0,
+        "failed_before": [],
+        "n_waypoints": 5,
+        "max_path_excess": 0.0
+      },
+      "reorient_in_stage_deg": 16.1,
+      "lowest_end_at_goal": {
+        "lowest_point_body": [
+          -0.0047,
+          -0.0603,
+          0.0054
+        ],
+        "lowest_point_world_z": 0.8255,
+        "depth_below_target_m": 0.0496,
+        "radial_from_target_axis_m": 0.0088,
+        "nearest_symbol": "tail_center",
+        "nearest_symbol_distance_m": 0.0073
+      }
+    }
+  ],
+  "emit_model": null,
+  "emit_arm": "hand",
+  "decomposition": "transport_active: 87 deg inside the stage (under its path TSR); insert: 16 deg inside the stage (under its path TSR)",
+  "plan": {
+    "path": "outputs/plans/separation_sweep/hand5_sep40_s2.npz",
+    "n_waypoints": 86,
+    "segments": [
+      [
+        "grasp:reach",
+        47
+      ],
+      [
+        "grasp:lift",
+        12
+      ],
+      [
+        "transport_active",
+        22
+      ],
+      [
+        "insert",
+        5
+      ]
+    ]
+  },
+  "seconds": 398.3
+}

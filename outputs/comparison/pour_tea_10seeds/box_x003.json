@@ -1,0 +1,2302 @@
+{
+  "ours10g": [
+    {
+      "run": "ours10g_s0",
+      "seconds": 369,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours10g_s0.npz",
+        "carrying": {
+          "max_tilt_deg": 14.1,
+          "tilt_at_quarters_deg": [
+            10.8,
+            13.5,
+            25.0
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 26.6,
+          "spout_wander_mm": 5.3,
+          "tilt_axis_off_level_deg": 0.9
+        },
+        "end": {
+          "lateral_mm": 24.0,
+          "height_mm": 61.6,
+          "tilt_deg": 84.6,
+          "spout_off_down_deg": 5.4,
+          "stream_off_mm": 20.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s1",
+      "seconds": 544,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours10g_s1.npz",
+        "carrying": {
+          "max_tilt_deg": 9.8,
+          "tilt_at_quarters_deg": [
+            8.2,
+            6.9,
+            68.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 27.4,
+          "spout_wander_mm": 4.4,
+          "tilt_axis_off_level_deg": 4.3
+        },
+        "end": {
+          "lateral_mm": 27.3,
+          "height_mm": 71.3,
+          "tilt_deg": 100.9,
+          "spout_off_down_deg": 11.8,
+          "stream_off_mm": 38.4
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s2",
+      "seconds": 275,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours10g_s2.npz",
+        "carrying": {
+          "max_tilt_deg": 9.8,
+          "tilt_at_quarters_deg": [
+            7.8,
+            26.0,
+            71.8
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 19.8,
+          "spout_wander_mm": 4.8,
+          "tilt_axis_off_level_deg": 3.7
+        },
+        "end": {
+          "lateral_mm": 13.4,
+          "height_mm": 79.8,
+          "tilt_deg": 97.4,
+          "spout_off_down_deg": 7.7,
+          "stream_off_mm": 20.8
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s3",
+      "seconds": 286,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours10g_s3.npz",
+        "carrying": {
+          "max_tilt_deg": 13.5,
+          "tilt_at_quarters_deg": [
+            11.3,
+            13.1,
+            57.6
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 26.9,
+          "spout_wander_mm": 5.9,
+          "tilt_axis_off_level_deg": 9.7
+        },
+        "end": {
+          "lateral_mm": 24.8,
+          "height_mm": 69.1,
+          "tilt_deg": 89.0,
+          "spout_off_down_deg": 5.5,
+          "stream_off_mm": 29.5
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s4",
+      "seconds": 309,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours10g_s4.npz",
+        "carrying": {
+          "max_tilt_deg": 6.5,
+          "tilt_at_quarters_deg": [
+            3.9,
+            15.9,
+            59.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 23.8,
+          "spout_wander_mm": 6.6,
+          "tilt_axis_off_level_deg": 2.1
+        },
+        "end": {
+          "lateral_mm": 21.2,
+          "height_mm": 56.2,
+          "tilt_deg": 95.3,
+          "spout_off_down_deg": 5.4,
+          "stream_off_mm": 25.1
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s5",
+      "seconds": 689,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours10g_s5.npz",
+        "carrying": {
+          "max_tilt_deg": 13.7,
+          "tilt_at_quarters_deg": [
+            11.3,
+            9.6,
+            42.3
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 18.4,
+          "spout_wander_mm": 5.0,
+          "tilt_axis_off_level_deg": 12.2
+        },
+        "end": {
+          "lateral_mm": 18.4,
+          "height_mm": 60.1,
+          "tilt_deg": 95.1,
+          "spout_off_down_deg": 9.6,
+          "stream_off_mm": 28.5
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s6",
+      "seconds": 286,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours10g_s6.npz",
+        "carrying": {
+          "max_tilt_deg": 11.6,
+          "tilt_at_quarters_deg": [
+            11.4,
+            17.1,
+            59.3
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 23.1,
+          "spout_wander_mm": 4.0,
+          "tilt_axis_off_level_deg": 6.5
+        },
+        "end": {
+          "lateral_mm": 23.1,
+          "height_mm": 60.7,
+          "tilt_deg": 95.7,
+          "spout_off_down_deg": 8.1,
+          "stream_off_mm": 24.9
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s7",
+      "seconds": 422,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours10g_s7.npz",
+        "carrying": {
+          "max_tilt_deg": 7.7,
+          "tilt_at_quarters_deg": [
+            7.0,
+            7.3,
+            53.3
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 23.8,
+          "spout_wander_mm": 7.6,
+          "tilt_axis_off_level_deg": 9.8
+        },
+        "end": {
+          "lateral_mm": 13.0,
+          "height_mm": 100.6,
+          "tilt_deg": 91.6,
+          "spout_off_down_deg": 9.3,
+          "stream_off_mm": 23.3
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s8",
+      "seconds": 342,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours10g_s8.npz",
+        "carrying": {
+          "max_tilt_deg": 5.2,
+          "tilt_at_quarters_deg": [
+            3.2,
+            8.7,
+            53.4
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 27.1,
+          "spout_wander_mm": 2.5,
+          "tilt_axis_off_level_deg": 12.1
+        },
+        "end": {
+          "lateral_mm": 22.2,
+          "height_mm": 46.5,
+          "tilt_deg": 95.4,
+          "spout_off_down_deg": 9.9,
+          "stream_off_mm": 30.3
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours10g_s9",
+      "seconds": 390,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours10g_s9.npz",
+        "carrying": {
+          "max_tilt_deg": 14.9,
+          "tilt_at_quarters_deg": [
+            13.0,
+            10.4,
+            19.7
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 20.0,
+          "spout_wander_mm": 4.6,
+          "tilt_axis_off_level_deg": 13.4
+        },
+        "end": {
+          "lateral_mm": 20.0,
+          "height_mm": 62.5,
+          "tilt_deg": 91.0,
+          "spout_off_down_deg": 13.5,
+          "stream_off_mm": 17.1
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    }
+  ],
+  "ours5g": [
+    {
+      "run": "ours5g_s0",
+      "seconds": 340,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours5g_s0.npz",
+        "carrying": {
+          "max_tilt_deg": 7.2,
+          "tilt_at_quarters_deg": [
+            5.8,
+            7.2,
+            6.6
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 27.8,
+          "spout_wander_mm": 3.6,
+          "tilt_axis_off_level_deg": 2.0
+        },
+        "end": {
+          "lateral_mm": 27.8,
+          "height_mm": 67.3,
+          "tilt_deg": 87.6,
+          "spout_off_down_deg": 2.8,
+          "stream_off_mm": 24.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s1",
+      "seconds": 403,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours5g_s1.npz",
+        "carrying": {
+          "max_tilt_deg": 6.1,
+          "tilt_at_quarters_deg": [
+            5.9,
+            3.8,
+            50.3
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 27.1,
+          "spout_wander_mm": 4.6,
+          "tilt_axis_off_level_deg": 4.5
+        },
+        "end": {
+          "lateral_mm": 25.2,
+          "height_mm": 88.1,
+          "tilt_deg": 94.0,
+          "spout_off_down_deg": 5.9,
+          "stream_off_mm": 25.9
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s2",
+      "seconds": 291,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours5g_s2.npz",
+        "carrying": {
+          "max_tilt_deg": 3.0,
+          "tilt_at_quarters_deg": [
+            1.2,
+            11.6,
+            62.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 23.1,
+          "spout_wander_mm": 6.5,
+          "tilt_axis_off_level_deg": 3.4
+        },
+        "end": {
+          "lateral_mm": 20.2,
+          "height_mm": 82.4,
+          "tilt_deg": 95.1,
+          "spout_off_down_deg": 5.8,
+          "stream_off_mm": 24.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s3",
+      "seconds": 293,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours5g_s3.npz",
+        "carrying": {
+          "max_tilt_deg": 6.3,
+          "tilt_at_quarters_deg": [
+            0.6,
+            4.7,
+            53.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 24.7,
+          "spout_wander_mm": 5.9,
+          "tilt_axis_off_level_deg": 7.0
+        },
+        "end": {
+          "lateral_mm": 24.7,
+          "height_mm": 68.9,
+          "tilt_deg": 89.7,
+          "spout_off_down_deg": 1.2,
+          "stream_off_mm": 25.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s4",
+      "seconds": 472,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours5g_s4.npz",
+        "carrying": {
+          "max_tilt_deg": 6.9,
+          "tilt_at_quarters_deg": [
+            5.5,
+            5.8,
+            41.3
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 32.0,
+          "spout_wander_mm": 4.8,
+          "tilt_axis_off_level_deg": 7.8
+        },
+        "end": {
+          "lateral_mm": 21.8,
+          "height_mm": 93.4,
+          "tilt_deg": 89.2,
+          "spout_off_down_deg": 7.8,
+          "stream_off_mm": 9.7
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s5",
+      "seconds": 320,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours5g_s5.npz",
+        "carrying": {
+          "max_tilt_deg": 6.4,
+          "tilt_at_quarters_deg": [
+            5.0,
+            5.2,
+            55.6
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 27.5,
+          "spout_wander_mm": 7.3,
+          "tilt_axis_off_level_deg": 1.5
+        },
+        "end": {
+          "lateral_mm": 27.5,
+          "height_mm": 53.7,
+          "tilt_deg": 94.4,
+          "spout_off_down_deg": 4.5,
+          "stream_off_mm": 31.5
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s6",
+      "seconds": 308,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours5g_s6.npz",
+        "carrying": {
+          "max_tilt_deg": 4.1,
+          "tilt_at_quarters_deg": [
+            2.8,
+            4.1,
+            49.9
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 20.8,
+          "spout_wander_mm": 5.7,
+          "tilt_axis_off_level_deg": 1.1
+        },
+        "end": {
+          "lateral_mm": 19.9,
+          "height_mm": 72.0,
+          "tilt_deg": 94.8,
+          "spout_off_down_deg": 4.8,
+          "stream_off_mm": 26.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s7",
+      "seconds": 461,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours5g_s7.npz",
+        "carrying": {
+          "max_tilt_deg": 5.2,
+          "tilt_at_quarters_deg": [
+            4.5,
+            3.6,
+            47.8
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 23.1,
+          "spout_wander_mm": 6.7,
+          "tilt_axis_off_level_deg": 6.4
+        },
+        "end": {
+          "lateral_mm": 17.0,
+          "height_mm": 100.9,
+          "tilt_deg": 90.2,
+          "spout_off_down_deg": 6.3,
+          "stream_off_mm": 21.8
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s8",
+      "seconds": 270,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours5g_s8.npz",
+        "carrying": {
+          "max_tilt_deg": 6.8,
+          "tilt_at_quarters_deg": [
+            6.0,
+            4.7,
+            56.9
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 25.9,
+          "spout_wander_mm": 3.5,
+          "tilt_axis_off_level_deg": 4.0
+        },
+        "end": {
+          "lateral_mm": 25.0,
+          "height_mm": 66.9,
+          "tilt_deg": 94.7,
+          "spout_off_down_deg": 4.7,
+          "stream_off_mm": 28.7
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "ours5g_s9",
+      "seconds": 576,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/ours5g_s9.npz",
+        "carrying": {
+          "max_tilt_deg": 4.8,
+          "tilt_at_quarters_deg": [
+            2.6,
+            5.3,
+            51.6
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 10.8,
+          "spout_wander_mm": 5.7,
+          "tilt_axis_off_level_deg": 3.6
+        },
+        "end": {
+          "lateral_mm": 10.7,
+          "height_mm": 89.5,
+          "tilt_deg": 96.2,
+          "spout_off_down_deg": 6.9,
+          "stream_off_mm": 21.5
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    }
+  ],
+  "rekeploop": [
+    {
+      "run": "rekeploop_s0",
+      "seconds": 311,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/rekeploop_s0.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.3,
+            12.0,
+            52.5
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 24.5,
+          "spout_wander_mm": 24.9,
+          "tilt_axis_off_level_deg": 25.3
+        },
+        "end": {
+          "lateral_mm": 0.1,
+          "height_mm": 50.0,
+          "tilt_deg": 91.2,
+          "spout_off_down_deg": 10.1,
+          "stream_off_mm": 8.8
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 3.0,
+          "other": 43.6
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 23.0,
+          "mug_main <-> teapot_main": 3.0,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 43.6,
+          "gripper0_right_left_outer_knuckle <-> obstacle_main": 21.2,
+          "gripper0_right_left_inner_knuckle <-> obstacle_main": 29.6,
+          "gripper0_right_robotiq_85_adapter_link <-> obstacle_main": 15.6,
+          "gripper0_right_right_inner_finger <-> obstacle_main": 3.6
+        },
+        "colliding_points": 78,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "rekeploop_s1",
+      "seconds": 645,
+      "exit": 1,
+      "failure": "[stage3] backtrack: backtracked to the grasp, which this plan cannot redo",
+      "eval": null
+    },
+    {
+      "run": "rekeploop_s2",
+      "seconds": 333,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/rekeploop_s2.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.1,
+            17.3,
+            45.4
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 70.7,
+          "spout_wander_mm": 39.8,
+          "tilt_axis_off_level_deg": 25.0
+        },
+        "end": {
+          "lateral_mm": 0.1,
+          "height_mm": 50.1,
+          "tilt_deg": 79.9,
+          "spout_off_down_deg": 10.1,
+          "stream_off_mm": 8.8
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 5.2,
+          "other": 46.4
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 32.0,
+          "mug_main <-> teapot_main": 5.2,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 44.3,
+          "gripper0_right_left_outer_knuckle <-> obstacle_main": 37.1,
+          "gripper0_right_left_inner_knuckle <-> obstacle_main": 46.4,
+          "gripper0_right_robotiq_85_adapter_link <-> obstacle_main": 34.9,
+          "gripper0_right_right_inner_knuckle <-> obstacle_main": 15.7
+        },
+        "colliding_points": 139,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": false
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "rekeploop_s3",
+      "seconds": 320,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/rekeploop_s3.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.6,
+            0.1,
+            47.4
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 33.9,
+          "spout_wander_mm": 69.7,
+          "tilt_axis_off_level_deg": 50.1
+        },
+        "end": {
+          "lateral_mm": 0.1,
+          "height_mm": 50.0,
+          "tilt_deg": 83.8,
+          "spout_off_down_deg": 10.1,
+          "stream_off_mm": 8.8
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 3.1,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {
+          "mug_main <-> teapot_main": 3.1
+        },
+        "colliding_points": 5,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "rekeploop_s4",
+      "seconds": 412,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/rekeploop_s4.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.1,
+            0.1,
+            0.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 49.3,
+          "spout_wander_mm": 38.7,
+          "tilt_axis_off_level_deg": 14.0
+        },
+        "end": {
+          "lateral_mm": 0.1,
+          "height_mm": 50.0,
+          "tilt_deg": 86.2,
+          "spout_off_down_deg": 8.3,
+          "stream_off_mm": 7.2
+        },
+        "max_penetration_mm": {
+          "self": 55.7,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 51.4
+        },
+        "pairs_max_depth_mm": {
+          "gripper0_right_right_outer_knuckle <-> obstacle_main": 41.2,
+          "gripper0_right_right_inner_finger <-> obstacle_main": 17.9,
+          "gripper0_right_right_inner_knuckle <-> obstacle_main": 48.7,
+          "gripper0_right_robotiq_85_adapter_link <-> obstacle_main": 51.4,
+          "gripper0_right_left_inner_knuckle <-> obstacle_main": 43.6,
+          "gripper0_right_left_outer_knuckle <-> obstacle_main": 39.0,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 7.9,
+          "robot0_upper_arm_link <-> robot0_wrist_1_link": 55.7,
+          "robot0_forearm_link <-> robot0_shoulder_link": 36.1,
+          "robot0_shoulder_link <-> robot0_wrist_1_link": 14.0
+        },
+        "colliding_points": 111,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": false
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "rekeploop_s5",
+      "seconds": 391,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/rekeploop_s5.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.8,
+            0.3,
+            23.9
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 25.8,
+          "spout_wander_mm": 21.8,
+          "tilt_axis_off_level_deg": 11.8
+        },
+        "end": {
+          "lateral_mm": 0.2,
+          "height_mm": 50.1,
+          "tilt_deg": 86.4,
+          "spout_off_down_deg": 10.1,
+          "stream_off_mm": 8.8
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 3.1,
+          "other": 51.6
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 51.6,
+          "mug_main <-> teapot_main": 3.1,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 31.4,
+          "gripper0_right_left_outer_knuckle <-> obstacle_main": 19.1,
+          "gripper0_right_left_inner_knuckle <-> obstacle_main": 14.2
+        },
+        "colliding_points": 126,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "rekeploop_s6",
+      "seconds": 279,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/rekeploop_s6.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.4,
+            0.1,
+            41.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 39.2,
+          "spout_wander_mm": 31.1,
+          "tilt_axis_off_level_deg": 8.9
+        },
+        "end": {
+          "lateral_mm": 0.2,
+          "height_mm": 50.2,
+          "tilt_deg": 81.7,
+          "spout_off_down_deg": 8.3,
+          "stream_off_mm": 7.2
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 3.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {
+          "mug_main <-> teapot_main": 3.0
+        },
+        "colliding_points": 3,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "rekeploop_s7",
+      "seconds": 372,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/rekeploop_s7.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.9,
+            0.2,
+            54.4
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 15.2,
+          "spout_wander_mm": 28.7,
+          "tilt_axis_off_level_deg": 24.1
+        },
+        "end": {
+          "lateral_mm": 10.9,
+          "height_mm": 46.9,
+          "tilt_deg": 83.7,
+          "spout_off_down_deg": 8.5,
+          "stream_off_mm": 6.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 3.1,
+          "other": 34.9
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 34.9,
+          "mug_main <-> teapot_main": 3.1,
+          "gripper0_right_left_outer_knuckle <-> obstacle_main": 14.0,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 25.5,
+          "gripper0_right_left_inner_knuckle <-> obstacle_main": 13.0
+        },
+        "colliding_points": 86,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "rekeploop_s8",
+      "seconds": 365,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/rekeploop_s8.npz",
+        "carrying": {
+          "max_tilt_deg": 1.1,
+          "tilt_at_quarters_deg": [
+            0.1,
+            0.2,
+            14.4
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 18.9,
+          "spout_wander_mm": 34.0,
+          "tilt_axis_off_level_deg": 17.1
+        },
+        "end": {
+          "lateral_mm": 0.1,
+          "height_mm": 50.0,
+          "tilt_deg": 80.0,
+          "spout_off_down_deg": 10.0,
+          "stream_off_mm": 8.7
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 2.9,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {
+          "mug_main <-> teapot_main": 2.9
+        },
+        "colliding_points": 4,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    },
+    {
+      "run": "rekeploop_s9",
+      "seconds": 320,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/rekeploop_s9.npz",
+        "carrying": {
+          "max_tilt_deg": 8.6,
+          "tilt_at_quarters_deg": [
+            1.1,
+            19.4,
+            62.5
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 32.9,
+          "spout_wander_mm": 23.6,
+          "tilt_axis_off_level_deg": 19.8
+        },
+        "end": {
+          "lateral_mm": 0.1,
+          "height_mm": 50.1,
+          "tilt_deg": 90.6,
+          "spout_off_down_deg": 3.4,
+          "stream_off_mm": 2.9
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 4.1
+        },
+        "pairs_max_depth_mm": {
+          "gripper0_right_right_outer_knuckle <-> obstacle_main": 4.1,
+          "gripper0_right_right_inner_finger <-> obstacle_main": 1.6
+        },
+        "colliding_points": 8,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": true,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": true
+      }
+    }
+  ],
+  "omnirrt": [
+    {
+      "run": "omnirrt_s0",
+      "seconds": 32,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omnirrt_s0.npz",
+        "carrying": {
+          "max_tilt_deg": 83.5,
+          "tilt_at_quarters_deg": [
+            26.9,
+            46.0,
+            66.4
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 43.9,
+          "spout_wander_mm": 18.3,
+          "tilt_axis_off_level_deg": 3.8
+        },
+        "end": {
+          "lateral_mm": 1.1,
+          "height_mm": 69.8,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 1.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omnirrt_s1",
+      "seconds": 32,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omnirrt_s1.npz",
+        "carrying": {
+          "max_tilt_deg": 74.7,
+          "tilt_at_quarters_deg": [
+            13.3,
+            17.7,
+            47.6
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.8,
+          "spout_wander_mm": 21.2,
+          "tilt_axis_off_level_deg": 3.4
+        },
+        "end": {
+          "lateral_mm": 1.1,
+          "height_mm": 69.8,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 1.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omnirrt_s2",
+      "seconds": 32,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omnirrt_s2.npz",
+        "carrying": {
+          "max_tilt_deg": 48.1,
+          "tilt_at_quarters_deg": [
+            11.8,
+            23.5,
+            57.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 43.5,
+          "spout_wander_mm": 18.1,
+          "tilt_axis_off_level_deg": 12.1
+        },
+        "end": {
+          "lateral_mm": 1.1,
+          "height_mm": 69.8,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 1.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omnirrt_s3",
+      "seconds": 29,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omnirrt_s3.npz",
+        "carrying": {
+          "max_tilt_deg": 48.6,
+          "tilt_at_quarters_deg": [
+            23.4,
+            38.5,
+            63.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 43.6,
+          "spout_wander_mm": 47.2,
+          "tilt_axis_off_level_deg": 5.6
+        },
+        "end": {
+          "lateral_mm": 1.1,
+          "height_mm": 69.8,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 1.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omnirrt_s4",
+      "seconds": 35,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omnirrt_s4.npz",
+        "carrying": {
+          "max_tilt_deg": 77.1,
+          "tilt_at_quarters_deg": [
+            22.5,
+            39.2,
+            64.5
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 39.0,
+          "spout_wander_mm": 29.1,
+          "tilt_axis_off_level_deg": 11.7
+        },
+        "end": {
+          "lateral_mm": 1.1,
+          "height_mm": 69.8,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 1.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omnirrt_s5",
+      "seconds": 32,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omnirrt_s5.npz",
+        "carrying": {
+          "max_tilt_deg": 68.1,
+          "tilt_at_quarters_deg": [
+            15.3,
+            42.8,
+            68.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 43.3,
+          "spout_wander_mm": 20.6,
+          "tilt_axis_off_level_deg": 14.4
+        },
+        "end": {
+          "lateral_mm": 1.1,
+          "height_mm": 69.8,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 1.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omnirrt_s6",
+      "seconds": 28,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omnirrt_s6.npz",
+        "carrying": {
+          "max_tilt_deg": 79.4,
+          "tilt_at_quarters_deg": [
+            10.9,
+            24.3,
+            57.8
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.6,
+          "tilt_axis_off_level_deg": 3.4
+        },
+        "end": {
+          "lateral_mm": 1.1,
+          "height_mm": 69.8,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 1.1
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omnirrt_s7",
+      "seconds": 33,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omnirrt_s7.npz",
+        "carrying": {
+          "max_tilt_deg": 75.6,
+          "tilt_at_quarters_deg": [
+            26.0,
+            41.1,
+            65.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 43.2,
+          "spout_wander_mm": 23.3,
+          "tilt_axis_off_level_deg": 15.4
+        },
+        "end": {
+          "lateral_mm": 1.1,
+          "height_mm": 69.8,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 1.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omnirrt_s8",
+      "seconds": 26,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omnirrt_s8.npz",
+        "carrying": {
+          "max_tilt_deg": 81.4,
+          "tilt_at_quarters_deg": [
+            37.6,
+            63.2,
+            77.8
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 41.6,
+          "spout_wander_mm": 18.7,
+          "tilt_axis_off_level_deg": 7.4
+        },
+        "end": {
+          "lateral_mm": 1.1,
+          "height_mm": 69.8,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 1.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omnirrt_s9",
+      "seconds": 33,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omnirrt_s9.npz",
+        "carrying": {
+          "max_tilt_deg": 52.5,
+          "tilt_at_quarters_deg": [
+            47.3,
+            30.9,
+            53.3
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 43.6,
+          "spout_wander_mm": 48.3,
+          "tilt_axis_off_level_deg": 21.7
+        },
+        "end": {
+          "lateral_mm": 1.1,
+          "height_mm": 69.8,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 1.0
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 0.0
+        },
+        "pairs_max_depth_mm": {},
+        "colliding_points": 0,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    }
+  ],
+  "omni": [
+    {
+      "run": "omni_s0",
+      "seconds": 17,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omni_s0.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.5
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 73.4
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 73.4,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 5.1
+        },
+        "colliding_points": 74,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s1",
+      "seconds": 17,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omni_s1.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.5
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 73.4
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 73.4,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 5.1
+        },
+        "colliding_points": 74,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s2",
+      "seconds": 17,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omni_s2.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.5
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 73.4
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 73.4,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 5.1
+        },
+        "colliding_points": 74,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s3",
+      "seconds": 17,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omni_s3.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.5
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 73.4
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 73.4,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 5.1
+        },
+        "colliding_points": 74,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s4",
+      "seconds": 17,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omni_s4.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.5
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 73.4
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 73.4,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 5.1
+        },
+        "colliding_points": 74,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s5",
+      "seconds": 26,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omni_s5.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.5
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 73.4
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 73.4,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 5.1
+        },
+        "colliding_points": 74,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s6",
+      "seconds": 23,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omni_s6.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.3
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 73.2
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 73.2,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 5.3
+        },
+        "colliding_points": 74,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s7",
+      "seconds": 20,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omni_s7.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.5
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 73.4
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 73.4,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 5.1
+        },
+        "colliding_points": 74,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s8",
+      "seconds": 28,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omni_s8.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.5
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 73.4
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 73.4,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 5.1
+        },
+        "colliding_points": 74,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    },
+    {
+      "run": "omni_s9",
+      "seconds": 21,
+      "exit": 0,
+      "failure": null,
+      "eval": {
+        "plan": "outputs/plans/pour_obstacle/omni_s9.npz",
+        "carrying": {
+          "max_tilt_deg": 71.2,
+          "tilt_at_quarters_deg": [
+            14.0,
+            39.1,
+            64.1
+          ]
+        },
+        "pouring": {
+          "max_off_axis_mm": 42.7,
+          "spout_wander_mm": 21.1,
+          "tilt_axis_off_level_deg": 0.5
+        },
+        "end": {
+          "lateral_mm": 0.5,
+          "height_mm": 69.7,
+          "tilt_deg": 89.1,
+          "spout_off_down_deg": 0.9,
+          "stream_off_mm": 0.6
+        },
+        "max_penetration_mm": {
+          "self": 0.0,
+          "table": 0.0,
+          "passive": 0.0,
+          "other": 73.4
+        },
+        "pairs_max_depth_mm": {
+          "obstacle_main <-> teapot_main": 73.4,
+          "gripper0_right_left_inner_finger <-> obstacle_main": 5.1
+        },
+        "colliding_points": 74,
+        "checks": {
+          "end_over_rim": true,
+          "spout_down": true,
+          "carry_tilt": false,
+          "spout_in_rim": true
+        },
+        "goal_pass": true,
+        "path_pass": false
+      }
+    }
+  ]
+}

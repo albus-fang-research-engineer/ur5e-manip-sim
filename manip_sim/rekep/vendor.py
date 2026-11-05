@@ -44,6 +44,15 @@ load_functions_from_txt = utils.load_functions_from_txt
 spline_interpolate_poses = utils.spline_interpolate_poses
 
 
+def scale_collision_cost(scale: float) -> None:
+    """Multiply the collision term of both solvers. Upstream's weights are literals
+    inside its objectives, and both solvers bound this name at import."""
+    def scaled(*args):
+        return scale * utils.calculate_collision_cost(*args)
+    path_solver.calculate_collision_cost = scaled
+    subgoal_solver.calculate_collision_cost = scaled
+
+
 class SubgoalSolver(subgoal_solver.SubgoalSolver):
     def _warmup(self):
         """Upstream's warmup is a full solve to compile for real-time use;

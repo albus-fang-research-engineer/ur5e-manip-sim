@@ -1,0 +1,34 @@
+{
+ "grasp": {
+  "object": "marker",
+  "candidate_id": 3,
+  "axis": null,
+  "sign": "+",
+  "secondary": null,
+  "rationale": "Only names the part; the grasp pose comes from --grasp-program."
+ },
+ "transport_active": {
+  "object": "marker",
+  "candidate_id": 0,
+  "axis": null,
+  "sign": "+",
+  "secondary": null,
+  "rationale": "tail_center"
+ },
+ "insert": {
+  "object": "marker",
+  "candidate_id": 0,
+  "axis": null,
+  "sign": "+",
+  "secondary": null,
+  "rationale": "tail_center"
+ },
+ "transport_passive": {
+  "object": "cup",
+  "candidate_id": 0,
+  "axis": null,
+  "sign": "+",
+  "secondary": null,
+  "rationale": "opening_center"
+ }
+}

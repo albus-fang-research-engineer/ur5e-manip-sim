@@ -1,0 +1,49 @@
+{
+  "plan": "outputs/plans/pour_box12/rekeploop_s6.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.1,
+      26.0,
+      48.3
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 28.0,
+    "spout_wander_mm": 128.9,
+    "tilt_axis_off_level_deg": 32.3
+  },
+  "end": {
+    "lateral_mm": 0.1,
+    "height_mm": 50.0,
+    "tilt_deg": 86.3,
+    "spout_off_down_deg": 5.7,
+    "stream_off_mm": 4.9
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 3.2,
+    "other": 39.9
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 3.2,
+    "gripper0_right_left_outer_knuckle <-> obstacle_main": 30.4,
+    "gripper0_right_left_inner_finger <-> obstacle_main": 39.9,
+    "gripper0_right_left_inner_knuckle <-> obstacle_main": 28.3,
+    "obstacle_main <-> teapot_main": 14.7,
+    "gripper0_right_robotiq_85_adapter_link <-> obstacle_main": 10.1,
+    "gripper0_right_right_inner_finger <-> obstacle_main": 15.0,
+    "gripper0_right_right_inner_knuckle <-> obstacle_main": 14.2,
+    "gripper0_right_right_outer_knuckle <-> obstacle_main": 11.7
+  },
+  "colliding_points": 48,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

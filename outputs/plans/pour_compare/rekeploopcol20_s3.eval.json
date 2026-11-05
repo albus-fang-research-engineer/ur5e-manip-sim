@@ -1,0 +1,39 @@
+{
+  "plan": "outputs/plans/pour_compare/rekeploopcol20_s3.npz",
+  "carrying": {
+    "max_tilt_deg": 5.4,
+    "tilt_at_quarters_deg": [
+      2.0,
+      31.9,
+      95.7
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 53.7,
+    "spout_wander_mm": 129.7,
+    "tilt_axis_off_level_deg": 62.3
+  },
+  "end": {
+    "lateral_mm": 1.4,
+    "height_mm": 49.5,
+    "tilt_deg": 85.1,
+    "spout_off_down_deg": 9.4,
+    "stream_off_mm": 7.2
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {},
+  "colliding_points": 0,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": false
+  },
+  "goal_pass": true,
+  "path_pass": false
+}

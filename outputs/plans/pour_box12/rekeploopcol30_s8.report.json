@@ -1,0 +1,57 @@
+{
+  "planner": "rekep",
+  "mode": "upstream-loop",
+  "upstream_commit": "63c43fd",
+  "program": "manip_sim/rekep/programs/pour_tea",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "given": true,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "iterations": 5,
+      "backtrack_to": null,
+      "solve_seconds": 618.9,
+      "n_waypoints": 57,
+      "max_joint_step_rad": 5.966,
+      "tracking_max_mm": 777.77,
+      "tracking_max_deg": 0.09,
+      "tracking_misses": 21,
+      "colliding_waypoints": 2
+    },
+    {
+      "stage": "stage3",
+      "iterations": 2,
+      "backtrack_to": 1,
+      "solve_seconds": 101.4,
+      "n_waypoints": 22,
+      "max_joint_step_rad": 8.916,
+      "tracking_max_mm": 1380.91,
+      "tracking_max_deg": 31.34,
+      "tracking_misses": 11,
+      "colliding_waypoints": 3
+    },
+    {
+      "stage": "stage2",
+      "iterations": 2,
+      "backtrack_to": 0,
+      "solve_seconds": 224.0,
+      "n_waypoints": 13,
+      "max_joint_step_rad": 0.35,
+      "tracking_max_mm": 0.01,
+      "tracking_max_deg": 0.0,
+      "tracking_misses": 0,
+      "colliding_waypoints": 1
+    }
+  ],
+  "status": "failed",
+  "failure": {
+    "kind": "backtrack",
+    "stage": "stage2",
+    "message": "[stage2] backtrack: backtracked to the grasp, which this plan cannot redo",
+    "detail": {}
+  },
+  "seconds": 975.1
+}

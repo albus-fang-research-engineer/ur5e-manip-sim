@@ -1,0 +1,8 @@
+def stage3_subgoal_constraint1(end_effector, keypoints):
+    """The teapot spout (keypoint 1) needs to be 5cm above the cup opening (keypoint 6)."""
+    return np.linalg.norm(keypoints[1] - (keypoints[6] + np.array([0, 0, 0.05])))
+
+def stage3_subgoal_constraint2(end_effector, keypoints):
+    """The teapot spout must be tilted to pour: the pour axis, keypoint 2 to keypoint 5, within 10 deg of straight down."""
+    pour = keypoints[5] - keypoints[2]
+    return max(0.0, pour[2] / np.linalg.norm(pour) + np.cos(np.radians(10)))

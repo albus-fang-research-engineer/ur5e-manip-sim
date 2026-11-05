@@ -35,6 +35,19 @@ def main() -> None:
     ap.add_argument("--robot", default="UR5e")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--attempts", type=int, default=Config.attempts)
+    ap.add_argument("--spec", default=None, help="task spec whose q_grasp the plan starts from")
+    ap.add_argument("--soft-path", action="store_true",
+                    help="keep a path that breaks its constraints, as upstream would execute it")
+    ap.add_argument("--soft-subgoal", action="store_true",
+                    help="keep a subgoal that breaks its constraints, as upstream would execute it")
+    ap.add_argument("--soft-ik", action="store_true",
+                    help="keep a solve IK flags and a pose IK misses, as upstream would execute them")
+    ap.add_argument("--upstream-loop", action="store_true",
+                    help="main.py's loop: re-solve every few poses from where the arm is, reject nothing")
+    ap.add_argument("--opt-rot-step", type=float, default=Config.opt_rot_step_size,
+                    help="rad of rotation per path control point")
+    ap.add_argument("--collision-scale", type=float, default=Config.collision_scale,
+                    help="multiplies upstream's collision weights")
     add_scene_arg(ap)
     args = ap.parse_args()
 
@@ -45,10 +58,14 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
 
     env, _ = make_env(scene, robot=args.robot, has_renderer=False)
-    planner = ReKepPlanner(env, scene, program, Config(seed=args.seed, attempts=args.attempts))
+    planner = ReKepPlanner(env, scene, program, Config(seed=args.seed, attempts=args.attempts, soft_path=args.soft_path,
+                                                     soft_subgoal=args.soft_subgoal, soft_ik=args.soft_ik or args.upstream_loop,
+                                                     upstream_loop=args.upstream_loop,
+                                                     constraint_tolerance=1e-4 if args.upstream_loop else Config.constraint_tolerance,
+                                                     opt_rot_step_size=args.opt_rot_step, collision_scale=args.collision_scale))
     t0 = time.time()
     try:
-        plan = planner.plan()
+        plan = planner.plan(np.asarray(json.loads(Path(args.spec).read_text())["q_grasp"]) if args.spec else None)
     except TaskPlanError as e:
         planner.report.update(status="failed", failure=e.as_dict(),
                               seconds=round(time.time() - t0, 1))

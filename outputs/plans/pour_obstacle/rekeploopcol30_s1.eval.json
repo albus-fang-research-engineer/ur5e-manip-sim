@@ -1,0 +1,91 @@
+{
+  "plan": "outputs/plans/pour_obstacle/rekeploopcol30_s1.npz",
+  "carrying": {
+    "max_tilt_deg": 175.2,
+    "tilt_at_quarters_deg": [
+      7.7,
+      63.0,
+      4.7
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 94.1,
+    "spout_wander_mm": 44.6,
+    "tilt_axis_off_level_deg": 37.9
+  },
+  "end": {
+    "lateral_mm": 94.1,
+    "height_mm": 144.5,
+    "tilt_deg": 96.2,
+    "spout_off_down_deg": 7.8,
+    "stream_off_mm": 113.1
+  },
+  "max_penetration_mm": {
+    "self": 212.1,
+    "table": 250.1,
+    "passive": 0.0,
+    "other": 195.7
+  },
+  "pairs_max_depth_mm": {
+    "robot0_upper_arm_link <-> teapot_main": 92.6,
+    "robot0_forearm_link <-> teapot_main": 97.2,
+    "table <-> teapot_main": 88.8,
+    "gripper0_right_right_inner_finger <-> table": 49.8,
+    "fixed_mount0_pedestal <-> robot0_upper_arm_link": 101.7,
+    "robot0_upper_arm_link <-> table": 149.5,
+    "robot0_forearm_link <-> table": 250.1,
+    "fixed_mount0_pedestal <-> teapot_main": 195.7,
+    "robot0_fixed_base_link <-> teapot_main": 80.8,
+    "gripper0_right_left_inner_finger <-> robot0_upper_arm_link": 80.8,
+    "robot0_fixed_base_link <-> robot0_upper_arm_link": 8.5,
+    "gripper0_right_right_inner_finger <-> robot0_upper_arm_link": 39.6,
+    "gripper0_right_left_inner_knuckle <-> robot0_upper_arm_link": 92.0,
+    "gripper0_right_left_outer_knuckle <-> robot0_upper_arm_link": 76.6,
+    "gripper0_right_right_outer_knuckle <-> robot0_upper_arm_link": 44.7,
+    "gripper0_right_right_inner_knuckle <-> robot0_upper_arm_link": 63.3,
+    "fixed_mount0_pedestal <-> robot0_forearm_link": 212.1,
+    "fixed_mount0_pedestal <-> gripper0_right_right_inner_finger": 122.7,
+    "gripper0_right_robotiq_85_adapter_link <-> robot0_upper_arm_link": 107.9,
+    "fixed_mount0_pedestal <-> gripper0_right_right_outer_knuckle": 110.3,
+    "fixed_mount0_pedestal <-> gripper0_right_right_inner_knuckle": 104.7,
+    "fixed_mount0_pedestal <-> gripper0_right_robotiq_85_adapter_link": 86.0,
+    "fixed_mount0_pedestal <-> gripper0_right_left_inner_finger": 53.4,
+    "fixed_mount0_pedestal <-> gripper0_right_left_inner_knuckle": 61.3,
+    "robot0_upper_arm_link <-> robot0_wrist_3_link": 69.3,
+    "fixed_mount0_pedestal <-> robot0_wrist_3_link": 73.0,
+    "fixed_mount0_pedestal <-> gripper0_right_left_outer_knuckle": 40.1,
+    "robot0_upper_arm_link <-> robot0_wrist_1_link": 54.0,
+    "robot0_fixed_base_link <-> robot0_forearm_link": 31.2,
+    "robot0_forearm_link <-> robot0_shoulder_link": 39.1,
+    "robot0_shoulder_link <-> robot0_wrist_1_link": 14.0,
+    "robot0_upper_arm_link <-> robot0_wrist_2_link": 27.6,
+    "fixed_mount0_pedestal <-> robot0_wrist_2_link": 68.9,
+    "gripper0_right_right_outer_knuckle <-> robot0_forearm_link": 25.5,
+    "gripper0_right_right_inner_finger <-> robot0_forearm_link": 24.1,
+    "gripper0_right_left_inner_finger <-> table": 47.6,
+    "gripper0_right_right_outer_knuckle <-> table": 54.9,
+    "gripper0_right_right_inner_knuckle <-> table": 55.8,
+    "gripper0_right_left_outer_knuckle <-> table": 55.0,
+    "gripper0_right_left_inner_knuckle <-> table": 53.5,
+    "gripper0_right_robotiq_85_adapter_link <-> table": 73.0,
+    "robot0_wrist_3_link <-> table": 61.4,
+    "robot0_wrist_2_link <-> table": 85.1,
+    "gripper0_right_right_inner_knuckle <-> robot0_forearm_link": 17.8,
+    "gripper0_right_right_inner_finger <-> robot0_fixed_base_link": 10.6,
+    "gripper0_right_right_outer_knuckle <-> robot0_fixed_base_link": 37.3,
+    "gripper0_right_right_inner_knuckle <-> robot0_fixed_base_link": 29.0,
+    "gripper0_right_robotiq_85_adapter_link <-> robot0_fixed_base_link": 7.5,
+    "robot0_wrist_1_link <-> table": 82.6,
+    "fixed_mount0_pedestal <-> robot0_wrist_1_link": 102.8,
+    "robot0_shoulder_link <-> teapot_main": 31.5
+  },
+  "colliding_points": 1863,
+  "checks": {
+    "end_over_rim": false,
+    "spout_down": true,
+    "carry_tilt": false,
+    "spout_in_rim": false
+  },
+  "goal_pass": false,
+  "path_pass": false
+}

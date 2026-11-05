@@ -118,10 +118,30 @@ def test_grasp_pose_is_a_right_handed_frame_nearest_the_reference():
     assert flipped[:3, 0] == pytest.approx([-1, 0, 0], abs=1e-9)
 
 
-def test_insert_marker_program_loads_and_only_place_is_accepted(tmp_path):
+def test_insert_marker_program_loads_and_only_place_or_pour_is_accepted(tmp_path):
     p = load_program(default_program("insert_marker"))
     assert p["stages"][0]["d_m"] < 0 and p["grasp"]["standoff_m"] == 0.08
     bad = tmp_path / "p.json"
-    bad.write_text(json.dumps({"stages": [{"action": "pour"}]}))
+    bad.write_text(json.dumps({"stages": [{"action": "rotate"}]}))
     with pytest.raises(ValueError, match="only grasp then one place"):
         load_program(bad)
+
+
+def test_rrt_mover_reaches_the_same_target_without_collision():
+    from manip_sim.omnimanip.planner import Config, OmniManipPlanner
+    from manip_sim.planning import AttachedArmKinematics, AttachedObject
+    from manip_sim.scene import load_scene, make_env
+    scene = load_scene(ROOT / "scenes/pour_tea.json")
+    env, _ = make_env(scene, has_renderer=False)
+    q_grasp = np.array(json.loads((ROOT / "tasks/specs/pour_tea.json").read_text())["q_grasp"])
+    program = ROOT / "manip_sim/omnimanip/programs/pour_tea.json"
+    line = OmniManipPlanner(env, scene, program, Config()).plan(q_grasp)
+    rrt = OmniManipPlanner(env, scene, program, Config(mover="rrt", rrt_timeout=30.0)).plan(q_grasp)
+    planner = OmniManipPlanner(env, scene, program)
+    T_line, T_rrt = planner.kin.fk(line.path[-1]), planner.kin.fk(rrt.path[-1])
+    assert np.linalg.norm(T_line[:3, 3] - T_rrt[:3, 3]) < 2e-3
+    assert R.from_matrix(T_line[:3, :3].T @ T_rrt[:3, :3]).magnitude() < np.radians(1.0)
+    attached = AttachedObject(rrt.T_ee_body)
+    kin = AttachedArmKinematics(env, attached, env.objects["teapot"].joints[0], "teapot")
+    assert not any(kin.in_collision(q) for q in rrt.path)
+    env.close()

@@ -1,0 +1,69 @@
+{
+  "planner": "rekep",
+  "mode": "open-loop",
+  "upstream_commit": "63c43fd",
+  "program": "manip_sim/rekep/programs/pour_tea",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "given": true,
+      "colliding_waypoints": 1
+    }
+  ],
+  "status": "failed",
+  "failure": {
+    "kind": "subgoal",
+    "stage": "stage2",
+    "message": "[stage2] subgoal: no solution in 5 attempts",
+    "detail": {
+      "failures": [
+        {
+          "attempt": 0,
+          "kind": "joint_path",
+          "reason": "no IK within tolerance (6.0 mm)"
+        },
+        {
+          "attempt": 1,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0056,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "attempt": 2,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0056,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "attempt": 3,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0056,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "attempt": 4,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0056,
+            0.0,
+            0.0
+          ]
+        }
+      ]
+    }
+  },
+  "seconds": 275.6
+}
