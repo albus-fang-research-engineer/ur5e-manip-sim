@@ -156,98 +156,171 @@ unchanged runs stand as they are.
 
 ## 5. Sweep
 
-ReKep at collision weight ×10 and ×20 with the fixed tracker (first rule). The runs rerun are
-those whose report has a tracking miss: 9 at ×10 and 7 at ×20. Every other run is unchanged.
-The reproducibility check (no box s0, at each weight) came out bit for bit identical.
+ReKep at collision weights ×1 (published), ×3, ×10, ×20 and ×30, with the fixed tracker.
 
-×3 and ×30, and ×20 no box s6 under the elbow rule, are still running. The pre-fix sweep is in
-`FINDINGS.md` section 5.
+**What was rerun:** every run whose report has a tracking miss, plus the one run killed at the
+2400 s limit (×30 beside s9). Every other run is unchanged:
 
-### 5.1 ×10 and ×20, fixed
+| Weight | Rerun |
+|---|---|
+| ×1 | 7 |
+| ×3 | 7 |
+| ×10 | 9 |
+| ×20 | 7 |
+| ×30 | 10 |
 
-Collision counts and depths are environment contact only. The last row adds robot
-self-contact.
+**Rule versions:**
+- ×1, ×10 and ×20 ran under the first rule (miss re-solve).
+- ×3, ×30 and ×20 no box s6 ran under both rules (`fix2`).
+- The other plans the elbow rule could have changed were rerun under it too.
 
-| | ×10 no box | ×10 on path | ×10 beside | ×20 no box* | ×20 on path | ×20 beside |
-|---|---|---|---|---|---|---|
-| Success rate | 0/10 | 0/10 | 2/10 | 2/10 | 1/10 | 5/10 |
-| Plans returned | 10 | 10 | 9 | 9 | 10 | 10 |
-| Tilt while carrying, median / max | 1.4° / 7.2° | 4.3° / 31.9° | 3.9° / 27.2° | 7.7° / 23.4° | 23.1° / 34.0° | 13.3° / 60.7° |
-| Path constraint violation rate | 2/10 | 4/10 | 4/9 | 7/9 | 9/10 | 5/10 |
-| Spout off axis, median / max | 33.9 / 72.0 mm | 26.0 / 244.1 mm | 26.1 / 159.5 mm | 47.6 / 1645.8 mm | 43.0 / 123.7 mm | 32.2 / 76.3 mm |
-| Collision rate, deeper than 1 mm | 10/10 | 9/10 | 7/9 | 2/9 | 1/10 | 1/10 |
-| Deepest collision, median / max | 3.0 / 12.1 mm | 3.1 / 22.9 mm | 2.9 / 6.7 mm | 0.0 / 140.3 mm | 0.0 / 58.6 mm | 0.0 / 26.8 mm |
-| Deepest contact including self-contact, max | 12.1 mm | 38.2 mm | 83.2 mm | 222.5 mm | 96.8 mm | 58.7 mm |
+**Reproducibility checks:** 11 runs were replanned and compared with what's kept.
+- **Rule 1, against the originals:** no box s0 at every weight, plus on path s0 and beside s0,
+  s2 and s7 at ×1. Every array the two runs share is bit for bit identical, and so is every
+  report field except timing. The new runs also save `targets`.
+- **The elbow rule, against the first rule:** ×1 on path s4 and ×10 on path s8, which
+  re-solve misses but never switch elbow branches. Both came out identical. So the elbow rule
+  changes nothing it shouldn't.
 
-\* ×20 no box s6 has the branch-switch artefact (section 2); it is being rerun under the elbow
-rule. Its 140.3 mm, 222.5 mm and 1645.8 mm are from that artefact.
+Each table uses the newest version of each run.
 
-Success counted with self-contact is the same in every cell.
+### 5.1 Results, fixed
+
+Collision counts and depths are environment contact only (mug, box, table). The last row
+adds robot self-contact. Success counted with self-contact is the same in every cell.
+
+**No box**
+
+| | ×1 | ×3 | ×10 | ×20 | ×30 |
+|---|---|---|---|---|---|
+| Success rate | 1/10 | 0/10 | 0/10 | 2/10 | 2/10 |
+| Plans returned | 10 | 10 | 10 | 9 | 10 |
+| Tilt while carrying, median / max | 1.1° / 9.3° | 1.1° / 1.8° | 1.4° / 7.2° | 7.7° / 23.4° | 16.1° / 37.3° |
+| Path constraint violation rate | 1/10 | 1/10 | 2/10 | 7/9 | 8/10 |
+| Spout off axis, median / max | 20.9 / 51.7 mm | 24.0 / 85.9 mm | 33.9 / 72.0 mm | 47.6 / 76.8 mm | 38.9 / 101.0 mm |
+| Collision rate, deeper than 1 mm | 9/10 | 10/10 | 10/10 | 1/9 | 0/10 |
+| Deepest collision, median / max | 3.1 / 3.2 mm | 3.2 / 4.3 mm | 3.0 / 12.1 mm | 0.0 / 4.0 mm | 0.0 / 0.0 mm |
+| Including self-contact, max | 3.2 mm | 4.3 mm | 12.1 mm | 4.0 mm | 2.0 mm |
+
+**Box on path**
+
+| | ×1 | ×3 | ×10 | ×20 | ×30 |
+|---|---|---|---|---|---|
+| Success rate | 1/10 | 1/10 | 0/10 | 1/10 | 1/10 |
+| Plans returned | 9 | 10 | 10 | 10 | 9 |
+| Tilt while carrying, median / max | 1.1° / 14.7° | 2.3° / 13.0° | 4.3° / 31.9° | 23.1° / 34.0° | 37.2° / 86.0° |
+| Path constraint violation rate | 1/9 | 1/10 | 4/10 | 9/10 | 8/9 |
+| Spout off axis, median / max | 32.9 / 70.7 mm | 21.6 / 88.2 mm | 26.0 / 244.1 mm | 43.0 / 123.7 mm | 40.0 / 48.7 mm |
+| Collision rate, deeper than 1 mm | 8/9 | 9/10 | 9/10 | 1/10 | 3/9 |
+| Deepest collision, median / max | 4.1 / 51.6 mm | 3.1 / 22.0 mm | 3.1 / 22.9 mm | 0.0 / 58.6 mm | 0.0 / 70.7 mm |
+| Including self-contact, max | 51.6 mm | 22.0 mm | 38.2 mm | 96.8 mm | 70.7 mm |
+
+**Box beside**
+
+| | ×1 | ×3 | ×10 | ×20 | ×30 |
+|---|---|---|---|---|---|
+| Success rate | 0/10 | 1/10 | 2/10 | 5/10 | 1/10 |
+| Plans returned | 10 | 8 | 9 | 10 | 10 |
+| Tilt while carrying, median / max | 2.0° / 10.5° | 1.3° / 11.1° | 3.9° / 27.2° | 13.3° / 60.7° | 20.9° / 54.5° |
+| Path constraint violation rate | 1/10 | 2/8 | 4/9 | 5/10 | 8/10 |
+| Spout off axis, median / max | 20.5 / 72.3 mm | 22.4 / 90.8 mm | 26.1 / 159.5 mm | 32.2 / 76.3 mm | 36.0 / 86.6 mm |
+| Collision rate, deeper than 1 mm | 10/10 | 7/8 | 7/9 | 1/10 | 2/10 |
+| Deepest collision, median / max | 3.2 / 39.9 mm | 3.1 / 11.1 mm | 2.9 / 6.7 mm | 0.0 / 26.8 mm | 0.0 / 134.9 mm |
+| Including self-contact, max | 39.9 mm | 11.1 mm | 83.2 mm | 58.7 mm | 134.9 mm |
+
+**What the sweep shows:**
+- **Low weights (×1-×10):** ReKep stays upright (median tilt 1-4°) but almost always presses
+  into the mug, about 3 mm.
+- **High weights (×20-×30):** mug contact mostly disappears, but the path is given up. Most
+  plans violate the tilt or rim limits, and median tilt climbs to 8-37°.
+- **No weight gets past 5/10 in any scene.** The best is ×20 beside, at 5/10.
 
 ### 5.2 Before the fix → after
 
+The main changes. The full pre-fix tables are in `FINDINGS.md` section 5.
+
 | | Before | After |
 |---|---|---|
-| ×10 on path: tilt max | 33.8° | 31.9° |
+| ×3 on path: deepest collision, max | 131.5 mm | 22.0 mm |
+| ×3 on path: including self-contact, max | 171.9 mm | 22.0 mm |
+| ×3 on path: spout off axis, max | 755.3 mm | 88.2 mm |
 | ×10 on path: collision rate | 10/10 | 9/10 |
-| ×10 on path: deepest collision, median / max | 3.2 / 146.9 mm | 3.1 / 22.9 mm |
-| ×10 on path: including self-contact, max | 222.9 mm | 38.2 mm |
+| ×10 on path: deepest collision, max | 146.9 mm | 22.9 mm |
 | ×10 beside: deepest collision, max | 42.0 mm | 6.7 mm |
-| ×10 beside: including self-contact, max | 211.3 mm | 83.2 mm |
-| ×20 no box: deepest collision, max | 190.3 mm | 140.3 mm* |
+| ×20 no box: collision rate | 2/9 | 1/9 |
+| ×20 no box: deepest collision, max | 190.3 mm | 4.0 mm |
+| ×20 no box: spout off axis, max | 1369.2 mm | 76.8 mm |
 | ×20 on path: success | 2/10 | 1/10 |
 | ×20 on path: path constraint violations | 8/10 | 9/10 |
-| ×20 on path: tilt, median / max | 20.0° / 47.7° | 23.1° / 34.0° |
 | ×20 on path: deepest collision, max | 128.6 mm | 58.6 mm |
-| ×20 beside: tilt max | 56.7° | 60.7° |
 | ×20 beside: deepest collision, max | 143.8 mm | 26.8 mm |
+| ×30 no box: collision rate | 1/10 | 0/10 |
+| ×30 no box: deepest collision, max | 139.5 mm | 0.0 mm |
+| ×30 on path: success | 0/10 | 1/10 |
+| ×30 on path: tilt, max | 175.2° | 86.0° |
+| ×30 on path: collision rate | 4/9 | 3/9 |
+| ×30 on path: deepest collision, max | 250.1 mm | 70.7 mm |
+| ×30 beside: plans returned | 8 | 10 |
+| ×30 beside: path constraint violations | 7/8 | 8/10 |
+| ×30 beside: deepest collision, max | 156.1 mm | 134.9 mm |
 
-×10 no box is unchanged in every metric.
-
-### 5.3 The reruns
+### 5.3 The reruns at ×3, ×30, and ×20 no box s6
 
 | Run | Worst miss, before → after | What changed |
 |---|---|---|
-| ×10 no box s5 | 11 → 10 mm | Same metrics. |
-| ×10 on path s0 | 930 → 115 mm | The 147 mm contact is gone (no contact now), and the spout's worst excursion drops from 1630 to 39 mm. Tilt rises 13.3° → 31.9°, so it still fails the path limits. |
-| ×10 on path s3 | 816 → 76 mm | Contact 125 → 3.2 mm; spout excursion 755 → 70 mm. Still misses the goal. |
-| ×10 on path s4, s5, s7 | 7-15 → 6-10 mm | Same metrics. |
-| ×10 on path s8 | 960 → 251 mm | Contact 132 → 22.9 mm; tilt 33.8° → 14.6°. The spout now swings 244 mm off axis, so it still fails. |
-| ×10 beside s1 | no plan → no plan | Still backtracks to the grasp. |
-| ×10 beside s5 | 782 → 62 mm | Contact 42 → 3.0 mm, self-contact 211 → 3.0 mm; spout excursion 739 → 55 mm. Still misses the goal. |
-| ×20 no box s6 | 314 → 71 mm | Branch-switch artefact (section 2); being rerun. |
-| ×20 no box s8 | no plan → no plan | Still backtracks to the grasp. |
-| ×20 on path s0 | 184 → 41 mm | The old plan succeeded counting only the environment (it had 59 mm of self-contact). The new one tilts to 34.0° with the spout 122 mm off axis, so it fails. |
-| ×20 on path s4, s5 | 11-14 → 6-10 mm | Same metrics. |
-| ×20 on path s7 | 855 → 202 mm | Contact 129 → 58.6 mm; tilt 47.7° → 33.3°. Still fails. |
-| ×20 beside s2 | 239 → 32 mm | Contact 144 → 26.8 mm; tilt 56.7° → 60.7°. Still fails. |
+| ×3 on path s0, s1, s3, s7 | 12-58 → 6-14 mm | Same pass or fail; the spout's worst excursion moves by up to 22 mm. |
+| ×3 on path s5 | 819 → 90 mm | Contact 132 → 22 mm; spout excursion 755 → 88 mm. Still exits the rim. |
+| ×3 beside s5 | no plan → no plan | Still backtracks to the grasp. |
+| ×10 beside s1 | no plan → no plan | Rerun under the elbow rule; still backtracks to the grasp. |
+| ×3 beside s8 | 18 → 9 mm | Same metrics. |
+| ×20 no box s6 | 71 → 71 mm | Under the elbow rule the 5.89 rad switch is gone. Its worst step is now 1.25 rad (see 5.4). The 140 mm table contact is gone (no contact at all now), and the spout's excursion drops from 1646 to 77 mm. Still exits the rim. |
+| ×30 no box s3 | 15 → 121 mm | Tilt the same (37.3°); the spout now swings 101 mm off axis. Still fails. |
+| ×30 no box s5 | 258 → 19 mm | The 140 mm contact is gone; it now reaches the goal. Tilt 27.4° still fails the path limits. |
+| ×30 on path s0 | 898 → 289 mm | Contact 147 → 30 mm (the pot into the mug). Tilt rises to 86°. |
+| ×30 on path s1 | 1057 → 245 mm | It was a 175° tumble with 250 mm of contact; now 14.3° with no contact, and it succeeds. |
+| ×30 on path s3 | 688 → 247 mm | The old plan passed the path limits but had 148 mm of contact. The new one has the upper arm 58 mm into the table and tilts 16.8°, so it fails both. |
+| ×30 on path s6 | 862 → 111 mm | Contact 136 → 71 mm (upper arm into the table). Still fails. |
+| ×30 beside s2 | 17 → 10 mm | Same metrics. |
+| ×30 beside s3 | 612 → 290 mm | Contact 156 → 0 mm; tilt 71.6° → 23.6°. Still fails. Has a 1.42 rad step at a joint limit (5.4). |
+| ×30 beside s8 | no plan → plan | Now returns a plan that holds the path limits, but the upper arm goes 135 mm into the table. |
+| ×30 beside s9 | killed at 2400 s → plan in 719 s | Tilts to 44.2°; the upper arm touches the pot (36 mm). |
 
-### 5.4 What the remaining misses are
+### 5.4 What the bridge still does
 
-Seven fixed plans were checked against their saved target poses: ×1 no box s7, ×10 on path s0
-and s8, ×20 no box s6, ×20 on path s0 and s7, and ×20 beside s2.
+**Remaining large misses.** Plans checked against their saved target poses:
 
-**Six of them miss at the reach limit, not by folding:** ×1 no box s7, ×10 on path s0 and s8,
-×20 on path s0 and s7, and ×20 no box s6 before its jump. At every waypoint they miss by more
-than 20 mm:
-- **The arm can't extend further:** the elbow is within 0.03 rad of 0, fully straight.
-- **The target is past the gripper:** targets are 69-109 cm from the shoulder, and the
-  gripper is at 61-102 cm. The misses are 2-25 cm.
-- **Steps stay small:** every joint step is within 0.35 rad, and the gripper stays within a
-  few mm of the straight line between waypoints.
+| | Plans | What happens |
+|---|---|---|
+| **Reach limit** | ×1 no box s7; ×10 on path s0, s8; ×20 on path s0, s7; ×20 no box s6; ×30 beside s8 | Elbow within 0.03 rad of 0 (fully straight). Targets 69-112 cm from the shoulder, gripper at 61-106 cm, misses 2-25 cm. Every step within 0.35 rad. The arm stops short, as upstream's controller would. |
+| **Joint limit** | ×30 beside s3 | Wrist 3 reaches its ±2π limit. For nine waypoints the arm misses targets within reach (45-66 cm from the shoulder) by up to 290 mm. Then the undamped solve finds the target on another configuration, and the arm jumps there: a 1.42 rad step that moves the gripper 171 mm. A controller stuck at a joint limit can't jump like that either. |
+| **Unexplained** | ×20 beside s2 | Misses of 21-32 mm with the elbow bent (−1.45 rad) and targets 71-76 cm from the shoulder. The cause isn't determined. |
 
-In these plans the poses ReKep asks for are beyond the arm's reach, and the fixed tracker stops
-short, as upstream's controller would.
+The other fixed plans' misses were not checked one by one.
 
-**The other one is different:** ×20 beside s2 misses by 21-32 mm with the elbow bent
-(−1.45 rad) and targets 71-76 cm from the shoulder, so it is not at full stretch. The cause of
-those misses isn't determined.
+**Remaining steps over 0.35 rad in kept plans.** All of these stay on one elbow branch, so the
+elbow rule leaves them alone:
 
-The other fixed plans' misses (up to 76 mm) were not checked one by one.
+| Plan | Step | Gripper moves | Sweep off line | Where |
+|---|---|---|---|---|
+| ×10 beside s3 | 1.41 rad | 7 mm | small | near the wrist singularity (wrist 2 ≈ −π), during the pour |
+| ×10 on path s1 | 1.04 rad | 6 mm | small | near the wrist singularity (wrist 2 ≈ −π), during the pour |
+| ×20 no box s6 | 1.25 rad | 5 mm | 36 mm | elbow unfolding from straight while wrist 2 ≈ 0 |
+| ×30 beside s3 | 1.42 rad | 171 mm | 34 mm | after the joint-limit stall above |
 
-Self-contact without a jump remains in three fixed plans: ×10 on path s8 (38.2 mm), ×20 on
-path s7 (96.8 mm) and ×20 beside s2 (58.7 mm). These have not been rendered yet, so whether
-it's ReKep's own motion, as in the two ×10 wrist cases, is not verified.
+The two ×10 steps are continuous runs through the wrist singularity, ReKep's own pour motion.
+The ×30 beside s3 step is a jump a controller couldn't make.
+
+**Arm into the table at full stretch.** In ×30 on path s3 and s6 and ×30 beside s8, the upper
+arm and forearm go 58-135 mm into the table, and into the pedestal. In each, the arm is
+stretched toward targets out of reach, with small joint steps. ReKep's collision cost sees only
+the gripper, the wrist and the held object, so it can't see the arm going down. These count as
+collisions. Not rendered yet.
+
+**Other self-contact not yet rendered:**
+- ×10 on path s8: 38.2 mm;
+- ×20 on path s7: forearm into the pot, 96.8 mm;
+- ×20 beside s2: forearm into the pot, 58.7 mm;
+- ×30 beside s9: upper arm into the pot, 36.3 mm.
 
 ## 6. Caveats
 
@@ -255,10 +328,9 @@ it's ReKep's own motion, as in the two ×10 wrist cases, is not verified.
   first enters the rim.
 - **Some seeds have no ReKep plan.** On path s1 backtracks to the grasp, which this setup
   cannot redo because the grasp is given.
-- **The sweep is partly rerun.** ×3 and ×30 are still pre-fix (in `FINDINGS.md`).
 - **Saved tables are pre-fix.** The `*.summary.md` tables, the README and
   `FINDINGS.md`/`FINDINGS_env_only.md` still show the pre-fix numbers. This file's ReKep
-  column comes from `table1fix.py`, and the sweep from `sweepfix.py`. Both are scratch scripts that merges the fixed runs over the
+  column comes from `table1fix.py`, and the sweep from `sweep2.py`. Both are scratch scripts that merge the fixed runs over the
   originals. It reproduces the pre-fix ReKep column exactly when given the originals.
 
 ## 7. Files
@@ -268,16 +340,18 @@ All paths are under `/home/albusfang/ur5e-rekep/`.
 - **Fixed reruns:** in `outputs/plans/{pour_compare,pour_obstacle,pour_box12}/`, each with
   `.npz`, `.report.json`, `.run.json` and `.eval.json` files:
   - `rekeploopfix_s*` and `rekeploopcol{10,20}fix_s*`: the first rule;
-  - `*fix2_s*`: both rules. Here `pour_compare` is no box,
+  - `*fix2_s*`: both rules (×3, ×30, ×20 no box s6, ×10 beside s1, and the two elbow-rule
+    checks). Here `pour_compare` is no box,
   `pour_obstacle` is on path and `pour_box12` is beside.
 - **Originals:** `rekeploop_s*` in the same directories. Table 1 uses `rekeploopfix_s*`
   where it exists, otherwise `rekeploop_s*`.
 - **Scoring script:**
   `/tmp/claude-1020/-home-albusfang-ur5e-manip-sim/fe2c49a4-b063-4dd9-9b75-200e861447d3/scratchpad/pourk/table1fix.py`
-  and `/tmp/claude-1020/-home-albusfang-ur5e-manip-sim/fe2c49a4-b063-4dd9-9b75-200e861447d3/scratchpad/pourk/sweepfix.py`
+  and `/tmp/claude-1020/-home-albusfang-ur5e-manip-sim/fe2c49a4-b063-4dd9-9b75-200e861447d3/scratchpad/pourk/sweep2.py`
   (scratch, not in the repo).
 - **Commits:**
   - `393f920`, tag `pour-tea-undamped-ik`: the study before the fix.
   - `85fdbf9`: the fix and the Table 1 reruns.
   - `ea7722e`: the ×10 and ×20 reruns.
   - `958420b`: the elbow-branch rule.
+  - Results of the ×3/×30 and elbow-rule runs: in the commit that adds this section.
