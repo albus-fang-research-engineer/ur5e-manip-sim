@@ -322,6 +322,69 @@ collisions. Not rendered yet.
 - ×20 beside s2: forearm into the pot, 58.7 mm;
 - ×30 beside s9: upper arm into the pot, 36.3 mm.
 
+### 5.5 What ReKep's failures come from
+
+For each weight, over all 30 runs (3 scenes × 10 seeds), with the fixed tracker:
+
+| Weight | Success | Failed from collision only | …of which mug contact only, ≤ 5 mm | Failed goal or path limits | No plan | Reaches goal and holds path limits, ignoring collisions |
+|---|---|---|---|---|---|---|
+| ×1 | 2/30 | 24 | 17 | 3 | 1 | 26/30 |
+| ×3 | 2/30 | 22 | 21 | 4 | 2 | 24/30 |
+| ×10 | 2/30 | 17 | 17 | 10 | 1 | 19/30 |
+| ×20 | 8/30 | 0 | 0 | 21 | 1 | 8/30 |
+| ×30 | 4/30 | 1 | 0 | 24 | 1 | 5/30 |
+
+**×1 to ×10: ReKep fails on contact.**
+- Most plans reach the goal and hold the path limits (26 of 30 at ×1), then fail the
+  collision rule.
+- **The 1 mm rule decides most of it.** The usual contact is the pot pressing about 3 mm into
+  the mug at the transport subgoal. Allowing mug contact up to 5 mm would raise ×1 from 2/30
+  to 19/30.
+- **Box contact on path is the other real collision source.**
+
+**×20 and ×30: ReKep fails the path limits.** Raising the collision weight removes almost all
+contact, but ReKep then gives up the path. Tilt and rim violations account for 21 of 22
+failures at ×20.
+
+**No weight gets ReKep both collision-free and on-path.** Its soft costs trade one against the
+other, where our planner treats both as hard constraints.
+
+**Reporting the 1 mm rule.** Results should state the 1 mm rule explicitly, and could report a
+5 mm mug tolerance alongside it.
+
+### 5.6 Renders
+
+The flagged plans are rendered in `outputs/videos/rekep_fixed/`. Each `.mp4` has a front and
+a side view, with colliding links tinted red; each `.worst_self.png` is the frame with the
+deepest self-contact.
+
+| Render | Plan |
+|---|---|
+| `onpath_x30_s3_table` | ×30 on path s3 |
+| `onpath_x30_s6_table` | ×30 on path s6 |
+| `beside_x30_s8_table` | ×30 beside s8 |
+| `beside_x30_s3_jointlimit` | ×30 beside s3 |
+| `beside_x30_s9_armpot` | ×30 beside s9 |
+| `onpath_x10_s8_self` | ×10 on path s8 |
+| `onpath_x20_s7_armpot` | ×20 on path s7 |
+| `beside_x20_s2_armpot` | ×20 beside s2 |
+
+**What they show.** In the table cases (×30 beside s8, ×30 on path s3 and s6, ×10 on path s8)
+and in ×20 on path s7:
+- During transport (stage 2 or 3), the shoulder dips forward. The upper arm lies across the
+  table edge and presses into the pedestal: up to 135 mm into the table and 88 mm into the
+  pedestal.
+- This happens where the arm is stretched toward targets out of reach (section 5.4).
+- ReKep's collision cost sees only the gripper, the wrist and the held pot, so nothing in its
+  cost resists this.
+- The contact would be real on a robot too, so it counts as a collision. The depth is a
+  kinematic number; physically the table would stop the arm.
+
+**Open question:** whether these out-of-reach targets come from ReKep itself or from the port.
+Upstream's solvers also score how reachable each pose is (Lula IK). If the port's stand-in
+(`ReKepIK`) says "reachable" for poses the tracker then misses, the port pushes ReKep into
+these stretches. An audit of the port against upstream is in progress.
+
 ## 6. Caveats
 
 - **Carrying tilt can understate the transport stage.** It stops counting when the spout
