@@ -141,10 +141,14 @@ WORLD_REFS = ("world.z", "world.+z", "world.-z")
 # A constant, not a flag: the syntax ablation edits it under a --tag.
 ROT_ROW_SYNTAX = "target"
 
-# Prompt deltas: every change to the #3 SYSTEM text after
-# ablation-modality-v2 (commit 87804a1 + step 3) is registered here by id
-# and written into each emission artifact, so a run's numbers are
-# attributable to the prompt it ran under. Append; never edit an entry.
+# Prompt deltas: every change to the prompt text of calls #1-#3 (system
+# and user turns) after ablation-modality-v2 (commit 87804a1 + step 3) is
+# registered here by id and written into each emission artifact, so a run's
+# numbers are attributable to the prompt it ran under. The first two
+# entries predate this scope and cover the #3 system text only.
+# tests/test_prompt_snapshots.py enforces it: a prompt change fails until
+# an entry is added and the goldens are regenerated. Append; never edit an
+# entry.
 PROMPT_DELTAS: tuple[str, ...] = (
     "hinge-hold-2026-09-09",   # tilting axis is held where it is, never pointed
     "goal-first-2026-09-10",   # 'goal' sentence before any row; entry line states anchor side + height
