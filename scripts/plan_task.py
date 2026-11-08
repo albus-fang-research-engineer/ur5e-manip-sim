@@ -49,7 +49,8 @@ from pathlib import Path
 
 import numpy as np
 
-from manip_sim.compile_tsr import CompileError, compile_stage
+from manip_sim.code_authoring import compile_any, load_any_emissions
+from manip_sim.compile_tsr import CompileError
 from manip_sim.frames import Frame, load_symbols
 from manip_sim.grasping import (classify_grasps, free_tsr, handle_grasp_tsr,
                                 propose_handle_grasps, wrist_flip)
@@ -69,7 +70,6 @@ from manip_sim.task_plan import (GRASP_ELEVATION_RAD, GRASP_PAD_BACKOFF_M,
                                  synthesized_start, topdown_approach_h,
                                  transform_points, walk_goals)
 from manip_sim.tsr import pose_from_pos_quat_wxyz, sample_intersection
-from manip_sim.vlm import load_emissions
 from scripts.emit_constraints import bound_stages
 from scripts.plan_pour_tea import (GOAL_SAMPLE_MAX, MIN_ACCEPT_RATE,
                                    _funnel_offender)
@@ -198,10 +198,12 @@ def plan(args, scene, out: Path, report: dict) -> None:
     b = load_bindings(args.stage_plan)
     by_idx = {s.index: s for s in b.plan.stages}
     staged = bound_stages(b, by_idx)
-    ems = load_emissions(args.emissions)
+    ems = load_any_emissions(args.emissions)     # schema or code (A3/A4) artifact
     em_doc = json.loads(Path(args.emissions).read_text())
     report["emit_model"] = em_doc.get("model")
     report["emit_arm"] = em_doc.get("arm")
+    report["emit_method"] = em_doc.get("method")    # code artifacts: A3 / A4
+    report["emit_medium"] = em_doc.get("medium")
     movers = mover_stages(staged, ems, b.entry_synthesized)
     sels = load_selections(args.selections)
     objects = selection_objects(args.selections, sels)
@@ -288,7 +290,7 @@ def plan(args, scene, out: Path, report: dict) -> None:
     for m in movers:
         w_pt, e_pt = points[m.role]
         try:
-            cs = compile_stage(m.emission, symbols, {m.stage.active: T_ent,
+            cs = compile_any(m.emission, symbols, {m.stage.active: T_ent,
                                m.stage.passive: T0[m.stage.passive]},
                                w_point=w_pt, e_point=e_pt, entry_synthesized=m.synthesized)
         except CompileError as e:
@@ -380,7 +382,7 @@ def plan(args, scene, out: Path, report: dict) -> None:
                "entry": "synthesized" if m.synthesized else "chained"}
         report["stages"].append(rec)
         try:
-            cs = compile_stage(m.emission, symbols, {mover: T_entry, passive: T0[passive]},
+            cs = compile_any(m.emission, symbols, {mover: T_entry, passive: T0[passive]},
                                w_point=w_pt, e_point=e_pt, entry_synthesized=m.synthesized)
         except CompileError as e:
             raise TaskPlanError("compile", m.role, str(e), {"slot": e.slot})

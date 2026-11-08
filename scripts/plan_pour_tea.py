@@ -274,8 +274,8 @@ def main() -> None:
     from manip_sim.pour_stages import TaskFrames
     ems = None
     if args.emissions:
-        from manip_sim.vlm import load_emissions
-        ems = load_emissions(args.emissions)
+        from manip_sim.code_authoring import load_any_emissions
+        ems = load_any_emissions(args.emissions)   # schema or code (A3/A4)
         for r in ("transport_active", "pour"):
             if r not in ems:
                 raise SystemExit(f"[pour_tea] emissions file lacks role {r!r}")
