@@ -47,6 +47,7 @@ TASKS = {
 METHODS = ("A0", "A3", "A4")
 MODEL = "claude-opus-5"        # hardware's model (ur5e-manip-hardware .env)
 TEMPERATURE = "none"           # hardware omits the key; the API default applies
+MAX_TOKENS = "4000"            # one cap for every method (code replies are longer)
 PARSE_ATTEMPTS, GATE_ATTEMPTS = 3, 3   # vlm.MAX_PARSE_RETRIES + 1, COMPILE_RETRIES + 1
 
 
@@ -82,7 +83,7 @@ def main() -> None:
     lo = sum(TASKS[t]["authored_stages"][m] for t, m, _, _ in todo)
     hi = lo * PARSE_ATTEMPTS * GATE_ATTEMPTS
     print(f"[ablation] {len(runs)} runs ({len(runs) - len(todo)} already done), "
-          f"model {MODEL}, temperature {TEMPERATURE}")
+          f"model {MODEL}, temperature {TEMPERATURE}, max_tokens {MAX_TOKENS} (all methods)")
     print(f"[ablation] calls: {lo} if every stage passes first time, at most {hi} "
           "(parse and gate retries)")
     for t, m, i, out in todo:
@@ -94,7 +95,7 @@ def main() -> None:
     if not os.environ.get("ANTHROPIC_API_KEY"):
         sys.exit("[ablation] ANTHROPIC_API_KEY is not set")
     env = {**os.environ, "MANIP_VLM_MODEL": MODEL, "MANIP_VLM_TEMPERATURE": TEMPERATURE,
-           "PYTHONPATH": "."}
+           "MANIP_VLM_MAX_TOKENS": MAX_TOKENS, "PYTHONPATH": "."}
     index_p = root / "index.json"
     index = json.loads(index_p.read_text()) if index_p.exists() else []
     for t, m, i, out in todo:
@@ -106,6 +107,7 @@ def main() -> None:
             code = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT).returncode
         index.append({"task": t, "method": m, "rep": i, "artifact": str(out),
                       "exit": code, "seconds": round(time.perf_counter() - t0, 1),
+                      "model": MODEL, "temperature": TEMPERATURE, "max_tokens": MAX_TOKENS,
                       "command": cmd[1:]})
         index_p.write_text(json.dumps(index, indent=2) + "\n")
         print(f"[ablation]   exit {code} ({'gate passed' if code == 0 else 'see .out'})")

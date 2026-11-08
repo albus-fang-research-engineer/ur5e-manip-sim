@@ -13,5 +13,5 @@ exec docker run --rm -u "$(id -u):$(id -g)" \
   -v "$here:$here" -v "$common:$common:ro" -w "$here" \
   -e HOME=/tmp -e PYTHONPATH="$here" -e NUMBA_CACHE_DIR=/tmp/numba \
   -e MUJOCO_GL=osmesa -e PYOPENGL_PLATFORM=osmesa \
-  -e ANTHROPIC_API_KEY -e MANIP_VLM_MODEL -e MANIP_VLM_TEMPERATURE \
+  -e ANTHROPIC_API_KEY -e MANIP_VLM_MODEL -e MANIP_VLM_TEMPERATURE -e MANIP_VLM_MAX_TOKENS \
   manip-sim:latest "$@"

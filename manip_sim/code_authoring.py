@@ -27,7 +27,8 @@ track the pose they are evaluated at. compile_any() is the single entry
 point both call sites use.
 
 Running model-written code. The source is parsed and checked here (no
-imports, no names or attributes beginning with an underscore, no file or
+imports, no names beginning with a double underscore, no attributes
+beginning with an underscore, no file or
 reflection builtins, no numpy file I/O), then executed in a separate
 `python -I -B` process with restricted builtins, CPU, wall-clock and
 address-space limits, no file writes (RLIMIT_FSIZE = 0), a scratch working
@@ -44,6 +45,7 @@ from __future__ import annotations
 import ast
 import copy
 import json
+import os
 import re
 import subprocess
 import sys
@@ -69,7 +71,8 @@ from .vlm import (_DIR_AXIS, CallLog, ParseRejection, RotRow, StageEmission, VLM
 MEDIA = ("constrained-code", "free-code")
 LABEL = {"constrained-code": "A3", "free-code": "A4"}
 PROMPT_VERSION = "code-authoring-2026-11-07"   # bump on any prompt text change
-MAX_TOKENS = 4000          # code is longer than a schema; a cap, not a target
+MAX_TOKENS = int(os.environ.get("MANIP_VLM_MAX_TOKENS", "4000"))   # a cap, not a target;
+                           # the ablation runner sets one value for every method
 MAX_SOURCE_CHARS = 20000
 CHILD_CPU_S = 15
 CHILD_WALL_S = 30
@@ -231,6 +234,10 @@ def stage_facts(active: str, passive: str, symbols: dict[str, Symbols],
                        for q, v in s.quantities.items()},
         # free-code view: world poses and body coordinates
         "T_active": body_poses[active], "T_passive": body_poses[passive],
+        "points_world": {k: (body_poses[k.split(".")[0]] @ np.append(p, 1.0))[:3]
+                         for k, p in points_body.items()},
+        "dirs_world": {k: body_poses[k.split(".")[0]][:3, :3] @ u
+                       for k, u in dirs_body.items()},
         "w_default": T0_w, "points_body": points_body, "dirs_body": dirs_body,
         "w_point": w_point, "e_point": e_point,
     }
@@ -271,7 +278,7 @@ def describe_facts(facts: dict, medium: str) -> str:
         lines += [f"  point({k!r}) = {_vec(v)}" for k, v in sorted(facts["points_w"].items())]
         lines.append(f"  feature (the {a} point the TSR pins at w) = "
                      f"{_vec(facts['feature_w'])}")
-        lines += [f"  {a} point {k} at entry = {_vec(v)}"
+        lines += [f"  active_point({k!r}) = {_vec(v)}"
                   for k, v in sorted(facts["active_points_w"].items())]
         lines += [f"  direction({k!r}) = {_vec(v)}"
                   for k, v in sorted(facts["dirs_w"].items()) if not k.startswith(p + ".-")
@@ -293,62 +300,88 @@ def describe_facts(facts: dict, medium: str) -> str:
               for k, v in sorted(facts["points_body"].items())]
     lines += [f"  scene.dirs[{k!r}] (body coords) = {_vec(v)}"
               for k, v in sorted(facts["dirs_body"].items()) if ".-" not in k]
+    lines += [f"  scene.points_world[{k!r}] = {_vec(v)}"
+              for k, v in sorted(facts["points_world"].items())]
+    lines += [f"  scene.dirs_world[{k!r}] = {_vec(v)}"
+              for k, v in sorted(facts["dirs_world"].items()) if ".-" not in k]
     lines.append(f"  scene.quantities: {q or '(none)'}")
     return "\n".join(lines)
 
 
 # ------------------------------------------------------------------ prompts
 
+# Sentences shared VERBATIM with the schema prompt (vlm.build_emission_prompt
+# and vlm._ROT_ROW_TEXT["target"]), so a wording difference cannot pose as a
+# medium difference. tests/test_code_authoring.py asserts each one still
+# appears in the schema's system text.
+SHARED_WITH_SCHEMA = {
+    "dirs": ("Axes are SIGNED CANONICAL DIRECTIONS of an object: "
+             "obj.+front, obj.-front, obj.+left, obj.-left, obj.+up, obj.-up. "
+             "Each object licenses only the directions listed for it below; "
+             "a '-' direction is the exact opposite of its '+'. world.z is up "
+             "(gravity); world.-z is down."),
+    "w": ("The constraint frame w is fixed by rule, not emitted: z = the "
+          "passive object's +up, x = its +front, origin = the interaction "
+          "point selected on it; it is frozen at stage entry."),
+    "free": "Degrees of freedom no row mentions are FREE.",
+    "goal": ("The subgoal is centered on the attitude that satisfies its rows, "
+             "reached by the smallest rotation from the entry attitude."),
+    "rotate": ("A direction the stage rotates must be left free on the path "
+               "\u2014 a path row on it forbids the rotation \u2014 and "
+               "constrained only in the subgoal."),
+    "limit": ("Rule-table limit per TSR: ONE row of either kind, or TWO aligning "
+              "rows on independent active directions (which fully determine the "
+              "attitude); an aligning row plus a perpendicular row is redundant "
+              "at best (dropped) or rejected; two perpendicular rows are "
+              "rejected."),
+    "path": ("Path terms hold for the WHOLE motion from entry to subgoal, so the "
+             "entry pose must satisfy them (the planner closes at most a 0.03 m "
+             "gap at the start) and the path must contain the subgoal; leave "
+             "rows the stage does not need free \u2014 clearance while moving "
+             "comes from collision checking."),
+    "hinge": ("The direction an object tilts about does not move during the "
+              "tilt, so never 'point' it at a new target \u2014 that rotates the "
+              "object about a different axis. Hold it where it already is, with "
+              "the relation it already has: 'perpendicular_to' a reference it is "
+              "perpendicular to at entry (a level hinge stays level), or "
+              "'points' at a reference it already lies along (a vertical "
+              "hinge). Then 'point' the direction that must end up along the "
+              "target."),
+}
+_S = SHARED_WITH_SCHEMA
+
 _COMMON = (
-    "You are the constraint-authoring module of a robot manipulation "
-    "pipeline. For one stage you write Python code that defines two Task "
-    "Space Regions (TSRs) for the ACTIVE (moving) object: a path TSR, which "
-    "must hold along the whole motion, and a subgoal TSR, the region the "
-    "stage must end in. A planner samples the subgoal, keeps samples that "
-    "lie on the path, and plans with CBiRRT while projecting onto the path "
-    "TSR; collision checking is separate. Path bounds hold for the WHOLE "
-    "motion from entry to subgoal, so the entry pose must satisfy them (the "
-    "planner closes at most a 0.03 m gap at the start) and the path must "
-    "contain the subgoal. Leave rows the stage does not need free; "
-    "clearance while moving comes from collision checking. A direction the "
-    "stage rotates must be left free on the path (a path bound on it "
-    "forbids the rotation) and constrained only in the subgoal. The "
-    "subgoal must bound x, y and z, since the planner samples it.\n\n"
-    "Directions are SIGNED CANONICAL DIRECTIONS of an object: obj.+front, "
-    "obj.-front, obj.+left, obj.-left, obj.+up, obj.-up; each object has "
-    "only the directions listed for it. world.z is up (gravity), world.-z "
-    "down.\n\n")
+    "You are the constraint-authoring module. For one stage you write Python "
+    "code that defines a path TSR (holds along the whole motion) and a "
+    "subgoal TSR (goal region) for the ACTIVE (moving) object. A planner "
+    "samples the subgoal, keeps samples that lie on the path, and plans "
+    "with CBiRRT inside the path TSR; collision checking is separate. "
+    "Here a 'term' or 'row' is a bound your code sets. "
+    + _S["path"] + " " + _S["rotate"] + " The subgoal must bound x, y and "
+    "z, since the planner samples it.\n\n" + _S["dirs"] + "\n\n")
 
 _A3 = (
-    "The constraint frame w is fixed by rule: z = the passive object's +up, "
-    "x = its +front, origin = the interaction point selected on it, frozen "
-    "at stage entry. Both TSRs pin the active object's selected feature "
-    "point at w: translation bounds are where that feature may be, in w.\n\n"
+    _S["w"] + " Both TSRs pin the active object's selected feature point at "
+    "w: translation bounds are where that feature may be, in w.\n\n"
     "Write `def author():` returning {\"path\": tsr(...), \"subgoal\": "
     "tsr(...)}. Available, with no imports (np and math are predefined):\n"
-    "  point(name)      -> np.array, a passive-object point in w\n"
-    "  feature          -> np.array, the active feature in w at entry\n"
-    "  direction(name)  -> np.array, a unit direction in w at entry "
+    "  point(name)         -> np.array, a passive-object point in w\n"
+    "  active_point(name)  -> np.array, an active-object point in w at entry\n"
+    "  feature             -> np.array, the active feature in w at entry\n"
+    "  direction(name)     -> np.array, a unit direction in w at entry "
     "(active or passive direction, or 'world.z' / 'world.-z')\n"
-    "  quantity(name)   -> float, a grounded quantity\n"
-    "  points_to(axis, target, tol_deg)        rotation row: the active "
-    "direction `axis` ends up pointing along `target` (a passive direction "
-    "or world.z / world.-z), within tol_deg; rotation about it stays free\n"
-    "  perpendicular_to(axis, reference, tol_deg)  rotation row: `axis` "
+    "  quantity(name)      -> float, a grounded quantity\n"
+    "  points_to(axis, target, tol_deg)  aligning row: the active direction "
+    "`axis` ends up pointing the way `target` points (a passive direction or "
+    "world.z / world.-z), within tol_deg; rotation about it stays free\n"
+    "  perpendicular_to(axis, reference, tol_deg)  perpendicular row: `axis` "
     "ends up perpendicular to `reference`, within tol_deg (one tilt)\n"
-    "  tsr(x=None, y=None, z=None, rot=())     x, y, z are (lo, hi) in "
-    "meters in w, or None for free; either end may be None for a "
-    "half-open path row. rot is a list of rotation rows.\n"
-    "Rotation is stated ONLY through points_to / perpendicular_to; "
-    "rotation degrees of freedom no row mentions are free. The subgoal is "
-    "centered on the attitude that satisfies its rows, reached by the "
-    "smallest rotation from the entry attitude. Per TSR: ONE row, or TWO "
-    "points_to rows on independent active directions (which fully "
-    "determine the attitude); points_to plus perpendicular_to is redundant "
-    "at best (dropped) or rejected; two perpendicular_to rows are "
-    "rejected. A direction an object tilts about does not move during the "
-    "tilt: hold it with the relation it already has at entry rather than "
-    "pointing it at a new target.\n\n")
+    "  tsr(x=None, y=None, z=None, rot=())  x, y, z are (lo, hi) in meters "
+    "in w, or None for free; either end may be None for a half-open path "
+    "row. rot is a list of rotation rows.\n"
+    "Rotation is stated ONLY through points_to and perpendicular_to "
+    "('points' below means points_to). " + _S["free"] + " " + _S["goal"]
+    + " " + _S["limit"] + " " + _S["hinge"] + "\n\n")
 
 _A4 = (
     "You write the TSRs as numbers. A TSR is (T0_w, Tw_e, Bw): T0_w is the "
@@ -373,7 +406,8 @@ _A4 = (
     "point on the passive), w_point (selected passive point, passive body "
     "coords), e_point (selected active point, active body coords), "
     "points[name] and dirs[name] (body coords of each object's points and "
-    "unit directions), quantities[name]. np, math and Rotation "
+    "unit directions), points_world[name] and dirs_world[name] (the same in "
+    "world coordinates at entry), quantities[name]. np, math and Rotation "
     "(scipy.spatial.transform.Rotation) are predefined; no imports.\n\n")
 
 _FORMAT = (
@@ -489,6 +523,17 @@ def _lookup(table, name, what):
         raise KeyError(f"unknown {what} {name!r}; known: {sorted(table)}")
     return table[name]
 
+import builtins as _b
+def _import(name, globals=None, locals=None, fromlist=(), level=0):
+    # numpy's C methods (ndarray.max, .min, .sum, ...) import their Python
+    # helpers lazily through the CALLER's __import__; allow numpy / scipy /
+    # math internals only. Model code cannot call this: the parent's AST
+    # check bans import statements and double-underscore names.
+    root = (name or "").split(".")[0]
+    if level == 0 and root in ("numpy", "scipy", "math"):
+        return _b.__import__(name, globals, locals, fromlist, level)
+    raise ImportError(f"import of {name!r} is not allowed")
+SAFE["__import__"] = _import
 def _print(*a, **k):
     k["file"] = sys.stderr          # stdout carries only the result line
     print(*a, **k)
@@ -529,7 +574,9 @@ if medium == "constrained-code":
             if not (isinstance(r, dict) and "tol_deg" in r):
                 raise ValueError("rot rows must come from points_to / perpendicular_to")
         return {"x": _row(x, "x"), "y": _row(y, "y"), "z": _row(z, "z"), "rot": rot}
-    ns.update(point=point, direction=direction, quantity=quantity,
+    def active_point(name):
+        return np.array(_lookup(F["active_points_w"], name, "active point"), float)
+    ns.update(point=point, active_point=active_point, direction=direction, quantity=quantity,
               points_to=points_to, perpendicular_to=perpendicular_to, tsr=tsr,
               feature=np.array(F["feature_w"], float))
     args = ()
@@ -545,6 +592,8 @@ else:
     s.e_point = np.array(F["e_point"], float)
     s.points = {k: np.array(v, float) for k, v in F["points_body"].items()}
     s.dirs = {k: np.array(v, float) for k, v in F["dirs_body"].items()}
+    s.points_world = {k: np.array(v, float) for k, v in F["points_world"].items()}
+    s.dirs_world = {k: np.array(v, float) for k, v in F["dirs_world"].items()}
     s.quantities = dict(F["quantities"])
     ns["Rotation"] = Rotation
     args = (s,)
@@ -759,6 +808,11 @@ def build_free(result: object, em: CodeEmission, body_poses) -> tuple[TSR, TSR, 
         tsrs[ctx] = TSR(T0_w=_as_pose(t["T0_w"], slot, f"{ctx} T0_w"),
                         Tw_e=_as_pose(t["Tw_e"], slot, f"{ctx} Tw_e"),
                         Bw=_as_bw(t["Bw"], slot), name=f"{em.name}/{ctx}(code)")
+    open_rows = [k for k in "xyz" if not np.all(np.isfinite(tsrs["subgoal"].Bw["xyz".index(k)]))]
+    if open_rows:
+        raise CodeError(f"{em.name}.subgoal", (
+            f"subgoal row(s) {open_rows} are unbounded; the planner samples the "
+            "subgoal, so bound x, y and z"))
     T_bw = np.linalg.inv(body_poses[em.passive]) @ tsrs["path"].T0_w
     w = Frame(name=f"{em.passive}.authored", point=T_bw[:3, 3].copy(),
               axis=T_bw[:3, 2].copy(), secondary=T_bw[:3, 0].copy())

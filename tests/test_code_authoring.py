@@ -340,3 +340,99 @@ def test_code_seam_uses_the_schema_seam_check():
     a = ca.compile_any(_code("constrained-code", A3_TRANSPORT), SYMBOLS, POSES,
                        w_point=OPENING, e_point=TIP, vocab=VOCAB)
     assert ca.check_seam(a, a)[0].startswith("transport.path admits")
+
+
+# ------------------------------------------------ browser-review follow-ups
+
+def test_shared_guidance_is_verbatim_in_the_schema_prompt():
+    from manip_sim.vlm import build_emission_prompt
+    schema, _ = build_emission_prompt(STAGE, VOCAB)
+    facts = ca.stage_facts("teapot", "mug", SYMBOLS, POSES, OPENING, TIP)
+    a3, _ = ca.build_code_prompt(STAGE, VOCAB, "constrained-code", facts)
+    a4, _ = ca.build_code_prompt(STAGE, VOCAB, "free-code", facts)
+    for key, sentence in ca.SHARED_WITH_SCHEMA.items():
+        assert sentence in schema, key
+        assert sentence in a3, key
+    for key in ("dirs", "path", "rotate"):
+        assert ca.SHARED_WITH_SCHEMA[key] in a4, key
+
+
+def test_every_listed_value_is_readable_through_the_api():
+    facts = ca.stage_facts("teapot", "mug", SYMBOLS, POSES, OPENING, TIP)
+    _, msgs = ca.build_code_prompt(STAGE, VOCAB, "constrained-code", facts)
+    user = msgs[0]["content"][0]["text"]
+    assert "active_point('teapot.spout_tip')" in user
+    src = A3_TRANSPORT.replace('    o = point("mug.opening_center")',
+                               '    o = point("mug.opening_center")\n'
+                               '    t = active_point("teapot.spout_tip")')
+    ca.compile_any(_code("constrained-code", src), SYMBOLS, POSES, w_point=OPENING,
+                   e_point=TIP, vocab=VOCAB)
+    s4, m4 = ca.build_code_prompt(STAGE, VOCAB, "free-code", facts)
+    assert "scene.points_world['teapot.spout_tip']" in m4[0]["content"][0]["text"]
+
+
+def test_a4_world_positions_match_the_body_ones():
+    src = '''# goal: x
+def author(scene):
+    p = scene.T_active @ np.append(scene.points["teapot.spout_tip"], 1.0)
+    if np.abs(p[:3] - scene.points_world["teapot.spout_tip"]).max() > 1e-5:
+        raise ValueError("world and body disagree")
+    free = [[-np.inf, np.inf]] * 3 + [[-np.pi, np.pi]] * 3
+    box = [[-1.0, 1.0]] * 3 + [[-np.pi, np.pi]] * 3
+    return {"path": {"T0_w": np.eye(4), "Tw_e": np.eye(4), "Bw": free},
+            "subgoal": {"T0_w": np.eye(4), "Tw_e": np.eye(4), "Bw": box}}
+'''
+    ca.compile_any(_code("free-code", src), SYMBOLS, POSES, w_point=OPENING, e_point=TIP)
+
+
+def test_a4_unbounded_subgoal_is_rejected_at_compile():
+    src = '''# goal: x
+def author(scene):
+    free = [[-np.inf, np.inf]] * 3 + [[-np.pi, np.pi]] * 3
+    return {"path": {"T0_w": np.eye(4), "Tw_e": np.eye(4), "Bw": free},
+            "subgoal": {"T0_w": np.eye(4), "Tw_e": np.eye(4), "Bw": free}}
+'''
+    with pytest.raises(ca.CodeError, match="unbounded"):
+        ca.compile_any(_code("free-code", src), SYMBOLS, POSES, w_point=OPENING, e_point=TIP)
+
+
+def test_code_seam_rejects_a_path_that_excludes_the_previous_goals():
+    prev = ca.compile_any(_code("constrained-code", A3_TRANSPORT), SYMBOLS, POSES,
+                          w_point=OPENING, e_point=TIP, vocab=VOCAB)
+    entry = POSES | {"teapot": prev.subgoal.nominal()}
+    narrow = '''# goal: x
+def author():
+    f = feature
+    return {"path": tsr(z=(f[2] - 0.001, f[2] + 0.001)),
+            "subgoal": tsr(x=(-0.05, 0.05), y=(-0.05, 0.05),
+                           z=(f[2] - 0.001, f[2] + 0.001))}
+'''
+    cur = ca.compile_any(_code("constrained-code", narrow, name="pour"), SYMBOLS, entry,
+                         w_point=OPENING, e_point=TIP, vocab=VOCAB)
+    with pytest.raises(ca.CodeError, match="does not admit every"):
+        ca.check_seam(prev, cur)
+
+
+def test_one_max_tokens_knob_for_every_method():
+    import os
+    import subprocess
+    import sys
+    code = ("import manip_sim.vlm as v, manip_sim.code_authoring as c; "
+            "print(v.MAX_TOKENS, c.MAX_TOKENS)")
+    env = {**os.environ, "MANIP_VLM_MAX_TOKENS": "4000"}
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True,
+                         text=True).stdout.split()
+    assert out == ["4000", "4000"]
+    env.pop("MANIP_VLM_MAX_TOKENS")
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True,
+                         text=True).stdout.split()
+    assert out == ["2000", "4000"]     # defaults unchanged when unset
+
+
+def test_numpy_methods_that_import_lazily_work_in_the_child():
+    src = A3_TRANSPORT.replace('    o = point("mug.opening_center")',
+                               '    o = point("mug.opening_center")\n'
+                               '    _m = (np.ones(3).max(), np.ones(3).sum(), np.ones(3).mean())')
+    src = src.replace("_m = ", "m_ = ")
+    ca.compile_any(_code("constrained-code", src), SYMBOLS, POSES, w_point=OPENING,
+                   e_point=TIP, vocab=VOCAB)
