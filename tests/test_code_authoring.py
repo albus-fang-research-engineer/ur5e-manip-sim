@@ -436,3 +436,35 @@ def test_numpy_methods_that_import_lazily_work_in_the_child():
     src = src.replace("_m = ", "m_ = ")
     ca.compile_any(_code("constrained-code", src), SYMBOLS, POSES, w_point=OPENING,
                    e_point=TIP, vocab=VOCAB)
+
+
+def test_call_log_keeps_rejected_replies_and_stop_reasons():
+    """Logging only: every attempt's stop reason and usage, and the text of each
+    rejected reply, land on the CallLog; the reply that is returned is unchanged."""
+    from manip_sim import vlm
+    from manip_sim.vlm import CallLog
+    replies = iter([("no code here", "max_tokens"), ("ok", "end_turn")])
+
+    def transport(payload):
+        text, stop = next(replies)
+        vlm.LAST_RESPONSE.update(stop_reason=stop, usage={"output_tokens": len(text)})
+        return text
+
+    def parse(raw):
+        if raw != "ok":
+            raise ParseRejection("expected ok")
+        return raw
+
+    client = Client(transport=transport)
+    assert client._ask("t", "sys", [{"role": "user", "content": []}], parse) == "ok"
+    log = client.logs[-1]
+    assert log.attempts == 2 and log.rejections == ["expected ok"]
+    assert log.rejected_raw == ["no code here"] and log.raw == "ok"
+    assert log.stop_reasons == ["max_tokens", "end_turn"]
+    assert log.usage == [{"output_tokens": 12}, {"output_tokens": 2}]
+
+    # a transport that reports no metadata logs None, not a stale value
+    client = Client(transport=lambda payload: "ok")
+    client._ask("t", "sys", [], parse)
+    assert client.logs[-1].stop_reasons == [None] and client.logs[-1].usage == [None]
+    assert isinstance(CallLog("x").gate_rejection, str)

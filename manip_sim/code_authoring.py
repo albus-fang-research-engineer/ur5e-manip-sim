@@ -458,11 +458,12 @@ def _ask_code(client, system: str, messages: list, parse) -> CodeEmission:
         payload = {"model": client.model, "max_tokens": client.max_tokens}
         if vlm.TEMPERATURE is not None:
             payload["temperature"] = vlm.TEMPERATURE
-        raw = client._transport({**payload, "system": system, "messages": msgs})
+        raw = vlm._send(client._transport, {**payload, "system": system, "messages": msgs}, log)
         try:
             result = parse(raw)
         except ParseRejection as rej:
             log.rejections.append(rej.reason)
+            log.rejected_raw.append(raw)
             msgs = msgs + [
                 {"role": "assistant", "content": [_text(raw)]},
                 {"role": "user", "content": [_text(
