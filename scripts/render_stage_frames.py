@@ -515,15 +515,30 @@ def compose_view(base: np.ndarray, cam: dict, sf: StageFrames,
 # ------------------------------------------------------------------ scene
 
 def build_scene_model(scene, cams: dict[str, dict], px: int = PX,
-                      poses: dict[str, np.ndarray] | None = None):
+                      poses: dict[str, np.ndarray] | None = None,
+                      extras: list[dict] | None = None):
     """One MJCF with every scene object's VISUAL mesh at `poses[name]`
     (4x4 world pose; default: the spawn pose), a table-top slab for a
     ground cue, headlight, and the cameras. Collision hulls are dropped;
     mesh paths are made absolute so a single model spans per-object mesh
     dirs; body names are prefixed so the objects' identical 'object'
-    bodies do not collide."""
+    bodies do not collide.
+
+    `extras` (optional) adds bodies that are not scene objects, each a
+    dict with "pose" (4x4 world) and either "object" (a scene object's
+    name: a copy of its visual geoms, e.g. a translucent ghost) or "mesh"
+    (a mesh file path, e.g. a gripper), plus an optional "rgba". A copy
+    with an "rgba" drops its material so the color applies."""
+    import copy
+
     import mujoco
     from scipy.spatial.transform import Rotation as R
+
+    def _posquat(T):
+        T = np.asarray(T, float)
+        q = R.from_matrix(T[:3, :3]).as_quat()              # xyzw
+        return T[:3, 3], np.array([q[3], q[0], q[1], q[2]])   # wxyz
+    visual_geoms: dict[str, list] = {}
     root = ET.Element("mujoco", model="stage_frames")
     ET.SubElement(root, "compiler", angle="radian")
     vis = ET.SubElement(root, "visual")
@@ -559,10 +574,7 @@ def build_scene_model(scene, cams: dict[str, dict], px: int = PX,
         for mat in oroot.iter("material"):
             asset.append(mat)
         if poses is not None and name in poses:
-            T = np.asarray(poses[name], float)
-            pos = T[:3, 3]
-            q = R.from_matrix(T[:3, :3]).as_quat()          # xyzw
-            quat = np.array([q[3], q[0], q[1], q[2]])        # wxyz
+            pos, quat = _posquat(poses[name])
         else:
             pos, quat = scene.fixed_poses()[name]
         body = ET.SubElement(wb, "body", name=name,
@@ -573,6 +585,32 @@ def build_scene_model(scene, cams: dict[str, dict], px: int = PX,
                 continue
             g.attrib.pop("mass", None)
             body.append(g)
+            visual_geoms.setdefault(name, []).append(g)
+    for i, ex in enumerate(extras or ()):
+        if ("mesh" in ex) == ("object" in ex):
+            raise ValueError(f"extras[{i}]: give exactly one of 'mesh' or 'object'")
+        if "object" in ex and not visual_geoms.get(ex["object"]):
+            raise ValueError(f"extras[{i}]: {ex['object']!r} is not a scene object "
+                             "with visual geoms")
+        pos, quat = _posquat(ex["pose"])
+        body = ET.SubElement(wb, "body", name=f"extra{i}",
+                             pos=" ".join(f"{v:.6f}" for v in pos),
+                             quat=" ".join(f"{v:.6f}" for v in quat))
+        rgba = ex.get("rgba")
+        if "mesh" in ex:
+            ET.SubElement(asset, "mesh", name=f"extra{i}_mesh",
+                          file=str(Path(ex["mesh"]).resolve()))
+            ET.SubElement(body, "geom", type="mesh", mesh=f"extra{i}_mesh",
+                          group="1", contype="0", conaffinity="0",
+                          rgba=" ".join(f"{v:g}" for v in (rgba or (0.2, 0.2, 0.2, 1))))
+            continue
+        for g in visual_geoms.get(ex["object"], ()):
+            g2 = copy.deepcopy(g)
+            g2.attrib.pop("name", None)
+            if rgba is not None:
+                g2.attrib.pop("material", None)
+                g2.set("rgba", " ".join(f"{v:g}" for v in rgba))
+            body.append(g2)
     for cname, c in cams.items():
         ET.SubElement(wb, "camera", name=cname, fovy=str(FOVY_DEG),
                       pos=" ".join(f"{v:.6f}" for v in c["pos"]),
