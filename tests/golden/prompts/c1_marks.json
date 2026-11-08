@@ -1,0 +1,30 @@
+{
+  "case": "c1_marks",
+  "call": "#1 plan_stages",
+  "builder": "build_stage_plan_prompt",
+  "variant": "mark-addressed (Vocabulary.from_marks) with the marked scene image",
+  "prompt_deltas": [
+    "hinge-hold-2026-09-09",
+    "goal-first-2026-09-10"
+  ],
+  "system": "You are the task-planning module of a robotic manipulation pipeline. You decompose a task into an ordered list of stages. You make only discrete symbolic choices; all geometry is computed downstream.\n\nThe image shows the scene with every foreground object labelled by a numbered mark. Decide which marks the task involves and name them; ignore the rest. Each stage has one active object (the one that moves) and at most one passive object it is constrained against.\n\nMarks on the image:\n  mark 1: bbox [100, 10, 149, 49], area 2000 px\n  mark 2: bbox [10, 70, 49, 109], area 1600 px\n\nOutput schema: {\"objects\": {\"<mark id>\": \"<short name>\", ...}, \"stages\": [{\"name\": str, \"active\": <mark id>, \"passive\": <mark id|null>, \"parts\": {\"<mark id>\": [str, ...]}}]}. `parts` lists, per object in the stage, the part names (free text) that must be segmented and grounded for this stage (e.g. \"handle\", \"spout\", \"rim\"). Use only mark ids that appear on the image. Respond with a single JSON object and nothing else — no prose, no markdown fences.",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Task: pour tea from the teapot into the mug"
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data_sha256": "6205d2bae5b48955e788e52604568d5e6eb1d46a6c7a51bc90651afbf82078bf"
+          }
+        }
+      ]
+    }
+  ]
+}

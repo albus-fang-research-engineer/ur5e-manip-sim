@@ -1,0 +1,46 @@
+{
+  "case": "c2_directions",
+  "call": "#2 select_point_axis",
+  "builder": "build_point_axis_prompt_directions",
+  "variant": "canonical-directions ablation scheme (full teapot triad)",
+  "prompt_deltas": [
+    "hinge-hold-2026-09-09",
+    "goal-first-2026-09-10"
+  ],
+  "system": "You are the interaction-point selection module. The images are rendered canonical views of the object with numbered candidate marks (filled = visible in that view, hollow = occluded; reason across views — constructed points such as cavity centers are off-surface by design). The object's canonical frame is drawn in every view as three labeled arrows: front (red), left (gold), up (blue). A '-' direction is the exact opposite of the drawn arrow. Choose the single best candidate mark for the stage and the signed canonical direction anchoring the task frame. You may ONLY use the offered IDs and direction tokens.\n\nCandidate menu:\n  [3] constructed opening_center\n  [7] part handle\n  [12] curvature spout ridge\n\nLicensed directions for this object: ['+front', '-front', '+left', '-left', '+up', '-up']\n\nOutput schema: {\"candidate_id\": int, \"direction\": \"+front\"|\"-front\"|\"+left\"|\"-left\"|\"+up\"|\"-up\", \"rationale\": str}. Respond with a single JSON object and nothing else — no prose, no markdown fences.",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Stage 2 (transport): active=teapot, passive=mug, parts={'teapot': ['spout'], 'mug': ['rim']}. Select the interaction point and direction."
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data_sha256": "f3e30f3f65c20a61a106a8f5944bb3bc5d8661fb863a414449d6b7feccbffe16"
+          }
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data_sha256": "b92ca025a037b72719aa9d399f9051c3f9c4b696cc7d682359dab83fe75b1131"
+          }
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data_sha256": "9c5ea20737d35fb63c01ca044d85e93e4a4abf130fd9c7b1862a5afad0214f28"
+          }
+        }
+      ]
+    }
+  ]
+}

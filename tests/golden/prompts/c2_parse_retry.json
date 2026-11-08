@@ -1,0 +1,64 @@
+{
+  "case": "c2_parse_retry",
+  "call": "#2 select_point_axis",
+  "builder": "Client.select_point_axis -> Client._ask",
+  "variant": "point-only, second request after one off-menu parse rejection",
+  "prompt_deltas": [
+    "hinge-hold-2026-09-09",
+    "goal-first-2026-09-10"
+  ],
+  "system": "You are the interaction-point selection module. The images are rendered canonical views of the object with numbered candidate marks (filled = visible in that view, hollow = occluded; reason across views — constructed points such as cavity centers are off-surface by design). Choose the single best candidate mark for the stage: the point on or in the object where the stage's interaction is anchored. You may ONLY use the offered IDs.\n\nCandidate menu:\n  [3] constructed opening_center\n  [7] part handle\n  [12] curvature spout ridge\n\nOutput schema: {\"candidate_id\": int, \"rationale\": str}. Respond with a single JSON object and nothing else — no prose, no markdown fences.",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Stage 2 (transport): active=teapot, passive=mug, parts={'teapot': ['spout'], 'mug': ['rim']}. Select the interaction point."
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data_sha256": "f3e30f3f65c20a61a106a8f5944bb3bc5d8661fb863a414449d6b7feccbffe16"
+          }
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data_sha256": "b92ca025a037b72719aa9d399f9051c3f9c4b696cc7d682359dab83fe75b1131"
+          }
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data_sha256": "9c5ea20737d35fb63c01ca044d85e93e4a4abf130fd9c7b1862a5afad0214f28"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"candidate_id\": 99, \"rationale\": \"r\"}"
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Your response was rejected: candidate_id 99 is not on the offered menu; offered IDs: [3, 7, 12]. Re-emit the corrected JSON object only."
+        }
+      ]
+    }
+  ]
+}

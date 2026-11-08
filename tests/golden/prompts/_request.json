@@ -1,0 +1,54 @@
+{
+  "constants": {
+    "MODEL": "claude-sonnet-4-6",
+    "MAX_TOKENS": 2000,
+    "TEMPERATURE": 0.0,
+    "MAX_PARSE_RETRIES": 2,
+    "HTTP_RETRIES": 3,
+    "HTTP_BACKOFF_S": 2.0,
+    "API_URL": "https://api.anthropic.com/v1/messages",
+    "API_VERSION": "2023-06-01"
+  },
+  "temperature_env": {
+    "<unset>": 0.0,
+    "none": null,
+    " None ": null,
+    "0.7": 0.7
+  },
+  "request_default": {
+    "model": "claude-sonnet-4-6",
+    "max_tokens": 2000,
+    "temperature": 0.0
+  },
+  "request_temperature_none": {
+    "model": "claude-sonnet-4-6",
+    "max_tokens": 2000
+  },
+  "transport": {
+    "request_url": {
+      "const": "API_URL",
+      "value": "https://api.anthropic.com/v1/messages"
+    },
+    "method": "POST",
+    "headers": {
+      "content-type": "application/json",
+      "x-api-key": {
+        "expr": "key"
+      },
+      "anthropic-version": {
+        "const": "API_VERSION",
+        "value": "2023-06-01"
+      }
+    },
+    "timeout": 120,
+    "retried_http_status": [
+      [
+        429,
+        500,
+        502,
+        503,
+        529
+      ]
+    ]
+  }
+}
