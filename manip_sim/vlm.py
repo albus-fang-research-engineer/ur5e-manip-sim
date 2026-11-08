@@ -79,7 +79,7 @@ import numpy as np
 API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 MODEL = os.environ.get("MANIP_VLM_MODEL", "claude-sonnet-4-6")   # run-level knob; recorded in artifacts
-MAX_TOKENS = 2000
+MAX_TOKENS = int(os.environ.get("MANIP_VLM_MAX_TOKENS", "2000"))   # run-level knob, like MODEL
 
 
 def _temperature(raw: str | None) -> float | None:
