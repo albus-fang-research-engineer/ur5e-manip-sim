@@ -72,6 +72,7 @@ from manip_sim.vlm import (CANONICAL_DIRS, PROMPT_DELTAS, Client,
                            build_point_axis_prompt_directions,
                            build_point_axis_prompt_named,
                            build_stage_plan_prompt, entry_line)
+from manip_sim.vlm import build_critic_prompt_v2
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden" / "prompts"
 REQUEST_GOLDEN = GOLDEN_DIR / "_request.json"
@@ -304,6 +305,59 @@ def _case_c3_relation_syntax(views, monkeypatch):
                                  entry=_entry_transport_spawn())
 
 
+# #4 critic v2: the preview report is BUILT by critic.build_preview_report
+# from fixed inputs (not hand-copied), so a change to the report the real
+# pipeline sends shows up here as a prompt change.
+def _critic_report() -> dict:
+    from manip_sim import critic as cr
+    from manip_sim.frames import Symbols
+    from manip_sim.vlm import RotRow, StageEmission, TransTerm, TSRSpec
+    carry = StageEmission(
+        stage=2, name="transport", active="teapot", passive="mug",
+        path_tsr=TSRSpec(rot=(RotRow("teapot.up_axis", "parallel", "world.z",
+                                     "moderate"),), trans=(TransTerm("free"),)),
+        subgoal_tsr=TSRSpec(rot=(), trans=(TransTerm(
+            "above", anchor="mug.opening_center", clearance="small",
+            slack="moderate"),)),
+        verify="", goal="spout over the mug")
+    T_sub = _pose([0.0, 0.0, 0.14])
+    Bw_goal = np.array([[-0.02, 0.02], [-0.02, 0.02], [0.01, 0.06],
+                        [-np.pi, np.pi], [-np.pi, np.pi], [-np.pi, np.pi]])
+    Bw_path = np.array([[-np.inf, np.inf]] * 3 + [[-0.2618, 0.2618]] * 2
+                       + [[-np.pi, np.pi]])
+    compiled = SimpleNamespace(
+        path=SimpleNamespace(Bw=Bw_path),
+        subgoal=SimpleNamespace(Bw=Bw_goal, nominal=lambda: T_sub))
+    symbols = {
+        "teapot": Symbols("teapot", {"handle_center": np.array([-0.09, 0, 0.07]),
+                                     "spout_tip": TIP.copy()},
+                          {k: v.copy() for k, v in AXES.items()}),
+        "mug": Symbols("mug", {"opening_center": OPENING.copy()},
+                       {"up_axis": AXES["up_axis"].copy()})}
+    pools = {"teapot": {1: {"id": 1, "source": "part", "symbol": "handle_center",
+                            "xyz": np.array([-0.09, 0, 0.07])}},
+             "mug": {3: {"id": 3, "source": "constructed",
+                         "symbol": "opening_center", "xyz": OPENING.copy()}}}
+    state = cr.SpecState(
+        emissions={"transport_active": carry},
+        selections={"transport_active": SEL_GRASP,
+                    "transport_passive": SEL_TRANSPORT},
+        objects={"transport_active": "teapot", "transport_passive": "mug"},
+        pools=pools)
+    si = cr.StagePreviewInput(
+        role="transport_active", emission=carry, compiled=compiled,
+        poses={"mug": np.eye(4)}, symbols=symbols, w_point=OPENING.copy(),
+        e_point=np.array([-0.09, 0, 0.07]))
+    return cr.build_preview_report([si], state)
+
+
+def _case_c4_critic_v2(views, monkeypatch):
+    return build_critic_prompt_v2(
+        _critic_report(), [("state 0: initial scene", views["iso"]),
+                        ("state 2: transport goal (subgoal nominal)", views["top"])],
+        VOCAB)
+
+
 # name -> (call, builder, variant, build(views, monkeypatch))
 CASES = {
     # #1 plan_stages ---------------------------------------------------
@@ -384,6 +438,13 @@ CASES = {
         "#3 emit_constraints", "build_emission_prompt",
         "ROT_ROW_SYNTAX='relation' (rot-row syntax ablation constant)",
         _case_c3_relation_syntax),
+    # #4 critique_preview (v2, opt-in) ---------------------------------
+    "c4_critic_v2": (
+        "#4 critique_preview", "build_critic_prompt_v2",
+        "critic v2: action table, expected before observed, licensed "
+        "tokens, a one-stage report built by critic.build_preview_report, "
+        "two captioned views",
+        _case_c4_critic_v2),
     "c3_compile_rejection": (
         "#3 emit_constraints", "Client.emit_constraints",
         "text variant with one replayed compile-gate rejection",

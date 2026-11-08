@@ -42,10 +42,23 @@ reviewed in the claude.ai chat "Langfold manipulation planning system",
   is right only if it serves k+1 (the carry must set up the pour), which a
   stage-by-stage critic cannot judge because k+1 is not authored yet. Our
   failure is the backward kind.
-- Critic and repair get different action sets. The critic only sees members
-  of the goal set, so its evidence can justify removing poses (tighten,
-  re-pick, widen clearance) but never adding them; repair answers planner
-  failures, where the specification is too tight, so it may loosen.
+- Critic and repair get different action sets (`manip_sim/critic.py`,
+  `ACTION_TABLE`). The critic only sees members of the goal set, so its
+  evidence can justify removing poses but never adding them; repair answers
+  planner failures, where the specification is too tight, so it may loosen.
+  - Critic: tighten_tolerance, tighten_slack, reselect_point,
+    reselect_axis, reemit_stage.
+  - Repair: relax_tolerance, free_dof, widen_slack, widen_clearance,
+    reselect_point, reselect_axis, reemit_stage.
+  - `widen_clearance` is repair-only, although it was first planned for the
+    critic: in the compiler (`compile_tsr.py:793-796`) a clearance shifts the
+    above/below band to [off+clr, off+clr+band] without narrowing it, so it
+    moves poses rather than only removing them.
+- Edit targets use the emission's stage name, the same slot names
+  `CompileError` reports (e.g. `carry teapot above mug.subgoal.rot[0]`);
+  `<stage name>.point.<object>` targets a stage's point choice. Only the
+  active object's point can be re-picked: the passive object's point roots
+  the frame w for several stages.
 - Call 5 gets the measurement report and images (images behind a flag). Its
   output stays a symbolic edit.
 - The VLM never emits a number; magnitude changes are one enum step.

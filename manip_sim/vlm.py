@@ -1427,6 +1427,89 @@ def build_critic_prompt(report: dict, view_paths: list[Path],
     return system, [{"role": "user", "content": content}]
 
 
+def build_critic_prompt_v2(report: dict, views: list[tuple[str, Path]],
+                           vocab: Vocabulary) -> tuple[str, list]:
+    """Call #4, critic v2 (opt-in; Client.critique_preview_v2). `report` is
+    critic.build_preview_report's output; `views` are (caption, image)
+    pairs from the preview renderer: one image per state (the initial scene,
+    then each stage's goal at its subgoal nominal) and path-boundary renders.
+    The edit grammar, action table and pointer rules come from
+    manip_sim.critic, so the prompt and the parser cannot drift."""
+    from .critic import ACTION_TABLE, CRITIC_ACTIONS
+    table = "\n".join(
+        f"  {a}: {ACTION_TABLE[a][2]}. Token: "
+        + {"level": "the next level name", "point": "a point token "
+           "\"<object>.<point>\" of the stage's active object",
+           "direction": "a signed direction \"<object>.<+|-><front|left|up>\""
+           " of the stage's active object", None: "null"}[ACTION_TABLE[a][0]]
+        + ". Target: " + {"row": "a row pointer", "point": "the stage's point "
+                          "pointer", "stage": "the stage name"}[ACTION_TABLE[a][1]]
+        for a in CRITIC_ACTIONS)
+    system = (
+        "You are the critic for a robot manipulation specification. Each "
+        "stage of the task has a SUBGOAL region (where the moving object "
+        "must end) and a PATH region (every pose it may pass through on the "
+        "way). A planner will produce any motion inside these regions, so "
+        "check the regions, not one motion.\n\n"
+        "Evidence:\n"
+        "- One image per state: the initial scene, then each stage's goal "
+        "at the center of its subgoal region. A stage starts where the "
+        "previous stage's goal is.\n"
+        "- Path-boundary images: the moving object with one path row at its "
+        "bound and the others centered, labeled with the row and its "
+        "tolerance. The planner may use any pose up to that bound. A row "
+        "shown at several sample angles is FREE: nothing limits it. If the "
+        "motion needs that rotation limited (e.g. the object must stay "
+        "upright), a constraint is missing.\n"
+        "- The report: per stage the rows as text with their pointers, the "
+        "compiled bounds, the free rows, and the moving object's labeled "
+        "points relative to the target point at the goal (horizontal "
+        "distance and height).\n\n"
+        "For EVERY stage write first what the task needs at that stage "
+        "(\"expected\"), then what the evidence shows (\"observed\"), then "
+        "decide. Judge each goal against what the next stage needs too.\n\n"
+        "Accept, or reject with typed edits. You can only remove poses "
+        "that should not be allowed, never add poses: tighten, re-pick a "
+        "point or a direction, or ask for a stage to be written again. "
+        "Stages marked editable=false (the grasp) are context: do not edit "
+        "them.\n\n"
+        "Edit actions:\n" + table + "\n\n"
+        "Pointers: rows are \"<stage>.<path|subgoal>.<rot|trans>[i]\", the "
+        "point choice is \"<stage>.point.<object>\", a stage is its name; "
+        "use only the report's editable_pointers. At most one edit per "
+        "pointer. Level tokens: name the next level, one step only. "
+        "Tolerance on a rotation row: " + " / ".join(ROT_TOLS) + "; "
+        "tolerance on a centered term and slack: " + " / ".join(SLACKS)
+        + " (tightest first). Never give a number.\n\n"
+        "Licensed tokens per object:\n" + "\n".join(
+            f"  {o}: points "
+            + (", ".join(f"{o}.{n}" for n in t["points"]) or "(none)")
+            + "; directions "
+            + (", ".join(f"{o}.{d}" for d in vocab.canonical_directions(o))
+               or "(none)")
+            for o, t in sorted(vocab.objects.items())) + "\n\n"
+        "Output schema: {\"stages\": [{\"stage\": <name>, \"expected\": str, "
+        "\"observed\": str}, ...], \"verdict\": \"accept\"|\"reject\", "
+        "\"edits\": [{\"target\": <pointer>, \"action\": str, \"token\": "
+        "str|null}], \"diagnosis\": str}. A reject needs at least one edit "
+        "and a diagnosis; an accept has no edits. " + _JSON_ONLY)
+    content: list[dict] = [_text("Preview report:\n"
+                                 + json.dumps(report, indent=2))]
+    for caption, p in views:
+        content += [_text(caption), image_block(p)]
+    return system, [{"role": "user", "content": content}]
+
+
+def parse_critic_v2(raw: str, vocab: Vocabulary, state,
+                    ledger=None) -> "object":
+    """Critic v2 parser: manip_sim.critic.parse_verdict (vocabulary- and
+    state-checked edits, and with `ledger` the no-reverse rule; typed
+    refusals are ParseRejections, so they go back to the model on a parse
+    retry)."""
+    from .critic import parse_verdict
+    return parse_verdict(raw, vocab, state, ledger)
+
+
 def build_repair_prompt(failure_type: str, context: dict,
                         vocab: Vocabulary) -> tuple[str, list]:
     if failure_type not in FAILURE_TYPES:
@@ -1634,6 +1717,18 @@ class Client:
         system, messages = build_critic_prompt(report, view_paths, vocab)
         return self._ask("critique_preview", system, messages,
                          lambda raw: parse_critic(raw, vocab))
+
+    def critique_preview_v2(self, report: dict,
+                            views: list[tuple[str, Path]],
+                            vocab: Vocabulary, state,
+                            ledger=None) -> "object":
+        """Opt-in critic v2: build_critic_prompt_v2 + parse_critic_v2
+        (state: manip_sim.critic.SpecState; ledger: critic.LoopLedger, so
+        a reversal is refused inside the parse-retry loop). The v1 method
+        above is unchanged."""
+        system, messages = build_critic_prompt_v2(report, views, vocab)
+        return self._ask("critique_preview_v2", system, messages,
+                         lambda raw: parse_critic_v2(raw, vocab, state, ledger))
 
     def repair(self, failure_type: str, context: dict,
                vocab: Vocabulary) -> RepairAction:
