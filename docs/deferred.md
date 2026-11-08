@@ -91,7 +91,15 @@ reviewed in the claude.ai chat "Langfold manipulation planning system",
     to its bound, keep the other rows at nominal, label the row and its
     token. Never joint corners, which would bring back R4's bias toward
     tightening loose-but-fine rows. For paths the boundary is the honest
-    evidence, because the planner may use any of P_k. Free rows: see O1.
+    evidence, because the planner may use any of P_k.
+  - Free path rows are rendered too, at sample angles (decided 2026-11-08,
+    formerly open item O1). A free row is what a missing constraint looks
+    like (e.g. the teapot tipped over mid-carry). The critic's edit for it is
+    `reemit_stage`: re-run call #3 for that stage with its previous emission
+    replayed and the critic's diagnosis appended, through the existing
+    compile-retry path, so call #3's parser and the compiler validate the new
+    row. The same re-run is the fallback when a re-pick alone does not
+    satisfy the next preview. Cost: 1 call #3 call per re-emitted stage.
   - The spread of IK-feasible goals as text (range of each labeled point's
     offset across feasible goals), until D5 adds renders.
 - The grasp-goal state draws the Robotiq 2F-85 (the gripper on the UR5e),
@@ -119,17 +127,23 @@ reviewed in the claude.ai chat "Langfold manipulation planning system",
   `manip_sim/vlm.py:170`) and `parse_critic` (`vlm.py:959`).
 - **Why deferred:** it is not a one-token edit. A row needs a relation, two
   signed directions and a tolerance, which duplicates call #3's row grammar
-  inside the critic. Our actual failure is a wrong point, which
-  `reselect_point` covers.
-- **Revisit when:** a preview or execution shows a missing row (the motion
-  violates something the task obviously needs and no row bounds it). The
-  path-boundary renders are where this shows first, if free rows are
-  rendered (see O1).
-- **Plan if revisited:** do not add a second row grammar. Re-run call #3 for
-  that stage with its previous emission replayed and the critic's diagnosis
-  appended, using the existing compile-retry path and its validation. Only if
-  that proves unreliable, consider a structured `constrain_row` edit
-  validated by call #3's own parser.
+  inside the critic (a second parser and validation path to keep in sync).
+  Our actual failure is a wrong point, which `reselect_point` covers, and the
+  missing-row case is covered in the MVP by `reemit_stage` (see the
+  decisions above), which reuses call #3's own grammar and validation.
+- **What `reemit_stage` lacks, i.e. why `constrain_row` may come back:**
+  re-emitting regenerates the whole stage, so call #3 may also change rows
+  that were fine (or drop the selected point's intent), and each re-emit is
+  a full call #3 call. `constrain_row` would be surgical: one added row,
+  everything else untouched, no call #3 call.
+- **Revisit when:** `reemit_stage` repairs of missing rows fail to add the
+  row, or change rows the critic did not flag, in the runs logged under D6;
+  or their cost matters.
+- **Plan if revisited:** a structured `constrain_row` edit whose row is
+  validated by call #3's own row parser (no second grammar), applied to the
+  emission and recompiled like any other edit. The free-row renders and the
+  critic's diagnosis already in place are its inputs, so nothing built for
+  `reemit_stage` is thrown away.
 - **Paper impact:** the methodology's example of a critic edit is exactly this
   case ("such as a rotation row the specification omitted",
   `~/papers/langfold/src/methodology.tex:140`, `ea/methodology.tex:129`).
@@ -290,21 +304,6 @@ reviewed in the claude.ai chat "Langfold manipulation planning system",
 
 ## Open design items (need a decision before or during the MVP)
 
-### O1. Free path rows in the path-boundary renders
-
-- **What:** rendering a free path row at sample angles shows exactly the
-  missing-row case (e.g. the teapot tipped over during the carry), but with
-  D1 deferred the critic has no valid edit for it.
-- **Options:** (a) pull D1's plan into the MVP: the critic may request a
-  call #3 re-run for the stage with its diagnosis appended, through the
-  existing compile-retry path (cheap; the loop already re-runs call #3 when a
-  re-pick alone does not satisfy the next preview); or (b) render only rows
-  that exist and defer free-row renders together with D1.
-- **Leaning:** (a), since it reuses existing machinery and path checking is
-  the point of these renders. Needs the user's decision.
-- **Source:** doc review in "Langfold manipulation planning system",
-  2026-11-08.
-
 ### O2. Pour compile when the mug faces away from the teapot
 
 - **What:** on 11/05 the mug's front (its handle direction) is about 18 deg off
@@ -332,6 +331,13 @@ reviewed in the claude.ai chat "Langfold manipulation planning system",
   instead. There is no VLM mode yet.
 - **Needed for:** the critic report's "top-ranked IK goal" offset and the
   call 5 failure records on hardware.
+- **Progress:** hardware commit 952f64e adds `plan_stages_hw.py --method
+  vlm` (compile at the actual entry, sidecar goal sampling, typed failure
+  records in report.json). Live check on 11/05 with the sim stand-in
+  emissions: the handle-anchored carry gets 858 IK solutions and 0
+  collision-free goals, recorded as `no_feasible_ik`. Next-stage ranking is
+  still missing. The record does not name the colliding body; the sidecar
+  funnel gives counts only.
 - **Plan:** step 3 of the order (VLM mode in `plan_stages_hw`) adds goal
   sampling on VLM-authored regions; next-stage ranking is part of it or is
   recorded here as still missing.
@@ -358,4 +364,8 @@ reviewed in the claude.ai chat "Langfold manipulation planning system",
 
 ## Closed
 
-(none yet)
+- **O1. Free path rows in the path-boundary renders** -- decided 2026-11-08:
+  render them, with `reemit_stage` as the critic's edit (see the decisions
+  above and D1). The alternative, rendering only bounded rows, would leave a
+  missing path constraint invisible until execution, since the planner
+  satisfies a specification with no such row.
