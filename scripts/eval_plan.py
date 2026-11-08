@@ -21,7 +21,9 @@ Writes <plan>.eval.json beside each plan:
     path        end-effector travel and rotation, joint travel, largest joint step
 
 Tilt is measured on the axis between the two ends and does not depend on which
-one is called the tip. Which end is lower is reported and checked separately.
+one is called the tip. Which end is lower is reported (checks.first_end_lower) but
+does not count toward goal_pass: either end may go in, as long as the object goes in
+vertically (decided for insert marker).
 """
 
 from __future__ import annotations
@@ -56,6 +58,9 @@ def end_state(end_a: np.ndarray, end_b: np.ndarray, opening: np.ndarray) -> dict
 
 def is_inside(state: dict, rim_radius: float) -> bool:
     return state["depth_m"] > 0.0 and state["off_axis_m"] < rim_radius
+
+
+REPORT_ONLY = ("first_end_lower",)   # reported in checks, not part of goal_pass
 
 
 def goal_checks(state: dict, spec: dict) -> dict:
@@ -177,7 +182,8 @@ def evaluate(plan_path, env, scene, spec) -> dict:
                     "tilt_deg": round(state["tilt_deg"], 2),
                     "off_axis_mm": round(state["off_axis_m"] * 1000, 1),
                     "depth_mm": round(state["depth_m"] * 1000, 1)},
-           "checks": checks, "goal_pass": all(checks.values()),
+           "checks": checks,
+           "goal_pass": all(v for k, v in checks.items() if k not in REPORT_ONLY),
            "path_pass": all(s["tilt_deg"] <= spec["max_path_tilt_deg"] for s in inserted),
            "inserted": {"n_points": len(inserted),
                         "max_tilt_deg": round(max((s["tilt_deg"] for s in inserted), default=float("nan")), 2),

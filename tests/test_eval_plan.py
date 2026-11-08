@@ -9,7 +9,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from scripts.eval_plan import (collision_group, end_state, goal_checks, is_inside,  # noqa: E402
+from scripts.eval_plan import (REPORT_ONLY, collision_group, end_state, goal_checks, is_inside,  # noqa: E402
                                transport_profile)
 
 OPENING = np.array([0.0, 0.25, 0.9])
@@ -48,6 +48,13 @@ def test_goal_checks_fail_each_tolerance_alone():
     assert not goal_checks({**ok, "tilt_deg": 11.0}, SPEC)["tilt"]
     assert not goal_checks({**ok, "depth_m": 0.03}, SPEC)["depth"]
     assert not goal_checks({**ok, "off_axis_m": 0.05}, SPEC)["inside_rim"]
+
+
+def test_either_end_may_go_in():
+    """Which end is lower is reported, not graded: only vertical insertion counts."""
+    flipped = goal_checks({"lower": "b", "tilt_deg": 6.0, "off_axis_m": 0.01, "depth_m": 0.05}, SPEC)
+    assert not flipped["first_end_lower"]
+    assert all(v for k, v in flipped.items() if k not in REPORT_ONLY)
 
 
 def test_transport_profile_tells_turning_all_the_way_from_turning_late():
