@@ -28,8 +28,9 @@ Regenerate prompt goldens after an intended prompt change:
     2. UPDATE_PROMPT_GOLDENS=1 PYTHONPATH=. python -m pytest -q \\
            tests/test_prompt_snapshots.py
 
-A regeneration that changes a prompt without a new PROMPT_DELTAS entry is
-refused (each golden records the PROMPT_DELTAS tuple it was written
+A regeneration that changes a prompt of calls #1-#3 without a new
+PROMPT_DELTAS entry is refused (the opt-in #4 critic prompt is outside
+PROMPT_DELTAS' scope and regenerates without one) (each golden records the PROMPT_DELTAS tuple it was written
 under), and outside update mode the recorded tuple must equal the current
 one. Case labels (call / builder / variant) are metadata, not compared,
 so relabeling a case needs no delta.
@@ -580,7 +581,9 @@ def test_prompt_matches_golden(case, views, monkeypatch):
         if golden is not None:
             old = _recorded_deltas(golden, path)
             _check_append_only(old, path)
-            assert same or deltas != old, (
+            # PROMPT_DELTAS covers calls #1-#3 only; the opt-in critic
+            # prompt (#4) regenerates without a delta (git is its record)
+            assert same or deltas != old or not call.startswith(("#1", "#2", "#3")), (
                 f"{case}: refusing to regenerate a changed prompt without a "
                 f"new PROMPT_DELTAS entry (still {old}).\n{HOW_TO_FIX}\n"
                 + _first_diff(golden, got))
@@ -735,3 +738,31 @@ def test_request_payload_matches_golden(monkeypatch):
             "golden with UPDATE_REQUEST_GOLDEN=1 PYTHONPATH=. python -m "
             "pytest -q tests/test_prompt_snapshots.py and record the change "
             "in the commit message.\n\n" + "\n".join(diff), pytrace=False)
+
+
+def test_emit_feedback_default_is_byte_identical():
+    """Client.emit_constraints(feedback=None) sends exactly the request it
+    sent before the argument existed; feedback turns go before the
+    compile-rejection turns, verbatim (hardware critic re-emit, opt-in)."""
+    kw = dict(selection=SEL_TRANSPORT,
+              rejections=[(_EMISSION_OK, "transport.subgoal_tsr.rot[0]: bad")],
+              entry=_entry_transport_spawn())
+    base = _capture(lambda c: c.emit_constraints(TRANSPORT, VOCAB, **kw),
+                    [_EMISSION_OK], n_requests=1)
+    none = _capture(lambda c: c.emit_constraints(TRANSPORT, VOCAB,
+                                                 feedback=None, **kw),
+                    [_EMISSION_OK], n_requests=1)
+    assert json.dumps(none, sort_keys=True) == json.dumps(base, sort_keys=True)
+
+    fb_text = "A preview critic reviewed this stage before planning and rejected it: d."
+    system, msgs = _capture(
+        lambda c: c.emit_constraints(TRANSPORT, VOCAB,
+                                     feedback=[(_EMISSION_OK, fb_text)], **kw),
+        [_EMISSION_OK], n_requests=1)
+    assert system == base[0]
+    n0 = len(base[1]) - 2                     # prompt turns before rejections
+    assert msgs[:n0] == base[1][:n0]
+    assert msgs[n0]["role"] == "assistant"
+    assert msgs[n0]["content"][0]["text"] == _EMISSION_OK
+    assert msgs[n0 + 1]["content"][0]["text"] == fb_text
+    assert msgs[n0 + 2:] == base[1][n0:]      # rejection turns follow, unchanged

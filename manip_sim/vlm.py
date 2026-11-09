@@ -1435,7 +1435,7 @@ def build_critic_prompt_v2(report: dict, views: list[tuple[str, Path]],
     then each stage's goal at its subgoal nominal) and path-boundary renders.
     The edit grammar, action table and pointer rules come from
     manip_sim.critic, so the prompt and the parser cannot drift."""
-    from .critic import ACTION_TABLE, CRITIC_ACTIONS
+    from .critic import ACTION_TABLE, CRITIC_ACTIONS, report_json
     table = "\n".join(
         f"  {a}: {ACTION_TABLE[a][2]}. Token: "
         + {"level": "the next level name", "point": "a point token "
@@ -1462,9 +1462,24 @@ def build_critic_prompt_v2(report: dict, views: list[tuple[str, Path]],
         "motion needs that rotation limited (e.g. the object must stay "
         "upright), a constraint is missing.\n"
         "- The report: per stage the rows as text with their pointers, the "
-        "compiled bounds, the free rows, and the moving object's labeled "
-        "points relative to the target point at the goal (horizontal "
-        "distance and height).\n\n"
+        "compiled bounds (free rows say \"free\"), and the moving object's "
+        "labeled points relative to the target point at the goal "
+        "(horizontal distance and height).\n"
+        "- State images carry point labels (their token names) and object "
+        "name tags where there is room. Path images have no labels: their caption "
+        "names the moving object, and each object keeps the color it has "
+        "in the state images.\n\n"
+        "Collisions: the planner avoids collisions with the scene, so judge "
+        "what it cannot check: orientation, spilling, alignment, contact. "
+        "Collision notes in the image captions are facts, not "
+        "requests to tighten a row. When a goal's nominal pose or a path's "
+        "center pose collides, the image shows the nearest collision-free "
+        "pose of the same region instead and its caption says so; that is the "
+        "planner's job, not a fault of the specification. Only \"no "
+        "collision-free pose found in the region\" is evidence against the "
+        "specification: find its cause. A path pose that collides is left "
+        "out of the images and listed as text, unless the region has no "
+        "collision-free pose.\n\n"
         "For EVERY stage write first what the task needs at that stage "
         "(\"expected\"), then what the evidence shows (\"observed\"), then "
         "decide. Judge each goal against what the next stage needs too.\n\n"
@@ -1493,8 +1508,7 @@ def build_critic_prompt_v2(report: dict, views: list[tuple[str, Path]],
         "\"edits\": [{\"target\": <pointer>, \"action\": str, \"token\": "
         "str|null}], \"diagnosis\": str}. A reject needs at least one edit "
         "and a diagnosis; an accept has no edits. " + _JSON_ONLY)
-    content: list[dict] = [_text("Preview report:\n"
-                                 + json.dumps(report, indent=2))]
+    content: list[dict] = [_text("Preview report:\n" + report_json(report))]
     for caption, p in views:
         content += [_text(caption), image_block(p)]
     return system, [{"role": "user", "content": content}]
@@ -1679,7 +1693,8 @@ class Client:
                          view_paths: list[Path] | None = None,
                          rejections: list[tuple[str, str]] | None = None,
                          frames: dict | None = None,
-                         entry: str | None = None
+                         entry: str | None = None,
+                         feedback: list[tuple[str, str]] | None = None
                          ) -> StageEmission:
         """`rejections`: (raw_emission, slot-named CompileError text) pairs
         from earlier attempts at this stage, replayed as assistant/user
@@ -1687,9 +1702,18 @@ class Client:
         re-rolling from the prompt (same shape as the parse-rejection
         retry in _ask). The minimal form of touchpoint #5 (repair) until
         it exists: the compiler's typed failure is what the model sees,
-        nothing else."""
+        nothing else.
+
+        `feedback`: (raw_emission, user text) pairs replayed verbatim as
+        assistant/user turns BEFORE `rejections`, for a caller that writes
+        its own follow-up (the hardware critic's re-emit, opt-in behind
+        --critic). None (default) leaves the request byte-identical."""
         system, messages = build_emission_prompt(stage, vocab, selection,
                                                  view_paths, frames, entry)
+        for raw, text in feedback or []:
+            messages = messages + [
+                {"role": "assistant", "content": [_text(raw)]},
+                {"role": "user", "content": [_text(text)]}]
         for raw, r in rejections or []:
             messages = messages + [
                 {"role": "assistant", "content": [_text(raw)]},

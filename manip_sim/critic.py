@@ -727,22 +727,33 @@ class StagePreviewInput:
     editable: bool = True
 
 
-def _bounds(Bw: np.ndarray) -> tuple[dict, list[str]]:
-    out, free = {}, []
+def _num(v: float, unit: str) -> str:
+    """+1.5 cm / -15 deg: cm with one decimal, degrees whole unless not.
+    A value that rounds to zero prints +0.0 / +0, never -0.0 / -0."""
+    r = round(v, 1) + 0.0                  # -0.0 + 0.0 == +0.0
+    if unit == "deg":
+        return f"{r:+.0f}" if abs(r - round(r)) < 1e-9 else f"{r:+.1f}"
+    return f"{r:+.1f}"
+
+
+def _bounds(Bw: np.ndarray) -> dict[str, str]:
+    """Each row of the box in w, readable: translation in cm, rotation in
+    degrees; "free", "fixed at ...", one-sided "from ..."/"up to ..."."""
+    out = {}
     for k, name in enumerate(_BOX_ROWS):
         lo, hi = float(Bw[k, 0]), float(Bw[k, 1])
-        if k >= 3 and hi - lo >= 2 * np.pi - 1e-9:
+        unit, scale = ("deg", np.degrees(1.0)) if k >= 3 else ("cm", 100.0)
+        if (k >= 3 and hi - lo >= 2 * np.pi - 1e-9) or not (np.isfinite(lo) or np.isfinite(hi)):
             out[name] = "free"
-            free.append(name)
-        elif not (np.isfinite(lo) or np.isfinite(hi)):
-            out[name] = "free"
-            free.append(name)
-        elif not (np.isfinite(lo) and np.isfinite(hi)):     # one-sided
-            out[name] = [round(lo, 4) if np.isfinite(lo) else None,
-                         round(hi, 4) if np.isfinite(hi) else None]
+        elif not np.isfinite(hi):
+            out[name] = f"from {_num(scale * lo, unit)} {unit}"
+        elif not np.isfinite(lo):
+            out[name] = f"up to {_num(scale * hi, unit)} {unit}"
+        elif abs(hi - lo) < 1e-9:
+            out[name] = f"fixed at {_num(scale * lo, unit)} {unit}"
         else:
-            out[name] = [round(lo, 4), round(hi, 4)]
-    return out, free
+            out[name] = f"{_num(scale * lo, unit)} to {_num(scale * hi, unit)} {unit}"
+    return out
 
 
 def _point_offsets(T_active: np.ndarray, w_world: np.ndarray, up: np.ndarray,
@@ -757,13 +768,22 @@ def _point_offsets(T_active: np.ndarray, w_world: np.ndarray, up: np.ndarray,
 
 def stage_report(si: StagePreviewInput, point_choice: str | None = None) -> dict:
     """One stage of the preview report: rows as text with their pointers,
-    the compiled bounds in w (free rows listed), and the active object's
-    labeled points relative to w at the subgoal nominal (horizontal
-    distance and height along the passive's up). Generic: no task terms."""
+    the compiled bounds in w (readable units; free rows say "free"), and the
+    active object's labeled points relative to w at the subgoal nominal
+    (horizontal distance and height along the passive's up, cm). A context
+    stage (editable False: the grasp) keeps only what names it: stage, role,
+    active, editable, goal, point choice. Generic: no task terms."""
     em, cs = si.emission, si.compiled
-    rec: dict[str, Any] = {
+    if not si.editable:
+        rec: dict[str, Any] = {"stage": em.name, "role": si.role, "active": em.active,
+                               "editable": False, "goal": em.goal}
+        if point_choice is not None:
+            rec["point_choice"] = {"pointer": f"{em.name}.point.{em.active}",
+                                   "current": point_choice}
+        return rec
+    rec = {
         "stage": em.name, "role": si.role, "active": em.active,
-        "passive": em.passive, "editable": bool(si.editable),
+        "passive": em.passive, "editable": True,
         "goal": em.goal}
     if point_choice is not None:
         rec["point_choice"] = {"pointer": f"{em.name}.point.{em.active}",
@@ -774,8 +794,7 @@ def stage_report(si: StagePreviewInput, point_choice: str | None = None) -> dict
                 for i, r in enumerate(spec.rot)]
         rows += [{"pointer": f"{em.name}.{ctx}.trans[{i}]",
                   "text": row_text(t)} for i, t in enumerate(spec.trans)]
-        bounds, free = _bounds(np.asarray(tsr.Bw, float))
-        rec[ctx] = {"rows": rows, "bounds_in_w": bounds, "free_rows": free}
+        rec[ctx] = {"rows": rows, "bounds_in_w": _bounds(np.asarray(tsr.Bw, float))}
     if em.passive is not None:
         T_p = np.asarray(si.poses[em.passive], float)
         w = (T_p @ np.r_[np.asarray(si.w_point, float), 1.0])[:3]
@@ -787,17 +806,17 @@ def stage_report(si: StagePreviewInput, point_choice: str | None = None) -> dict
             "relative_to": f"w origin ({em.passive}'s selected point), "
                            f"height along {em.passive} up",
             "at": "subgoal nominal",
-            "points": {n: {"horizontal_m": round(h, 4), "height_m": round(z, 4)}
+            "points": {n: {"horizontal_cm": round(100 * h, 1), "height_cm": round(100 * z, 1)}
                        for n, (h, z) in nom.items()}}
         if si.goal_samples:
             per = [_point_offsets(np.asarray(T, float), w, up, pts)
                    for T in si.goal_samples]
             rec["goal_spread"] = {
                 "n_goals": len(per),
-                "points": {n: {"horizontal_m": [round(min(p[n][0] for p in per), 4),
-                                                round(max(p[n][0] for p in per), 4)],
-                               "height_m": [round(min(p[n][1] for p in per), 4),
-                                            round(max(p[n][1] for p in per), 4)]}
+                "points": {n: {"horizontal_cm": [round(100 * min(p[n][0] for p in per), 1),
+                                                 round(100 * max(p[n][0] for p in per), 1)],
+                               "height_cm": [round(100 * min(p[n][1] for p in per), 1),
+                                             round(100 * max(p[n][1] for p in per), 1)]}
                            for n in pts}}
     return rec
 
@@ -805,7 +824,9 @@ def stage_report(si: StagePreviewInput, point_choice: str | None = None) -> dict
 def build_preview_report(stages: list[StagePreviewInput],
                          state: SpecState | None = None) -> dict:
     """The report call #4 reads: one record per stage, in stage order,
-    plus the editable pointers (so the prompt and the parser agree)."""
+    plus the editable pointers (so the prompt and the parser agree). Only
+    what the critic can act on; collision and search facts are not here:
+    the image captions carry them (one home per fact)."""
     recs = []
     for si in stages:
         choice = (state.point_of(si.role)
@@ -827,4 +848,15 @@ def build_preview_report(stages: list[StagePreviewInput],
 
 
 def report_json(report: dict) -> str:
-    return json.dumps(report, indent=2, default=float)
+    """Compact JSON for the prompt: one line per stage, one per other key
+    (valid JSON; keys in report order)."""
+    def one(v) -> str:
+        return json.dumps(v, default=float, ensure_ascii=False)
+    parts = []
+    for k, v in report.items():
+        if k == "stages":
+            body = ",\n".join(f"  {one(st)}" for st in v)
+            parts.append(f' "stages": [\n{body}\n ]')
+        else:
+            parts.append(f" {one(k)}: {one(v)}")
+    return "{\n" + ",\n".join(parts) + "\n}"

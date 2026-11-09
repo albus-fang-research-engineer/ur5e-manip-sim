@@ -518,18 +518,22 @@ def _preview_input(samples=()):
         goal_samples=samples)
 
 
-def test_stage_report_points_rows_and_free_rows():
+def test_stage_report_points_rows_and_readable_bounds():
     rep = cr.build_preview_report([_preview_input()], _state())
     (s,) = rep["stages"]
     assert s["stage"] == CARRY and s["editable"] is True
     assert s["point_choice"] == {"pointer": f"{CARRY}.point.teapot",
                                  "current": "teapot.handle_center"}
     pts = s["points_at_goal"]["points"]
-    assert pts["handle_center"] == {"horizontal_m": 0.0, "height_m": 0.04}
-    assert pts["spout_center"]["horizontal_m"] == pytest.approx(0.19)
-    assert s["path"]["free_rows"] == ["x", "y", "z", "yaw"]
-    assert s["subgoal"]["free_rows"] == ["yaw"]
-    assert s["subgoal"]["bounds_in_w"]["z"] == [0.01, 0.06]
+    assert pts["handle_center"] == {"horizontal_cm": 0.0, "height_cm": 4.0}
+    assert pts["spout_center"]["horizontal_cm"] == pytest.approx(19.0)
+    assert s["path"]["bounds_in_w"] == {"x": "free", "y": "free", "z": "free",
+                                        "roll": "-14.9 to +14.9 deg",       # 0.26 rad
+                                        "pitch": "-14.9 to +14.9 deg",
+                                        "yaw": "free"}
+    assert s["subgoal"]["bounds_in_w"]["z"] == "+1.0 to +6.0 cm"
+    assert s["subgoal"]["bounds_in_w"]["x"] == "-2.0 to +2.0 cm"
+    assert "free_rows" not in s["path"] and "free_rows" not in s["subgoal"]
     assert {"pointer": f"{CARRY}.path.rot[1]", "text": "free (yaw)"} in s["path"]["rows"]
     ptrs = set(rep["editable_pointers"])
     assert f"{CARRY}.point.teapot" in ptrs and CARRY in ptrs
@@ -555,8 +559,8 @@ def test_goal_spread_from_samples():
     s = cr.stage_report(_preview_input((a, b)))
     sp = s["goal_spread"]
     assert sp["n_goals"] == 2
-    assert sp["points"]["handle_center"]["height_m"] == [0.04, 0.06]
-    assert sp["points"]["handle_center"]["horizontal_m"] == [0.0, 0.02]
+    assert sp["points"]["handle_center"]["height_cm"] == [4.0, 6.0]
+    assert sp["points"]["handle_center"]["horizontal_cm"] == [0.0, 2.0]
 
 
 # ------------------------------------------------------------------ client
@@ -591,3 +595,59 @@ def test_prompt_v2_lists_the_critic_actions_only():
     assert "expected" in system and "editable=false" in system
     assert "teapot.spout_center" in system and "teapot.+up" in system
     assert "mug.+up" in system and "mug.+front" not in system
+
+
+# ------------------------------------------------------------------ collision facts
+
+def test_bounds_text_one_sided_fixed_and_fractional_degrees():
+    Bw = np.array([[0.03, np.inf], [-np.inf, 0.02], [0.05, 0.05],
+                   [-np.radians(7.5), np.radians(7.5)], [0, 0], [-np.pi, np.pi]])
+    assert cr._bounds(Bw) == {"x": "from +3.0 cm", "y": "up to +2.0 cm",
+                              "z": "fixed at +5.0 cm", "roll": "-7.5 to +7.5 deg",
+                              "pitch": "fixed at +0 deg", "yaw": "free"}
+
+
+def test_context_stage_keeps_only_what_names_it():
+    st = _state()
+    si = cr.StagePreviewInput(
+        role="grasp", emission=st.emissions["grasp"], compiled=_compiled(),
+        poses={"mug": np.eye(4)}, symbols=_symbols(), w_point=np.zeros(3),
+        editable=False)
+    rec = cr.stage_report(si, "teapot.handle_center")
+    assert set(rec) == {"stage", "role", "active", "editable", "goal", "point_choice"}
+    assert rec["editable"] is False
+
+
+def test_report_has_no_collision_facts():
+    """Collision and search facts live in the image captions only."""
+    import inspect
+    assert "manifest" not in inspect.signature(cr.build_preview_report).parameters
+    rep = cr.build_preview_report([_preview_input()], _state())
+    assert "collisions" not in rep["stages"][0] and "grasp_collisions" not in rep
+
+
+def test_num_never_prints_negative_zero():
+    assert cr._num(-0.0004, "cm") == "+0.0" and cr._num(-0.0, "cm") == "+0.0"
+    assert cr._num(-0.04, "deg") == "+0" and cr._num(-0.0, "deg") == "+0"
+    assert cr._num(-0.06, "cm") == "-0.1" and cr._num(-15.0, "deg") == "-15"
+    Bw = np.zeros((6, 2))
+    Bw[0] = [-1e-5, 1e-5]
+    assert cr._bounds(Bw)["x"] == "+0.0 to +0.0 cm"
+
+
+def test_report_json_is_compact_one_stage_per_line():
+    rep = cr.build_preview_report([_preview_input(), _preview_input()], _state())
+    text = cr.report_json(rep)
+    assert json.loads(text) == json.loads(json.dumps(rep))
+    lines = text.splitlines()
+    assert lines[0] == "{" and lines[-1] == "}"
+    assert sum(l.startswith('  {"stage"') for l in lines) == 2
+    assert len(text) < len(json.dumps(rep, indent=2))
+
+
+def test_prompt_v2_says_collisions_are_the_planners():
+    system, _ = build_critic_prompt_v2({"stages": []}, [], VOCAB)
+    assert "the planner avoids collisions with the scene" in system
+    assert "facts, not requests to tighten" in system
+    assert "Collision notes in the image captions are facts" in system
+    assert "Only \"no collision-free pose found in the region\" is evidence" in system

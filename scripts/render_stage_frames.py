@@ -440,19 +440,22 @@ def _segment_hits_box(seg, box) -> bool:
 
 
 def place_labels(img, requests: list[LabelRequest], segments: list,
-                 px: int = PX, font_px: int = FONT_PX) -> list[tuple]:
+                 px: int = PX, font_px: int = FONT_PX,
+                 with_index: bool = False) -> list[tuple]:
     """Greedy point-feature label placement, highest priority (longest
     projected arrow) first. Candidates: eight compass offsets around
     the anchor at two radii, and two reaches along the arrow. Cost:
     overlap area with
     labels already placed, plus a fixed cost per drawn segment the box
     crosses, plus a large out-of-frame penalty. Deterministic — ties
-    break in candidate order. Returns the placed boxes (tests assert
-    none overlap)."""
+    break in candidate order. Returns the placed boxes in placement order
+    (tests assert none overlap); with `with_index`, (request index, box)
+    pairs, so a caller can match each box to its request."""
     from PIL import ImageDraw
     dr = ImageDraw.Draw(img)
     font = _font(font_px)
     placed: list[tuple] = []
+    order_out: list[int] = []
     order = sorted(range(len(requests)), key=lambda i: -requests[i].priority)
     for i in order:
         rq = requests[i]
@@ -484,7 +487,8 @@ def place_labels(img, requests: list[LabelRequest], segments: list,
         dr.text((x, y), rq.text, fill=rq.color, font=font, stroke_width=3,
                 stroke_fill=(255, 255, 255))
         placed.append(box)
-    return placed
+        order_out.append(i)
+    return list(zip(order_out, placed)) if with_index else placed
 
 
 def compose_view(base: np.ndarray, cam: dict, sf: StageFrames,
