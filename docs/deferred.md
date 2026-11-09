@@ -356,6 +356,76 @@ reviewed in the claude.ai chat "Langfold manipulation planning system",
   recorded here as still missing.
 - **Source:** doc review 2026-11-08; checked in code 2026-11-08.
 
+### O4. 11/05 `teapot.lid_center` grounded at the base's height
+
+- **What:** in hardware run 20261105_035449 the grounded `teapot.lid_center`
+  sits at about the same height as `teapot.base_center`, not at the top of
+  the teapot. In the teapot's body frame (preview inputs `labels`): lid z
+  -0.0318 m, base z -0.0308 m, body_center z +0.0043 m. The critic report
+  shows the same at the carry goal: round 1 points_at_goal height lid
+  -0.0321 m, base -0.0317 m; round 2 lid -0.0043 m, base -0.0039 m.
+- **Why it matters:** it looks like a grounding error in that run's points
+  (the lid's candidate resolved to a bottom point), unrelated to the critic.
+  A critic or call #2 decision that names `lid_center` would act on a wrong
+  location, and the label on the preview images points at the base.
+- **Trigger to revisit:** any critic edit or call #2 selection on a
+  hardware run that uses `lid_center`; at that point check the grounding
+  candidates for the lid (`grounding_vlm/canon/lib_teapot/candidates.json`)
+  before trusting it.
+- **Source:** coordinator note 2026-11-08, from the 11/05 preview renders;
+  numbers checked against the round 1/2 `report.json` and
+  `preview_inputs.json`.
+
+## Proposals awaiting critic evidence (P-items)
+
+Decided 2026-11-08: stop changing the critic's input on guesses about how the
+critic will behave, and run the real critic first. These proposals are logged
+here, not built. Each is a hypothesis; the trigger says what in the critic's
+logged output (its "expected" / "observed" text, verdicts and edits) would
+justify building it. Source: the step-5 review in the "UR5e hardware
+deployment review" chat (2026-11-08) unless noted.
+
+- **P1. Collision paragraph is too permissive.** "That is the planner's job"
+  and "only 'no collision-free pose' is evidence" may make the critic accept
+  a spec whose nominal puts one part inside another, once the nearest free
+  pose hides it. Proposed rewrite: a collision alone is not evidence; judge
+  whether the nominal expresses the task; if fixing "no collision-free pose"
+  needs loosening, accept and state the diagnosis (call 5 loosens). Trigger:
+  the critic accepts a hand-built negative case (D-case: spout inside the
+  mug) or cites "planner's job" for a wrong anchor.
+- **P2. Draw the nominal faded beside the substituted pose,** captioned with
+  the shift and the share of each row's band it used. Trigger: the critic
+  misjudges a goal whose drawn pose was substituted.
+- **P3. Second path center near the goal for translation rows** (rotation
+  rows keep the midpoint); midpoint by translation interpolation + slerp.
+  Trigger: the critic's path observations show it can't judge translation
+  bounds relative to the passive object, or misreads the pour tilt panels.
+- **P4. Free goal heading.** With yaw free, the drawn heading is arbitrary.
+  Caption "heading about <passive> up is free" plus 2-3 sample headings, or
+  render the goal cuRobo's funnel picks. Trigger: the critic judges alignment
+  or reselects an axis from the drawn heading.
+- **P5. Exempt resting table contact of objects at their start pose**
+  (registration tilt can read 3-5 mm into the table). Trigger: an initial or
+  grasp image carries a table-collision note.
+- **P6. Mesh face-orientation check** for the collision test: one known
+  colliding and one known free pose per library mesh. Trigger: any collision
+  note that disagrees with the image or with cuRobo.
+- **P7. The nearest-free search samples the TSR box before IK.** Related to
+  R4 (rejected for spread previews). Here it only picks one substitute pose
+  near the nominal, but it is still pre-IK, unlike the earlier agreement
+  ("render the top-ranked IK-feasible goal"). Trigger: a substituted pose
+  that cuRobo finds unreachable, or the critic reacting to one.
+- **P8. O2 fix location.** Reviewer: fix planner-side (rank carry goals by
+  pour feasibility, as sim plan_pour_tea's lookahead). Ours: compiler-side
+  (take w's heading from the active object when the tilt axis misses w), so
+  the preview compiles the pour too. Trigger: the critic spends a round on
+  the pour's "compile rejected" note.
+- **P9. Write down loop rules:** the final check only accepts or rejects
+  (edits logged, not applied); parse retries capped; stages chain from
+  subgoal.nominal(), not the drawn pose; critic_compat is temporary until the
+  merge; paper (D7): call 4 acts as a collision gate through the VLM. Docs
+  only; do with the commit after the first real critic run.
+
 ## Rejected (do not re-propose without new evidence)
 
 - **R1. Per-scene calibration of the critic.** Infeasible on a new random
