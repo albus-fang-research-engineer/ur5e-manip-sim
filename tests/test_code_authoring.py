@@ -6,6 +6,7 @@ import json
 
 import numpy as np
 import pytest
+from scipy.spatial.transform import Rotation
 
 from manip_sim import code_authoring as ca
 from manip_sim.compile_tsr import ROT_TOL_RAD, check_pair_consistency, compile_stage
@@ -468,3 +469,217 @@ def test_call_log_keeps_rejected_replies_and_stop_reasons():
     client._ask("t", "sys", [], parse)
     assert client.logs[-1].stop_reasons == [None] and client.logs[-1].usage == [None]
     assert isinstance(CallLog("x").gate_rejection, str)
+
+
+# ------------------------------------------- A4 / A5: given frames, Bw only
+
+A3_A4PILOT_PROMPT_SHA256 = "277922f41e8191f2b1ce33522075a2b484684257a657ec6c886c1ead9b5124ed"
+
+BOUNDS = {   # spout tip 3-8 cm over the opening, teapot upright within 15 deg
+    "path": [[None, None], [None, None], [None, None], [-15, 15], [-15, 15], [-180, 180]],
+    "subgoal": [[-0.02, 0.02], [-0.02, 0.02], [0.03, 0.08], [-15, 15], [-15, 15],
+                [-180, 180]]}
+
+
+def _json(b=BOUNDS, goal="the spout tip hovers 3-8 cm over the opening"):
+    return "```json\n" + json.dumps({"goal": goal, **b}) + "\n```"
+
+
+def _bounds_code(b=BOUNDS):
+    return ("# goal: the spout tip hovers 3-8 cm over the opening\n"
+            "def author(scene):\n    return " + json.dumps(b).replace("null", "None") + "\n")
+
+
+def _compile(em, poses=POSES):
+    return ca.compile_any(em, SYMBOLS, poses, w_point=OPENING, e_point=TIP)
+
+
+def test_a3_and_pilot_a4_prompt_text_is_unchanged():
+    """A3 and the pilot's A4 ran; the bounds media must not move a byte of them."""
+    import hashlib
+    t = ca._COMMON + ca._A3 + ca._A4 + ca._FORMAT
+    assert hashlib.sha256(t.encode()).hexdigest() == A3_A4PILOT_PROMPT_SHA256
+    assert ca.REPAIR_TEXT["code"] == (
+        "Re-emit the corrected ```python block only.",
+        "That code was rejected: {r}. Re-emit the corrected code block only, "
+        "changing as little as needed.")
+    for m in ("constrained-code", "free-code"):
+        assert ca.system_text(m, VOCAB) == (
+            ca._COMMON + (ca._A3 if m == "constrained-code" else ca._A4)
+            + f"Grounded symbols:\n{VOCAB.describe_directions()}\n\n" + ca._FORMAT)
+
+
+def test_a4_and_a5_get_the_same_values_and_are_never_asked_for_a_frame():
+    facts = ca.stage_facts("teapot", "mug", SYMBOLS, POSES, OPENING, TIP)
+    s4, m4 = ca.build_code_prompt(STAGE, VOCAB, "bounds-code", facts)
+    s5, m5 = ca.build_code_prompt(STAGE, VOCAB, "bounds-json", facts)
+    shared = ca._BD_COMMON + ca._BD_GIVEN
+    assert s4.startswith(shared) and s5.startswith(shared)
+    assert m4[0]["content"][0]["text"] == m5[0]["content"][0]["text"]
+    for s in (s4, s5):
+        assert "frames are given; you write only the bounds" in s
+        assert "Tw_e" not in s and "T0_w" not in s
+    assert "```python" in s4 and "```json" not in s4
+    assert "```json" in s5 and "python" not in s5.lower()
+    user = m5[0]["content"][0]["text"]
+    assert "w = mug's canonical frame at mug.opening_center" in user
+    assert "e = teapot's canonical frame at teapot.spout_tip: e.x = teapot.+front" in user
+    assert "e's displacement at entry" in user
+
+
+def test_given_frames_are_the_schemas_w_and_the_active_canonical_frame():
+    cs = _compile(ca.parse_bounds_json(_json(), STAGE))
+    facts = ca.stage_facts("teapot", "mug", SYMBOLS, POSES, OPENING, TIP)
+    assert np.allclose(cs.subgoal.T0_w, facts["w_default"], atol=1e-6)    # the schema's w
+    assert np.allclose(cs.subgoal.Bw[2], [0.03, 0.08])
+    assert np.allclose(cs.subgoal.Bw[3], np.radians([-15, 15]))           # degrees -> radians
+    assert np.all(np.isinf(cs.path.Bw[:3]))                               # null -> unbounded
+    T = cs.subgoal.T0_w @ cs.subgoal.Tw_e        # zero displacement: canonical axes on w's
+    up_w = cs.subgoal.T0_w[:3, 2]
+    assert np.allclose(T[:3, :3] @ SYMBOLS["teapot"].axes["up_axis"], up_w, atol=1e-6)
+    assert np.allclose(T[:3, :3] @ TIP + T[:3, 3], cs.subgoal.T0_w[:3, 3], atol=1e-9)
+    check_pair_consistency(cs)
+
+
+def test_entry_displacement_is_in_bws_coordinates():
+    """The listed entry displacement is exactly where the entry pose sits in Bw."""
+    facts = ca.stage_facts("teapot", "mug", SYMBOLS, POSES, OPENING, TIP)
+    cs = _compile(ca.parse_bounds_json(_json(), STAGE))
+    d = cs.path.displacement(POSES["teapot"])
+    assert np.allclose(facts["entry_d"][:3], d[:3], atol=1e-6)
+    assert np.allclose(facts["entry_d"][3:], np.degrees(d[3:]), atol=1e-4)
+
+
+def test_a4_code_matches_a5_and_reads_the_scene_at_run_time():
+    cs5 = _compile(ca.parse_bounds_json(_json(), STAGE))
+    cs4 = _compile(_code("bounds-code", _bounds_code()))
+    for k in ("path", "subgoal"):
+        a, b = getattr(cs4, k), getattr(cs5, k)
+        assert np.allclose(a.T0_w, b.T0_w) and np.allclose(a.Tw_e, b.Tw_e)
+        assert np.array_equal(np.isinf(a.Bw), np.isinf(b.Bw))
+        assert np.allclose(np.nan_to_num(a.Bw), np.nan_to_num(b.Bw))
+    src = '''# goal: spout tip 3 cm over its entry height, at most
+def author(scene):
+    h = scene.entry[2]
+    return {"path": [[None, None]] * 3 + [[-15, 15], [-15, 15], [-180, 180]],
+            "subgoal": [[-0.02, 0.02], [-0.02, 0.02], [0.03, max(0.08, h + 0.01)],
+                        [-15, 15], [-15, 15], [-180, 180]]}
+'''
+    hi = [_compile(_code("bounds-code", src), POSES | {"teapot": make_pose((0.3, 0.1, z))}
+                   ).subgoal.Bw[2, 1] for z in (0.05, 0.30)]
+    assert hi[1] > hi[0]
+
+
+@pytest.mark.parametrize("change, why", [
+    ({"subgoal": [[-0.02, 0.02], [-0.02, 0.02], [0.03, None], [-15, 15], [-15, 15],
+                  [-180, 180]]}, "unbounded"),
+    ({"path": [[None, None]] * 3 + [[None, 15], [-15, 15], [-180, 180]]}, "free rotation"),
+    ({"path": [[None, None]] * 3 + [[-400, 15], [-15, 15], [-180, 180]]}, "within"),
+    ({"path": [[None, None]] * 3 + [[-15, 15], [-200, 200], [-180, 180]]}, "360 wide"),
+    ({"subgoal": [[float("nan"), 0.02]] + BOUNDS["subgoal"][1:]}, "NaN"),
+    ({"path": [[None, None]] * 5}, "6 rows"),
+    ({"subgoal": [[0.02, -0.02]] + BOUNDS["subgoal"][1:]}, "hi < lo"),
+    ({"path": [[None, None]] * 3 + [["a", 15], [-15, 15], [-180, 180]]}, "finite numbers"),
+])
+def test_bound_errors_are_typed_and_say_what_is_allowed(change, why):
+    with pytest.raises(ca.CodeError, match=why):
+        _compile(_code("bounds-json", json.dumps({"goal": "g", **BOUNDS, **change})))
+
+
+def test_a5_parse_takes_one_json_block():
+    em = ca.parse_bounds_json("Here:\n" + _json(), STAGE)
+    assert em.medium == "bounds-json" and em.goal.startswith("the spout tip")
+    for bad, why in ((_json() + _json(), "exactly one"), ("no block", "exactly one"),
+                     ("```json\n{nope}\n```", "invalid JSON"),
+                     ("```json\n[1, 2]\n```", "one JSON object"),
+                     ("```json\n" + json.dumps({"goal": "g", "path": []}) + "\n```", "missing"),
+                     (_json(goal=" "), "goal")):
+        with pytest.raises(ParseRejection, match=why):
+            ca.parse_bounds_json(bad, STAGE)
+
+
+def test_a5_retries_ask_for_json_and_the_artifact_round_trips(tmp_path):
+    replies = iter(["```python\ndef author(scene):\n    pass\n```", _json()])
+    seen = []
+
+    def transport(payload):
+        seen.append(payload)
+        return next(replies)
+
+    client = Client(transport=transport, model="fake")
+    facts = ca.stage_facts("teapot", "mug", SYMBOLS, POSES, OPENING, TIP)
+    em = ca.emit_code(client, STAGE, VOCAB, "bounds-json", facts,
+                      rejections=[("old", "bad z")])
+    assert "That answer was rejected: bad z" in seen[0]["messages"][-1]["content"][0]["text"]
+    retry = seen[1]["messages"][-1]["content"][0]["text"]
+    assert "```json block" in retry and "python" not in retry
+    assert client.logs[-1].attempts == 2
+    doc = {"roles": ["transport_active"], "emissions": [ca.as_record(em)],
+           "compiled": [{"stage": "transport", "grounded": True}]}
+    p = tmp_path / "a5.json"
+    p.write_text(json.dumps(doc))
+    assert ca.load_any_emissions(p) == {"transport_active": em}
+
+
+def test_unbounded_translation_sides_are_none_or_inf_and_nan_is_an_error():
+    """None (JSON null) and a same-side inf are unbounded; numpy keeps None in an
+    object array; a NaN can only come from a computation, so it is rejected."""
+    inf = float("inf")
+    for path in ([[None, None]] * 3, [[-inf, inf]] * 3):
+        b = {**BOUNDS, "path": path + BOUNDS["path"][3:]}
+        src = _bounds_code(b).replace("Infinity", "float('inf')")
+        assert np.all(np.isinf(_compile(_code("bounds-code", src)).path.Bw[:3]))
+    obj = _bounds_code().replace('return {"path": ', 'return {"path": np.array(').replace(
+        ', "subgoal"', '), "subgoal"')        # None mixed with numbers: numpy picks object
+    assert np.all(np.isinf(_compile(_code("bounds-code", obj)).path.Bw[:3]))
+    em = ca.parse_bounds_json('```json\n{"goal": "g", "path": [[-Infinity, Infinity], '
+                              '[null, null], [null, null], [-15, 15], [-15, 15], [-180, 180]], '
+                              '"subgoal": ' + json.dumps(BOUNDS["subgoal"]) + '}\n```', STAGE)
+    assert np.all(np.isinf(_compile(em).path.Bw[:3]))
+    nan = _bounds_code().replace('"path": [[None, None]', '"path": [[float("nan"), None]')
+    with pytest.raises(ca.CodeError, match="NaN"):
+        _compile(_code("bounds-code", nan))
+
+
+def test_rotation_bands_are_read_as_written_past_90_pitch_and_past_180():
+    """No clipping: the TSR reads pitch past +-90 (dual RPY) and roll / yaw past
+    +-180 (2pi shifts), so natural answers keep their meaning."""
+    free = [[None, None]] * 3 + [[-180, 180]] * 3
+
+    def tsr_of(sub):
+        b = {"path": free, "subgoal": BOUNDS["subgoal"][:3] + sub}
+        return _compile(_code("bounds-json", json.dumps({"goal": "g", **b}))).subgoal
+
+    def body_at(t, rpy_deg):          # body pose at displacement (0, 0, 0.05, rpy) from w
+        d = make_pose([0, 0, 0.05], Rotation.from_euler("xyz", rpy_deg, degrees=True).as_matrix())
+        return t.T0_w @ d @ t.Tw_e
+
+    t = tsr_of([[-5, 5], [-98, -82], [-180, 180]])           # vertical within 8 deg
+    assert np.allclose(t.Bw[4], np.radians([-98, -82]))
+    assert t.contains(body_at(t, [0, -95, 0])) and t.contains(body_at(t, [0, -84, 30]))
+    assert not t.contains(body_at(t, [0, -70, 0]))
+    t = tsr_of([[-180, 180], [100, 120], [-180, 180]])       # wholly past +90: with roll
+    assert t.contains(body_at(t, [0, 110, 0]))               # and yaw free it is the same
+    assert t.contains(body_at(t, [0, 70, 0]))                # set as pitch [60, 80]
+    assert not t.contains(body_at(t, [0, 30, 0]))
+    t = tsr_of([[-5, 5], [-5, 5], [170, 190]])               # turned around, crossing 180
+    assert t.contains(body_at(t, [0, 0, 180])) and t.contains(body_at(t, [0, 0, -175]))
+    assert not t.contains(body_at(t, [0, 0, 150]))
+
+
+def test_bounds_media_survive_a_missing_e_point_and_others_a_missing_up_axis():
+    from dataclasses import replace
+    em = ca.parse_bounds_json(_json(), STAGE)
+    cs = ca.compile_any(em, SYMBOLS, POSES, w_point=OPENING, e_point=None)
+    assert np.allclose((cs.subgoal.T0_w @ cs.subgoal.Tw_e)[:3, 3], cs.subgoal.T0_w[:3, 3])
+    no_up = {**SYMBOLS, "teapot": replace(SYMBOLS["teapot"], axes={
+        k: v for k, v in SYMBOLS["teapot"].axes.items() if k != "up_axis"})}
+    facts = ca.stage_facts("teapot", "mug", no_up, POSES, OPENING, TIP)   # A3 / A4-pilot fine
+    assert facts["Tw_e"] is None and ca.describe_facts(facts, "constrained-code")
+    with pytest.raises(ca.CodeError, match="no up_axis"):
+        ca.describe_facts(facts, "bounds-json")
+
+
+def test_the_values_table_lists_world_z_in_w_as_a4s_scene_does():
+    facts = ca.stage_facts("teapot", "mug", SYMBOLS, POSES, OPENING, TIP)
+    assert "world.z = " in ca.describe_facts(facts, "bounds-json")

@@ -1,12 +1,17 @@
-"""Call #3 in a code medium (authoring ablation A3 / A4): one live call per
+"""Call #3 in a code or selection medium (authoring ablation A3 / A4 / A5): one live call per
 object-mover stage, gated the way emit_constraints.py gates the schema.
 
     --medium constrained-code   A3: author() over the helper API; w, anchors
                                 and feature as in the schema; rotations via
                                 points_to / perpendicular_to only; numeric
                                 magnitudes. Compiled by compile_stage.
-    --medium free-code          A4: author(scene) returning numeric
-                                T0_w / Tw_e / B^w for path and subgoal.
+    --medium bounds-code        A4: author(scene) computing B^w from the grounded
+                                values; w and e are given (the canonical
+                                frames at call #2's points, as the schema's).
+    --medium bounds-json        A5: the same B^w written directly as one JSON
+                                object (no code).
+    --medium free-code          the pilot's A4 (code computed T0_w / Tw_e);
+                                kept to re-plan the pilot artifacts only.
 
 Same inputs as the schema run it is compared with: the stage plan, the
 call-#2 selections (anchor points), the entry line, and with
@@ -208,7 +213,7 @@ def main() -> None:
         "views_mode": "framed-chained" if args.render_chained else "text-only",
         "render_dir": str(render_dir) if args.render_chained else None,
         "model": client.model, "temperature": VLM_TEMPERATURE,
-        "max_tokens": client.max_tokens, "prompt_version": ca.PROMPT_VERSION,
+        "max_tokens": client.max_tokens, "prompt_version": ca.PROMPT_VERSIONS[args.medium],
         "arm": "framed-chained" if args.render_chained else "text-only",  # legacy modality key plan_task reports
         "git": git_state(), "roles": roles, "skipped": skipped, "views": views_by_role,
         "emissions": [ca.as_record(e) for e in emissions], "compiled": compiled,

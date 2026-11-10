@@ -3,7 +3,9 @@ call #1 / #2 artifacts, one emission artifact per run.
 
     A0   the token schema         scripts/emit_constraints.py --render-chained
     A3   constrained code         scripts/emit_code.py --medium constrained-code
-    A4   free code                scripts/emit_code.py --medium free-code
+    A4   unconstrained code       scripts/emit_code.py --medium bounds-code
+    A5   direct bounds (JSON)     scripts/emit_code.py --medium bounds-json
+         (A4 / A5 are given the canonical frames and write only B^w)
 
 Every method sees the same stage plan, selections, entry line, renders and
 legend (framed-chained), and the same model and temperature, set here and
@@ -38,13 +40,13 @@ TASKS = {
                       "grounding": "outputs/grounding/insert_marker_gt_opus1",
                       "stage_plan": "outputs/runs/gt_opus1/stage_plan.json",
                       "selections": "outputs/runs/gt_opus1/selections.json",
-                      "authored_stages": {"A0": 3, "A3": 2, "A4": 2}},
+                      "authored_stages": {"A0": 3, "A3": 2, "A4": 2, "A5": 2}},
     # authored sidecars and the fixed pour-tea stages, as plan_pour_tea.py uses
     "pour_tea": {"scene": "scenes/pour_tea.json", "grounding": None,
                  "stage_plan": None, "selections": "outputs/selections/pour_tea.json",
-                 "authored_stages": {"A0": 3, "A3": 2, "A4": 2}},
+                 "authored_stages": {"A0": 3, "A3": 2, "A4": 2, "A5": 2}},
 }
-METHODS = ("A0", "A3", "A4")
+METHODS = ("A0", "A3", "A4", "A5")
 MODEL = "claude-opus-5"        # hardware's model (ur5e-manip-hardware .env)
 TEMPERATURE = "none"           # hardware omits the key; the API default applies
 MAX_TOKENS = "4000"            # one cap for every method (code replies are longer)
@@ -61,7 +63,7 @@ def command(task: str, method: str, out: Path) -> list[str]:
         common += ["--stage-plan", t["stage_plan"]]
     if method == "A0":
         return [sys.executable, "scripts/emit_constraints.py", *common]
-    medium = {"A3": "constrained-code", "A4": "free-code"}[method]
+    medium = {"A3": "constrained-code", "A4": "bounds-code", "A5": "bounds-json"}[method]
     return [sys.executable, "scripts/emit_code.py", "--medium", medium, *common]
 
 

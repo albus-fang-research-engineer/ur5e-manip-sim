@@ -68,9 +68,18 @@ from .vlm import (_DIR_AXIS, CallLog, ParseRejection, RotRow, StageEmission, VLM
                   _text, emission_from_json, frames_legend, image_block,
                   load_emissions)
 
-MEDIA = ("constrained-code", "free-code")
-LABEL = {"constrained-code": "A3", "free-code": "A4"}
-PROMPT_VERSION = "code-authoring-2026-11-07"   # bump on any prompt text change
+MEDIA = ("constrained-code", "free-code", "bounds-code", "bounds-json")
+# free-code is the pilot's A4 (the model computed T0_w / Tw_e); kept so the
+# pilot artifacts still load and plan. A4 / A5 are GIVEN both frames (the
+# canonical frames at call #2's points, as the schema uses) and write only
+# Bw: the model never writes or chooses a frame or a rotation matrix.
+LABEL = {"constrained-code": "A3", "free-code": "A4-pilot",
+         "bounds-code": "A4", "bounds-json": "A5"}
+CODE_MEDIA = ("constrained-code", "free-code", "bounds-code")   # Python replies
+BOUND_MEDIA = ("bounds-code", "bounds-json")                    # given frames, Bw only
+PROMPT_VERSION = "code-authoring-2026-11-07"   # A3 / A4-pilot; bump on any prompt text change
+PROMPT_VERSIONS = {"constrained-code": PROMPT_VERSION, "free-code": PROMPT_VERSION,
+                   "bounds-code": "bounds-2026-11-10", "bounds-json": "bounds-2026-11-10"}
 MAX_TOKENS = int(os.environ.get("MANIP_VLM_MAX_TOKENS", "4000"))   # a cap, not a target;
                            # the ablation runner sets one value for every method
 MAX_SOURCE_CHARS = 20000
@@ -178,6 +187,33 @@ def parse_code_response(raw: str, stage: StageSpec, medium: str) -> CodeEmission
                         goal=m.group(1).strip())
 
 
+_JSON_FENCE = re.compile(r"```(?:json)?[ \t]*\n(.*?)```", re.S)
+BOUND_KEYS = ("path", "subgoal")
+
+
+def parse_bounds_json(raw: str, stage: StageSpec) -> CodeEmission:
+    """A5: exactly one fenced json block {"goal", "path", "subgoal"}. The
+    numbers are checked at compile time (build_bounds), as A4's returned
+    values are."""
+    blocks = _JSON_FENCE.findall(raw)
+    if len(blocks) != 1:
+        raise ParseRejection(f"expected exactly one ```json block, got {len(blocks)}")
+    try:
+        doc = json.loads(blocks[0])
+    except json.JSONDecodeError as e:
+        raise ParseRejection(f"invalid JSON at line {e.lineno}: {e.msg}")
+    if not isinstance(doc, dict):
+        raise ParseRejection("the block must hold one JSON object")
+    missing = [k for k in ("goal",) + BOUND_KEYS if k not in doc]
+    if missing:
+        raise ParseRejection(f"missing key(s) {missing}")
+    if not isinstance(doc["goal"], str) or not doc["goal"].strip():
+        raise ParseRejection("'goal' must be one short plain sentence")
+    return CodeEmission(stage=stage.index, name=stage.name, active=stage.active,
+                        passive=stage.passive, medium="bounds-json",
+                        source=blocks[0].strip() + "\n", goal=doc["goal"].strip())
+
+
 # ------------------------------------------------------------- stage facts
 
 def _unit(v) -> np.ndarray:
@@ -241,6 +277,26 @@ def stage_facts(active: str, passive: str, symbols: dict[str, Symbols],
         "w_default": T0_w, "points_body": points_body, "dirs_body": dirs_body,
         "w_point": w_point, "e_point": e_point,
     }
+    # bounds media: the given e (the active object's canonical frame at e_point)
+    # and e's displacement from w at entry, in Bw's coordinates (deg)
+    if "up_axis" not in symbols[active].axes:      # only the bounds media need e
+        facts.update(Tw_e=None, entry_d=None, e_axes=None, w_name=None, e_name=None,
+                     points_in_w=None)
+        return _plain(facts)
+    e_frame = canonical_e(active, symbols, e_point)
+    Tw_e = np.linalg.inv(e_frame.T())
+    d = TSR(T0_w=T0_w, Tw_e=Tw_e, Bw=np.zeros((6, 2))).displacement(body_poses[active])
+    d = np.r_[d[:3], np.degrees(d[3:])]
+    e_axes = {}
+    Tbe = e_frame.T()
+    for i, ax in enumerate("xyz"):
+        col = Tbe[:3, i]
+        e_axes[ax] = next((k for k, u in _dirs_body(active, symbols[active]).items()
+                           if float(col @ u) > 0.999), _vec(col))
+    facts.update(Tw_e=Tw_e, entry_d=d, e_axes=e_axes,
+                 w_name=_point_name(passive, symbols[passive], w_point),
+                 e_name=_point_name(active, symbols[active], e_point),
+                 points_in_w={k: in_w(k.split(".")[0], v) for k, v in points_body.items()})
     return _plain(facts)
 
 
@@ -283,6 +339,29 @@ def describe_facts(facts: dict, medium: str) -> str:
         lines += [f"  direction({k!r}) = {_vec(v)}"
                   for k, v in sorted(facts["dirs_w"].items()) if not k.startswith(p + ".-")
                   and not k.startswith(a + ".-")]
+        lines.append(f"  quantities: {q or '(none)'}")
+        return "\n".join(lines)
+    if medium in BOUND_MEDIA:
+        if facts["Tw_e"] is None:
+            raise CodeError(a, f"{a!r} has no up_axis: no canonical frame for e")
+        T = facts["w_default"]
+        ea = facts["e_axes"]
+        lines = ["Given frames (fixed; you write only Bw):",
+                 f"  w = {p}'s canonical frame at {facts['w_name']}: origin "
+                 f"{_vec([r[3] for r in T[:3]])}, x {_vec([r[0] for r in T[:3]])}, "
+                 f"y {_vec([r[1] for r in T[:3]])}, z {_vec([r[2] for r in T[:3]])} (world)"]
+        if facts["w_route"] != f"{p}.front_axis":
+            lines.append(f"    its x is fixed by rule from {facts['w_route']} ({p} has no "
+                         "+front direction)")
+        lines.append(f"  e = {a}'s canonical frame at {facts['e_name']}: e.x = {ea['x']}, "
+                     f"e.y = {ea['y']}, e.z = {ea['z']}")
+        lines.append("At entry, in w (meters; directions are unit vectors):")
+        lines += [f"  {k} = {_vec(v)}" for k, v in sorted(facts["points_in_w"].items())]
+        lines += [f"  {k} = {_vec(v)}" for k, v in sorted(facts["dirs_w"].items())
+                  if (k.startswith(a + ".") or k == "world.z") and ".-" not in k]
+        lines.append("  e's displacement at entry, as Bw's six coordinates: "
+                     + "[" + ", ".join(f"{x:+.4f}" for x in facts["entry_d"][:3]) + " m, "
+                     + ", ".join(f"{x:+.1f}" for x in facts["entry_d"][3:]) + " deg]")
         lines.append(f"  quantities: {q or '(none)'}")
         return "\n".join(lines)
     lines = ["Grounded values at stage entry (world frame, meters):",
@@ -419,6 +498,80 @@ _FORMAT = (
     "directions>'.")
 
 
+# A4 / A5 (bounds-code / bounds-json): both frames are GIVEN (the canonical
+# frames at call #2's points); the model writes only Bw. Same text for both
+# except the medium paragraph and the format.
+_BD_COMMON = (
+    "You are the constraint-authoring module. For one stage you write the "
+    "bounds of a path TSR (holds along the whole motion) and a subgoal TSR "
+    "(goal region) for the ACTIVE (moving) object, relative to the PASSIVE "
+    "object. A planner samples the subgoal, keeps samples that lie on the "
+    "path, and plans with CBiRRT inside the path TSR; collision checking is "
+    "separate. " + _S["path"] + " " + _S["rotate"] + " The subgoal must bound "
+    "x, y and z, since the planner samples it.\n\n" + _S["dirs"] + "\n\n")
+
+_BD_GIVEN = (
+    "The frames are given; you write only the bounds. w is the passive "
+    "object's canonical frame at its selected point (z = its +up, x = its "
+    "+front, or the rule the values note). e is the active object's canonical "
+    "frame at its selected point, with the axes the values list. At zero "
+    "displacement e coincides with w. Bw is a 6x2 array of [lo, hi] bounds on "
+    "the displacement of e from w, expressed in w: x, y, z in meters (where "
+    "e's point may be), then roll, pitch, yaw in DEGREES (the rotation of e "
+    "relative to w: roll about w.x, then pitch about w.y, then yaw about "
+    "w.z, all about w's fixed axes). A rotation band may run past +-180 "
+    "(e.g. yaw [170, 190]). An unbounded side of a translation row "
+    "is null; a free rotation row is [-180, 180]. The path and the subgoal "
+    "use the same w and e.\n\n"
+    "The values below give both frames, the objects' points and the active "
+    "object's directions at entry expressed in w, and e's displacement at "
+    "entry in the same six coordinates as Bw.\n\n")
+
+_BD_CODE = (
+    "Write `def author(scene):` returning {\"path\": Bw, \"subgoal\": Bw} "
+    "(6x2 nested lists or numpy arrays; None for an unbounded translation "
+    "side). `scene` has: points_w[name] (each object's points in w at "
+    "entry), dirs_w[name] (the active object's directions and world.z in w "
+    "at entry), entry (e's displacement at entry: x, y, z in meters, roll, "
+    "pitch, yaw in degrees), quantities[name]. np and math are predefined; "
+    "no imports.\n\n")
+
+_BD_FORMAT_CODE = (
+    "Read values from scene at run time rather than copying numbers: the "
+    "code is re-run at the actual entry pose when the stage is planned. "
+    "Respond with exactly one ```python fenced block and nothing else. Its "
+    "first line is a comment '# goal: <one short plain sentence saying "
+    "where the stage must end, naming the objects' points and "
+    "directions>'.")
+
+_BD_FORMAT_JSON = (
+    "The numbers are used as written when the stage is planned. Respond with "
+    "exactly one ```json fenced block and nothing else, holding one object: "
+    "{\"goal\": \"<one short plain sentence saying where the stage must end, "
+    "naming the objects' points and directions>\", \"path\": Bw, "
+    "\"subgoal\": Bw}, with Bw as 6x2 nested lists of numbers (null for an "
+    "unbounded translation side).")
+
+REPAIR_TEXT = {   # (parse retry, gate retry) turns
+    "code": ("Re-emit the corrected ```python block only.",
+             "That code was rejected: {r}. Re-emit the corrected code block "
+             "only, changing as little as needed."),
+    "json": ("Re-emit the corrected ```json block only.",
+             "That answer was rejected: {r}. Re-emit the corrected ```json "
+             "block only, changing as little as needed."),
+}
+
+
+def system_text(medium: str, vocab: Vocabulary) -> str:
+    grounded = f"Grounded symbols:\n{vocab.describe_directions()}\n\n"
+    if medium == "bounds-json":
+        return _BD_COMMON + _BD_GIVEN + grounded + _BD_FORMAT_JSON
+    if medium == "bounds-code":
+        return _BD_COMMON + _BD_GIVEN + _BD_CODE + grounded + _BD_FORMAT_CODE
+    return (_COMMON + (_A3 if medium == "constrained-code" else _A4)
+            + grounded + _FORMAT)
+
+
 def build_code_prompt(stage: StageSpec, vocab: Vocabulary, medium: str,
                       facts: dict, selection=None,
                       view_paths: list[Path] | None = None,
@@ -429,9 +582,7 @@ def build_code_prompt(stage: StageSpec, vocab: Vocabulary, medium: str,
     prompt, plus the grounded values."""
     if medium not in MEDIA:
         raise ValueError(f"unknown medium {medium!r}")
-    system = (_COMMON + (_A3 if medium == "constrained-code" else _A4)
-              + f"Grounded symbols:\n{vocab.describe_directions()}\n\n"
-              + _FORMAT)
+    system = system_text(medium, vocab)
     text = (f"Write the TSR pair for stage {stage.index} ({stage.name}): "
             f"active={stage.active}, passive={stage.passive}.")
     if selection:
@@ -445,7 +596,8 @@ def build_code_prompt(stage: StageSpec, vocab: Vocabulary, medium: str,
     return system, [{"role": "user", "content": parts}]
 
 
-def _ask_code(client, system: str, messages: list, parse) -> CodeEmission:
+def _ask_code(client, system: str, messages: list, parse,
+              repair: str = REPAIR_TEXT["code"][0]) -> CodeEmission:
     """Client._ask with a code-shaped repair turn: _ask's says "Re-emit the
     corrected JSON object", which contradicts the code format. Same budget
     (vlm.MAX_PARSE_RETRIES), payload, transport and CallLog as _ask, so the
@@ -467,8 +619,7 @@ def _ask_code(client, system: str, messages: list, parse) -> CodeEmission:
             msgs = msgs + [
                 {"role": "assistant", "content": [_text(raw)]},
                 {"role": "user", "content": [_text(
-                    f"Your response was rejected: {rej.reason}. Re-emit the "
-                    "corrected ```python block only.")]}]
+                    f"Your response was rejected: {rej.reason}. " + repair)]}]
             continue
         log.raw = raw
         return result
@@ -486,14 +637,14 @@ def emit_code(client, stage: StageSpec, vocab: Vocabulary, medium: str,
     own code."""
     system, messages = build_code_prompt(stage, vocab, medium, facts,
                                          selection, view_paths, frames, entry)
+    parse_retry, gate_retry = REPAIR_TEXT["json" if medium == "bounds-json" else "code"]
     for raw, r in rejections or []:
         messages = messages + [
             {"role": "assistant", "content": [_text(raw)]},
-            {"role": "user", "content": [_text(
-                f"That code was rejected: {r}. Re-emit the corrected code "
-                "block only, changing as little as needed.")]}]
-    em = _ask_code(client, system, messages,
-                   lambda raw: parse_code_response(raw, stage, medium))
+            {"role": "user", "content": [_text(gate_retry.format(r=r))]}]
+    parse = ((lambda raw: parse_bounds_json(raw, stage)) if medium == "bounds-json"
+             else (lambda raw: parse_code_response(raw, stage, medium)))
+    em = _ask_code(client, system, messages, parse, repair=parse_retry)
     log = client.logs[-1]
     log.views = len(view_paths or [])
     log.legend = frames is not None
@@ -581,6 +732,16 @@ if medium == "constrained-code":
               points_to=points_to, perpendicular_to=perpendicular_to, tsr=tsr,
               feature=np.array(F["feature_w"], float))
     args = ()
+elif medium == "bounds-code":
+    class _Scene:
+        pass
+    s = _Scene()
+    s.points_w = {k: np.array(v, float) for k, v in F["points_in_w"].items()}
+    s.dirs_w = {k: np.array(v, float) for k, v in F["dirs_w"].items()
+                if k.startswith(F["active"] + ".") or k.startswith("world.")}
+    s.entry = [float(x) for x in F["entry_d"]]
+    s.quantities = dict(F["quantities"])
+    args = (s,)
 else:
     from scipy.spatial.transform import Rotation
     class _Scene:
@@ -601,7 +762,7 @@ else:
 
 def _out(o):
     if isinstance(o, np.ndarray):
-        return o.astype(float).tolist()
+        return _out(o.tolist()) if o.dtype == object else o.astype(float).tolist()
     if isinstance(o, (np.floating, np.integer)):
         return float(o)
     if isinstance(o, dict):
@@ -820,6 +981,87 @@ def build_free(result: object, em: CodeEmission, body_poses) -> tuple[TSR, TSR, 
     return tsrs["path"], tsrs["subgoal"], w
 
 
+# ----------------------------------------------------- frames (A4 / A5)
+
+def _point_name(obj: str, sym: Symbols, p) -> str:
+    p = np.asarray(p, float).reshape(3)
+    for n, v in sym.points.items():
+        if np.allclose(np.asarray(v, float), p, atol=1e-5):   # = _point_token's tol
+            return f"{obj}.{n}"
+    return f"{obj}'s selected point"
+
+
+def canonical_e(active: str, symbols: dict[str, Symbols], e_point) -> Frame:
+    """The active object's canonical frame at e_point (body coords):
+    z = +up, x = +front (else +left, else any perpendicular, Frame.T)."""
+    sym = symbols[active]
+    if "up_axis" not in sym.axes:
+        raise CodeError(active, f"{active!r} has no up_axis: no canonical frame for e")
+    sec = sym.axes.get("front_axis", sym.axes.get("lateral_axis", np.array([1.0, 0.0, 0.0])))
+    return Frame(name=f"{active}.canonical", point=np.asarray(e_point, float).reshape(3).copy(),
+                 axis=_unit(sym.axes["up_axis"]), secondary=_unit(sec))
+
+
+def _bw_deg(v, slot: str) -> np.ndarray:
+    """6x2 [lo, hi]: meters (None = unbounded side) then degrees -> radians."""
+    if not (isinstance(v, (list, tuple)) and len(v) == 6
+            and all(isinstance(r, (list, tuple)) and len(r) == 2 for r in v)):
+        raise CodeError(slot, "Bw must be 6 rows of [lo, hi]")
+    B = np.zeros((6, 2))
+    for i, row in enumerate(v):
+        for j, x in enumerate(row):
+            if i < 3 and (x is None or (isinstance(x, float)
+                                        and x == (-np.inf if j == 0 else np.inf))):
+                B[i, j] = -np.inf if j == 0 else np.inf      # None or a same-side inf
+                continue
+            if isinstance(x, float) and np.isnan(x):
+                raise CodeError(slot, f"Bw row {_ROWS[i]} holds NaN; write None (null) "
+                                      "for an unbounded side")
+            if x is None or isinstance(x, bool) or not isinstance(x, (int, float)) \
+                    or not np.isfinite(x):
+                raise CodeError(slot, f"Bw row {_ROWS[i]} must hold finite numbers"
+                                + ("" if i < 3 else "; a free rotation is [-180, 180]"))
+            B[i, j] = float(x)
+        if B[i, 1] < B[i, 0]:
+            raise CodeError(slot, f"Bw row {_ROWS[i]} has hi < lo")
+        if i >= 3:
+            # as written: TSR.displacement reads a band past +-90 pitch through the
+            # dual RPY solution and past +-180 through 2pi shifts (yaw [170, 190])
+            if B[i, 0] < -360.0 or B[i, 1] > 360.0 or B[i, 1] - B[i, 0] > 360.0:
+                raise CodeError(slot, f"Bw row {_ROWS[i]} is in degrees: within "
+                                      "[-360, 360] and at most 360 wide")
+            B[i] = np.radians(B[i])
+    return B
+
+
+_ROWS = ("x", "y", "z", "roll", "pitch", "yaw")
+
+
+def build_bounds(result: object, em: CodeEmission, symbols: dict[str, Symbols],
+                 body_poses, w_point, e_point) -> tuple[TSR, TSR, Frame]:
+    """A4 / A5: w = the passive object's canonical frame at w_point
+    (compile_tsr's rule, as the schema's w); e = the active object's
+    canonical frame at e_point; Bw as written. Nothing about the frames
+    comes from the model."""
+    if not (isinstance(result, dict) and set(BOUND_KEYS) <= set(result)):
+        raise CodeError(em.name, f"the answer must have {list(BOUND_KEYS)}")
+    frame, _ = _canonical_w(em.passive, em.active, symbols, body_poses, w_point,
+                            f"{em.name}.w")
+    T0_w = body_poses[em.passive] @ frame.T()
+    e_point = np.zeros(3) if e_point is None else e_point     # as stage_facts
+    Tw_e = np.linalg.inv(canonical_e(em.active, symbols, e_point).T())
+    path = TSR(T0_w=T0_w, Tw_e=Tw_e, Bw=_bw_deg(result["path"], f"{em.name}.path"),
+               name=f"{em.name}/path(bounds)")
+    subgoal = TSR(T0_w=T0_w, Tw_e=Tw_e, Bw=_bw_deg(result["subgoal"], f"{em.name}.subgoal"),
+                  name=f"{em.name}/subgoal(bounds)")
+    open_rows = [k for i, k in enumerate("xyz") if not np.all(np.isfinite(subgoal.Bw[i]))]
+    if open_rows:
+        raise CodeError(f"{em.name}.subgoal", (
+            f"subgoal row(s) {open_rows} are unbounded; the planner samples the "
+            "subgoal, so bound x, y and z"))
+    return path, subgoal, frame
+
+
 # --------------------------------------------------------------- dispatch
 
 def compile_any(emission, symbols: dict[str, Symbols],
@@ -838,8 +1080,15 @@ def compile_any(emission, symbols: dict[str, Symbols],
     for o in (em.active, em.passive):
         if o not in body_poses or o not in symbols:
             raise CodeError(em.name, f"no symbols or entry pose for {o!r}")
-    facts = stage_facts(em.active, em.passive, symbols, body_poses, w_point, e_point)
-    result = run_source(em.source, em.medium, facts, em.name)
+    if em.medium == "bounds-json":           # the numbers as written: nothing to run
+        try:
+            doc = json.loads(em.source)
+        except json.JSONDecodeError as e:
+            raise CodeError(em.name, f"the answer is not valid JSON: {e.msg}")
+        result = {k: doc.get(k) for k in BOUND_KEYS} if isinstance(doc, dict) else doc
+    else:
+        facts = stage_facts(em.active, em.passive, symbols, body_poses, w_point, e_point)
+        result = run_source(em.source, em.medium, facts, em.name)
     if em.medium == "constrained-code":
         vocab = vocab or Vocabulary.from_symbols(symbols)
         try:
@@ -855,9 +1104,13 @@ def compile_any(emission, symbols: dict[str, Symbols],
             raise _renamed(e, slot_map)
         return cs
     try:
-        path, subgoal, w = build_free(result, em, body_poses)
+        if em.medium in BOUND_MEDIA:
+            path, subgoal, w = build_bounds(result, em, symbols, body_poses, w_point, e_point)
+        else:
+            path, subgoal, w = build_free(result, em, body_poses)
     except _SHAPE_ERRORS as e:
-        raise CodeError(em.name, f"author(scene) returned an unexpected value: "
+        what = "the answer" if em.medium == "bounds-json" else "author(scene)"
+        raise CodeError(em.name, f"{what} returned an unexpected value: "
                                  f"{type(e).__name__}: {e}")
     notes: list[str] = []
     T_entry = None if entry_synthesized else body_poses[em.active]
