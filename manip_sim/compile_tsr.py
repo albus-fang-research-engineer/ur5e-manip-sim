@@ -11,8 +11,7 @@ never by a runtime knob that would let per-scenario tuning leak in).
 
 Compilation model
 -----------------
-w frame: ONE canonical frame per object, used as w in every stage that
-constrains against it — never chosen per stage, never emitted. It is the
+w frame: never emitted; fixed by rule per stage. It is the passive
 object's canonical frame (OmniManip's canonical object space: up/front
 from the pose source / Orient Anything, carried in frames.json as the
 up_axis / front_axis / lateral_axis symbols) anchored at the interaction
@@ -21,9 +20,20 @@ point call #2 selected on it:
     z = passive up_axis,  x = passive front_axis,  origin = w_point
 
 rooted on the passive body pose and frozen at stage entry (the caller
-passes the entry poses, same as before). A passive with no confident
-front_axis gets its x from the MOVER's lateral (up x front) projected
-into w's horizontal plane at entry, then from world x/y: a tip of the
+passes the entry poses, same as before). The heading (w.x) is the
+passive's front when some row depends on it (_w_heading_user: a row
+naming the passive's front or lateral axis, an 'along' term on any
+non-mover horizontal axis, or an 'expr' term bounding x or y);
+otherwise it is the MOVER's lateral (up x front) projected into w's
+horizontal plane at entry. When no row depends on the heading, every
+heading describes the same constraint set, and the mover's is the one
+under which rows on the mover's own axes fall on single B^w rows (the
+11/05 hardware pour: a mug front 18 deg off the teapot's put the
+no-roll row between w.x and w.y). So one object's w can differ between
+stages. A stage that constrains both the passive's horizontal axes and
+the mover's tilt cannot be written as one TSR in one frame; it is a
+typed CompileError. A front-less passive whose mover has no usable
+heading falls back to world x/y: a tip of the
 mover's front toward the vertical — the pour family — then rotates
 about w.x, i.e. the ROLL row, which is pour_stages.pour_pair's
 permutation arising from the fallback rather than a special case. A
@@ -380,12 +390,69 @@ def _axis_dir_world(qualified: str, symbols: dict[str, Symbols],
 
 # ------------------------------------------------------------- compiler
 
+# Every translation term, classified by whether its meaning can depend on
+# w's heading (tests fail on a TRANS_TERMS entry missing here, so a new
+# term has to be decided). 'centered' / 'inside' bound a square / cube in
+# w that turns with the heading but keeps its size; above / below bound
+# z only; 'along' and 'expr' depend on their axis / row (_w_heading_user).
+_TERM_HEADING = {"free": False, "above": False, "below": False,
+                 "centered": False, "inside": False,
+                 "along": None, "expr": None}
+
+
+def _w_heading_user(emission: StageEmission, w_obj: str) -> str | None:
+    """The first slot whose meaning depends on w's heading (rotation about
+    w.z), or None when every row means the same at any heading: a rotation
+    row naming the w owner's front or lateral axis (rotation references
+    are licensed only on the owner or world.z), an 'along' term on any
+    horizontal axis not on the mover (the owner's, or a third object's:
+    whether it lands on a w basis vector depends on the heading; the
+    mover's own axes want the mover's heading), or an 'expr' term bounding
+    w's x or y row. Anchor points and up axes do not count (w.z stays the
+    owner's up)."""
+    heading = {f"{w_obj}.{_FRONT}", f"{w_obj}.{_LATERAL}"}
+    mover = emission.active if emission.passive else None
+    for ctx, spec in (("path", emission.path_tsr),
+                      ("subgoal", emission.subgoal_tsr)):
+        for i, r in enumerate(spec.rot):
+            if r.axis in heading or r.reference in heading:
+                return f"{emission.name}.{ctx}.rot[{i}]"
+        for i, t in enumerate(spec.trans):
+            if t.term == "along" and t.axis:
+                obj, name = t.axis.split(".", 1)
+                if obj != mover and name != _UP:
+                    return f"{emission.name}.{ctx}.trans[{i}]"
+            elif t.term == "expr" and t.row in ("x", "y"):
+                return f"{emission.name}.{ctx}.trans[{i}]"
+    return None
+
+
+def _mover_lateral_x(mover: str | None, symbols: dict[str, Symbols],
+                     body_poses: dict[str, np.ndarray],
+                     z_w: np.ndarray) -> np.ndarray | None:
+    """The mover's lateral (up x front) at entry, in world, projected into
+    the plane normal to z_w; None if the mover has no front or its front
+    is within ALIGN_TOL of z_w (no horizontal heading to borrow)."""
+    if mover is None or _FRONT not in symbols[mover].axes:
+        return None
+    f = body_poses[mover][:3, :3] @ _unit(symbols[mover].axes[_FRONT])
+    f_h = f - float(f @ z_w) * z_w
+    if np.linalg.norm(f_h) <= np.sin(ALIGN_TOL_RAD):
+        return None
+    return _unit(np.cross(z_w, _unit(f_h)))
+
+
 def _canonical_w(w_obj: str, mover: str | None, symbols: dict[str, Symbols],
                  body_poses: dict[str, np.ndarray], w_point: np.ndarray,
-                 slot: str) -> tuple[Frame, str]:
+                 slot: str, heading_unused: bool = False
+                 ) -> tuple[Frame, str]:
     """The w-owning object's canonical frame anchored at w_point (body
     coords): z = up_axis, x = front_axis, else the fallback ladder in
-    the module docstring. Returns (Frame, route note)."""
+    the module docstring. `heading_unused` (compile_stage: no row of the
+    stage depends on w's heading) takes x from the mover's lateral even
+    when the owner has a front, so the mover's own axes are w's axes and
+    its rows land on single Bw rows; the owner's front stays x when the
+    mover has no usable heading. Returns (Frame, route note)."""
     sym = symbols[w_obj]
     if _UP not in sym.axes:
         raise CompileError(slot, f"{w_obj!r} has no {_UP}: no canonical "
@@ -393,21 +460,21 @@ def _canonical_w(w_obj: str, mover: str | None, symbols: dict[str, Symbols],
     up_b = _unit(sym.axes[_UP])
     R_o = body_poses[w_obj][:3, :3]
     z_w = R_o @ up_b
+    point = np.asarray(w_point, float).reshape(3).copy()
+    route_mover = f"{mover} lateral (up x front) at entry"
+    x_mover = _mover_lateral_x(mover, symbols, body_poses, z_w)
     if _FRONT in sym.axes:
-        return (Frame(name=f"{w_obj}.canonical",
-                      point=np.asarray(w_point, float).reshape(3).copy(),
-                      axis=up_b.copy(), secondary=_unit(sym.axes[_FRONT])),
-                f"{w_obj}.{_FRONT}")
+        if not heading_unused or x_mover is None:
+            return (Frame(name=f"{w_obj}.canonical", point=point,
+                          axis=up_b.copy(), secondary=_unit(sym.axes[_FRONT])),
+                    f"{w_obj}.{_FRONT}")
+        return (Frame(name=f"{w_obj}.canonical(aligned)", point=point,
+                      axis=up_b.copy(), secondary=R_o.T @ x_mover),
+                f"{route_mover} ({w_obj}.{_FRONT} unused by this stage)")
     # no confident front: borrow the azimuth from the mover's lateral so a
     # tip of its front toward the vertical rotates about w.x (roll), then
     # from world x/y
-    x_world, route = None, ""
-    if mover is not None and _FRONT in symbols[mover].axes:
-        f = body_poses[mover][:3, :3] @ _unit(symbols[mover].axes[_FRONT])
-        f_h = f - float(f @ z_w) * z_w
-        if np.linalg.norm(f_h) > np.sin(ALIGN_TOL_RAD):
-            x_world = _unit(np.cross(z_w, _unit(f_h)))
-            route = f"{mover} lateral (up x front) at entry"
+    x_world, route = x_mover, (route_mover if x_mover is not None else "")
     if x_world is None:
         for e, nm in ((np.array([1.0, 0, 0]), "world.x"),
                       (np.array([0, 1.0, 0]), "world.y")):
@@ -415,8 +482,7 @@ def _canonical_w(w_obj: str, mover: str | None, symbols: dict[str, Symbols],
             if np.linalg.norm(e_h) > np.sin(ALIGN_TOL_RAD):
                 x_world, route = _unit(e_h), nm
                 break
-    return (Frame(name=f"{w_obj}.canonical(fallback)",
-                  point=np.asarray(w_point, float).reshape(3).copy(),
+    return (Frame(name=f"{w_obj}.canonical(fallback)", point=point,
                   axis=up_b.copy(), secondary=R_o.T @ x_world), route)
 
 
@@ -617,14 +683,20 @@ def compile_stage(emission: StageEmission,
         raise ValueError("e_point given but the moving frame is the gripper")
 
     # -- w frame ---------------------------------------------------------
-    w_frame, route = _canonical_w(w_obj, mover, symbols, body_poses,
-                                  np.asarray(w_point, float), w_slot)
+    heading_user = _w_heading_user(emission, w_obj)
+    w_frame, route = _canonical_w(
+        w_obj, mover, symbols, body_poses, np.asarray(w_point, float), w_slot,
+        heading_unused=heading_user is None)
     T0_w = body_poses[w_obj] @ w_frame.T()
     R0_w = T0_w[:3, :3]
     Tf_inv = np.linalg.inv(w_frame.T())
     notes.append(f"w = {w_obj} canonical frame at "
                  f"{np.round(w_frame.point, 4).tolist()}: z = {_UP}, "
                  f"x = {route}; rooted on body_poses[{w_obj!r}]")
+    if heading_user is not None and route == f"{w_obj}.{_FRONT}":
+        notes.append(f"w.x = {w_obj}.{_FRONT} because {heading_user} depends "
+                     "on w's heading; rows on the mover's axes must land on "
+                     "a w basis vector in that frame")
     R_entry = body_poses[mover][:3, :3] if mover is not None else None
     e_xyz = (np.zeros(3) if e_point is None
              else np.asarray(e_point, float).reshape(3))

@@ -248,10 +248,19 @@ def test_pour_goal_follows_entry_heading():
     np.testing.assert_allclose(rv / np.linalg.norm(rv), lat, atol=1e-9)
 
 
+# an 'expr' bound on w.x makes the stage depend on w's heading, so a
+# fronted mug keeps its front as w.x (the rejection paths below need it)
+_X_EXPR = {"term": "expr", "row": "x", "lo": "0 - mug.rim_radius",
+           "hi": "mug.rim_radius"}
+POUR_HEADING = {**POUR, "path_tsr": {**POUR["path_tsr"],
+                                     "trans": POUR["path_tsr"]["trans"] + [_X_EXPR]}}
+
+
 def test_pour_corridor_off_basis_is_a_typed_rejection():
-    # give the mug a confident front that is NOT the teapot's lateral:
-    # the tilt axis lands between w.x and w.y, the corridor is not a
-    # single row: a typed error on the path row, never a silent free
+    # give the mug a confident front that is NOT the teapot's lateral, in
+    # a stage that uses w's heading: the tilt axis lands between w.x and
+    # w.y, the corridor is not a single row: a typed error on the path
+    # row, never a silent free
     mg = SYMBOLS["mug"]
     front = np.array([1.0, 0.0, 0.0])
     fronted = Symbols("mug", mg.points, {**mg.axes, "front_axis": front,
@@ -260,8 +269,8 @@ def test_pour_corridor_off_basis_is_a_typed_rejection():
     cs = compile_pour(doc=POUR)  # baseline: corridor exists
     assert any("corridor" in n for n in cs.notes)
     with pytest.raises(CompileError) as e:
-        compile_stage(emission(POUR), {**SYMBOLS, "mug": fronted}, POUR_POSES,
-                      w_point=OPENING, e_point=TIP)
+        compile_stage(emission(POUR_HEADING), {**SYMBOLS, "mug": fronted},
+                      POUR_POSES, w_point=OPENING, e_point=TIP)
     assert e.value.slot == "pour.path.rot[0]"
     assert "not about a single w axis" in e.value.reason
     assert "leave the path rotation free" in e.value.reason
@@ -271,19 +280,154 @@ def test_pour_corridor_off_basis_is_a_typed_rejection():
 
 
 def test_corridor_never_on_pitch_and_says_so():
-    # a passive front aligned with the teapot's front puts the tilt axis
-    # on w.y: pitch is the middle Euler angle, so no corridor — and that
-    # is a typed error on the path row, not a silently freed rotation
+    # a passive front aligned with the teapot's front (kept as w.x: the
+    # stage uses w's heading) puts the tilt axis on w.y: pitch is the
+    # middle Euler angle, so no corridor — and that is a typed error on
+    # the path row, not a silently freed rotation
     mg = SYMBOLS["mug"]
     front = SYMBOLS["teapot"].axes["front_axis"]
     fronted = Symbols("mug", mg.points, {**mg.axes, "front_axis": front,
                                          "lateral_axis": np.cross([0, 0, 1.0], front)},
                       mg.quantities)
     with pytest.raises(CompileError) as e:
-        compile_stage(emission(POUR), {**SYMBOLS, "mug": fronted}, POUR_POSES,
-                      w_point=OPENING, e_point=TIP)
+        compile_stage(emission(POUR_HEADING), {**SYMBOLS, "mug": fronted},
+                      POUR_POSES, w_point=OPENING, e_point=TIP)
     assert e.value.slot == "pour.path.rot[0]"
     assert "about w.y (pitch)" in e.value.reason
+
+
+# ------------------------- w heading from the mover when the stage ignores it
+
+def _fronted_mug(deg_from_teapot_front):
+    """The mug with a confident front deg_from_teapot_front degrees (about
+    z) from the teapot's front -- POSES are upright identities, so body and
+    world directions agree. The 11/05 hardware scene had 18 deg."""
+    mg = SYMBOLS["mug"]
+    front = R.from_euler("z", deg_from_teapot_front, degrees=True).apply(
+        _u(SYMBOLS["teapot"].axes["front_axis"]))
+    return Symbols("mug", mg.points, {**mg.axes, "front_axis": front,
+                                      "lateral_axis": np.cross([0, 0, 1.0], front)},
+                   mg.quantities)
+
+
+# the 11/05 hardware pour (sim stand-in emission): "no sideways roll" on
+# the path, spout down in the subgoal; no row names the mug's heading
+NO_ROLL = {"axis": "teapot.+left", "perpendicular_to": "world.z", "tol": "moderate"}
+
+
+def test_w_heading_user_names_the_first_heading_dependent_slot():
+    from manip_sim.compile_tsr import _w_heading_user
+    syms = {**SYMBOLS, "mug": _fronted_mug(18.0)}
+    voc = Vocabulary.from_symbols(syms)
+    em = lambda d: parse_emission(json.dumps(d), voc)
+    assert _w_heading_user(em(POUR), "mug") is None             # anchors, world.z only
+    assert _w_heading_user(em(POUR_HEADING), "mug") == "pour.path.trans[2]"
+    ref_front = {**POUR, "subgoal_tsr": {**POUR["subgoal_tsr"], "rot": [
+        {"axis": "teapot.+front", "relation": "perpendicular",
+         "reference": "mug.+front", "tol": "loose"}]}}
+    assert _w_heading_user(em(ref_front), "mug") == "pour.subgoal.rot[0]"
+    along = {**POUR, "subgoal_tsr": {**POUR["subgoal_tsr"], "trans": [
+        {"term": "along", "axis": "mug.-left"}]}}
+    assert _w_heading_user(em(along), "mug") == "pour.subgoal.trans[0]"
+    z_expr = {**POUR, "subgoal_tsr": {**POUR["subgoal_tsr"], "trans": [
+        {**_X_EXPR, "row": "z"}]}}
+    assert _w_heading_user(em(z_expr), "mug") is None             # w.z is the mug's up
+    y_expr = {**POUR, "subgoal_tsr": {**POUR["subgoal_tsr"], "trans": [
+        {**_X_EXPR, "row": "y"}]}}
+    assert _w_heading_user(em(y_expr), "mug") == "pour.subgoal.trans[0]"
+    ref_lat = {**POUR, "subgoal_tsr": {**POUR["subgoal_tsr"], "rot": [
+        {"axis": "teapot.+front", "perpendicular_to": "mug.-left", "tol": "loose"}]}}
+    assert _w_heading_user(em(ref_lat), "mug") == "pour.subgoal.rot[0]"
+
+    def along(axis):
+        return {**POUR, "subgoal_tsr": {**POUR["subgoal_tsr"], "trans": [
+            {"term": "along", "axis": axis}]}}
+    assert _w_heading_user(em(along("mug.+front")), "mug") == "pour.subgoal.trans[0]"
+    assert _w_heading_user(em(along("mug.+up")), "mug") is None        # up axis
+    assert _w_heading_user(em(along("teapot.+front")), "mug") is None  # mover's own axis
+    both = {**POUR_HEADING, "subgoal_tsr": ref_front["subgoal_tsr"]}
+    assert _w_heading_user(em(both), "mug") == "pour.path.trans[2]"   # path first
+
+
+def test_w_heading_user_flags_along_on_a_third_objects_horizontal_axis():
+    from manip_sim.compile_tsr import _w_heading_user
+    mug = _fronted_mug(18.0)
+    syms = {**SYMBOLS, "mug": mug, "tray": Symbols("tray", mug.points, mug.axes,
+                                                   mug.quantities)}
+    voc = Vocabulary.from_symbols(syms)
+    doc = {**POUR, "subgoal_tsr": {**POUR["subgoal_tsr"], "trans": [
+        {"term": "along", "axis": "tray.-front"}]}}
+    assert _w_heading_user(parse_emission(json.dumps(doc), voc), "mug") == \
+        "pour.subgoal.trans[0]"
+
+
+def test_every_trans_term_is_classified_for_heading_dependence():
+    """A new translation term must be decided: does its meaning change with
+    w's heading? (_TERM_HEADING; rotation rows are covered by their axis
+    and reference names, whatever the relation.)"""
+    from manip_sim.compile_tsr import _TERM_HEADING
+    from manip_sim.vlm import TRANS_TERMS
+    assert set(_TERM_HEADING) == set(TRANS_TERMS)
+
+
+def test_a_heading_dependent_row_is_named_in_the_notes():
+    syms = {**SYMBOLS, "mug": _fronted_mug(18.0)}
+    voc = Vocabulary.from_symbols(syms)
+    doc = {**TRANSPORT, "subgoal_tsr": {**TRANSPORT["subgoal_tsr"], "trans":
+                                        TRANSPORT["subgoal_tsr"]["trans"] + [_X_EXPR]}}
+    cs = compile_stage(parse_emission(json.dumps(doc), voc), syms, POSES,
+                       w_point=OPENING, e_point=TIP)
+    assert cs.x_source == "mug.front_axis"
+    assert any(n.startswith("w.x = mug.front_axis because transport.subgoal.trans[2] "
+                            "depends on w's heading") for n in cs.notes)
+    # no heading use: no such note
+    cs2 = compile_stage(parse_emission(json.dumps(TRANSPORT), voc), syms, POSES,
+                        w_point=OPENING, e_point=TIP)
+    assert not any(n.startswith("w.x = mug.front_axis because") for n in cs2.notes)
+
+
+def test_the_1105_pour_compiles_with_w_aligned_to_the_teapot():
+    """Hardware 11/05: the mug's front (its handle) was 18 deg off the
+    teapot's, so with w.x = mug front the path's no-roll axis landed
+    between w.x and w.y and the pour never compiled. No row uses the mug's
+    heading, so w.x is the teapot's lateral: one pitch row, rest free."""
+    from manip_sim.compile_tsr import check_pair_consistency
+    syms = {**SYMBOLS, "mug": _fronted_mug(18.0)}
+    voc = Vocabulary.from_symbols(syms)
+    doc = _pour_doc([NO_ROLL], _SUB_TRANS)
+    cs = compile_stage(parse_emission(json.dumps(doc), voc), syms, POSES,
+                       w_point=OPENING, e_point=TIP)
+    lat = _u(POSES["teapot"][:3, :3] @ SYMBOLS["teapot"].axes["lateral_axis"])
+    np.testing.assert_allclose(cs.subgoal.T0_w[:3, 0], lat, atol=1e-9)
+    np.testing.assert_allclose(cs.subgoal.T0_w[:3, 2], [0, 0, 1], atol=1e-9)
+    assert cs.x_source == "teapot lateral (up x front) at entry (mug.front_axis unused by this stage)"
+    assert any("pour.path: goal attitude from 1 relation row(s); fixed ['pitch']" in n
+               for n in cs.notes)
+    assert _is_free(cs.path.Bw[3]) and _is_free(cs.path.Bw[5])
+    check_pair_consistency(cs)
+
+    # the same scene, stage using w's heading: the mug's front stays w.x
+    # and the no-roll axis is 18 deg off it -- today's typed rejection
+    doc_h = {**doc, "path_tsr": {**doc["path_tsr"],
+                                 "trans": doc["path_tsr"]["trans"] + [_X_EXPR]}}
+    with pytest.raises(CompileError) as e:
+        compile_stage(parse_emission(json.dumps(doc_h), voc), syms, POSES,
+                      w_point=OPENING, e_point=TIP)
+    assert e.value.slot == "pour.path.rot[0]"
+    assert "constrained tilt axis does not lie along a w basis vector" in e.value.reason
+
+
+def test_w_keeps_the_passive_front_when_the_mover_has_no_heading():
+    # teapot front vertical at entry: nothing horizontal to borrow, so the
+    # mug's front stays w.x even though the stage ignores the mug heading
+    syms = {**SYMBOLS, "mug": _fronted_mug(18.0)}
+    voc = Vocabulary.from_symbols(syms)
+    doc = {**TRANSPORT, "path_tsr": {"rot": "free", "trans": "free"},
+           "subgoal_tsr": {"rot": "free", "trans": TRANSPORT["subgoal_tsr"]["trans"]}}
+    T = _tilted(POSES["teapot"], 90.0, SYMBOLS["teapot"].axes["lateral_axis"])
+    cs = compile_stage(parse_emission(json.dumps(doc), voc), syms,
+                       {**POSES, "teapot": T}, w_point=OPENING, e_point=TIP)
+    assert cs.x_source == "mug.front_axis"
 
 
 def test_v3_schema_only_spout_roll_path_row_now_rejected():
