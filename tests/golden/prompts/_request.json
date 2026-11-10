@@ -2,6 +2,7 @@
   "constants": {
     "MODEL": "claude-sonnet-4-6",
     "MAX_TOKENS": 2000,
+    "CRITIC_MAX_TOKENS": 16000,
     "TEMPERATURE": 0.0,
     "MAX_PARSE_RETRIES": 2,
     "HTTP_RETRIES": 3,
@@ -40,7 +41,10 @@
         "value": "2023-06-01"
       }
     },
-    "timeout": 120,
+    "timeout": {
+      "const": "HTTP_TIMEOUT_S",
+      "value": 600
+    },
     "retried_http_status": [
       [
         429,

@@ -10,8 +10,9 @@ Image blocks are pinned by media type and the sha256 of their base64 data;
 the image bytes are tiny deterministic stand-ins written by the test.
 
 The request settings are pinned in tests/golden/prompts/_request.json:
-the module defaults (MODEL, MAX_TOKENS, TEMPERATURE, MAX_PARSE_RETRIES,
-HTTP_RETRIES, HTTP_BACKOFF_S, API_URL, API_VERSION) from a fresh copy of
+the module defaults (MODEL, MAX_TOKENS, CRITIC_MAX_TOKENS, TEMPERATURE,
+MAX_PARSE_RETRIES, HTTP_RETRIES, HTTP_BACKOFF_S, API_URL, API_VERSION) from
+a fresh copy of
 the module loaded with MANIP_VLM_MODEL / MANIP_VLM_TEMPERATURE unset; the
 MANIP_VLM_TEMPERATURE parsing; the non-message request fields Client
 sends; and, read statically from _urllib_transport's source, the HTTP
@@ -702,6 +703,7 @@ def test_request_payload_matches_golden(monkeypatch):
     got = {
         "constants": {
             "MODEL": mod.MODEL, "MAX_TOKENS": mod.MAX_TOKENS,
+            "CRITIC_MAX_TOKENS": mod.CRITIC_MAX_TOKENS,
             "TEMPERATURE": default_temperature,
             "MAX_PARSE_RETRIES": mod.MAX_PARSE_RETRIES,
             "HTTP_RETRIES": mod.HTTP_RETRIES,

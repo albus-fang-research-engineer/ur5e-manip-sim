@@ -651,3 +651,22 @@ def test_prompt_v2_says_collisions_are_the_planners():
     assert "facts, not requests to tighten" in system
     assert "Collision notes in the image captions are facts" in system
     assert "Only \"no collision-free pose found in the region\" is evidence" in system
+
+
+def test_client_critique_v2_uses_the_critic_token_budget(tmp_path):
+    """The critic v2 request carries CRITIC_MAX_TOKENS; the client default
+    (calls #1-#3, pinned in _request.json) is untouched."""
+    from manip_sim.vlm import CRITIC_MAX_TOKENS, MAX_TOKENS
+    img = tmp_path / "v.png"
+    img.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 16)
+    seen = []
+
+    def transport(payload):
+        seen.append(payload)
+        return _raw([], verdict="accept", diagnosis="fine")
+
+    cl = Client(transport=transport)
+    rep = cr.build_preview_report([_preview_input()], _state())
+    cl.critique_preview_v2(rep, [("state 1: initial scene", img)], VOCAB, _state())
+    assert seen[0]["max_tokens"] == CRITIC_MAX_TOKENS != MAX_TOKENS
+    assert cl.max_tokens == MAX_TOKENS

@@ -66,6 +66,7 @@ import base64
 import json
 import os
 import re
+import socket
 import time
 import urllib.error
 import urllib.request
@@ -80,6 +81,9 @@ API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 MODEL = os.environ.get("MANIP_VLM_MODEL", "claude-sonnet-4-6")   # run-level knob; recorded in artifacts
 MAX_TOKENS = 2000
+# Critic v2 only. Thinking (on by default on Opus 5) spends the same output
+# budget as the answer; at 2000 the critic's verdict was cut off or empty.
+CRITIC_MAX_TOKENS = 16000
 
 
 def _temperature(raw: str | None) -> float | None:
@@ -98,6 +102,7 @@ TEMPERATURE = _temperature(os.environ.get("MANIP_VLM_TEMPERATURE"))
 MAX_PARSE_RETRIES = 2    # rejections fed back; attempts = 1 + retries
 HTTP_RETRIES = 3         # 429/5xx, exponential backoff
 HTTP_BACKOFF_S = 2.0
+HTTP_TIMEOUT_S = 600     # non-streaming: nothing arrives until the whole answer is done
 
 # ------------------------------------------------- closed token alphabets
 # These are the LICENSED discrete alphabets. The compiler owns their
@@ -182,6 +187,18 @@ CRITIC_VERDICTS = ("accept", "reject")
 
 class VLMError(RuntimeError):
     """Transport-level failure or retry budget exhausted."""
+
+
+class ResponseTruncated(VLMError):
+    """The API stopped at the output limit (stop_reason "max_tokens").
+    `text` is the text that came back: partial, or empty when thinking
+    used the whole budget."""
+
+    def __init__(self, text: str, max_tokens):
+        super().__init__(f"response cut off at max_tokens={max_tokens} "
+                         f"({len(text)} chars of text)")
+        self.text = text
+        self.max_tokens = max_tokens
 
 
 class ParseRejection(ValueError):
@@ -1546,7 +1563,9 @@ def build_repair_prompt(failure_type: str, context: dict,
 
 def _urllib_transport(payload: dict) -> str:
     """Default transport: POST the Messages API, return concatenated text
-    blocks. Retries 429/5xx with exponential backoff."""
+    blocks. Retries 429/5xx and connection errors with exponential backoff;
+    a read timeout is not retried (the request may have been billed). Raises
+    ResponseTruncated when the answer stopped at max_tokens."""
     key = os.environ.get("ANTHROPIC_API_KEY")
     if not key:
         raise VLMError("ANTHROPIC_API_KEY is not set")
@@ -1559,10 +1578,13 @@ def _urllib_transport(payload: dict) -> str:
                      "x-api-key": key,
                      "anthropic-version": API_VERSION})
         try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
                 doc = json.loads(resp.read().decode())
-            return "".join(b.get("text", "") for b in doc.get("content", [])
+            text = "".join(b.get("text", "") for b in doc.get("content", [])
                            if b.get("type") == "text")
+            if doc.get("stop_reason") == "max_tokens":
+                raise ResponseTruncated(text, payload.get("max_tokens"))
+            return text
         except urllib.error.HTTPError as e:
             last = e
             if e.code in (429, 500, 502, 503, 529) and attempt < HTTP_RETRIES:
@@ -1575,6 +1597,9 @@ def _urllib_transport(payload: dict) -> str:
             if attempt < HTTP_RETRIES:
                 time.sleep(HTTP_BACKOFF_S * (2 ** attempt))
                 continue
+        except (TimeoutError, socket.timeout) as e:
+            raise VLMError(f"no response within {HTTP_TIMEOUT_S} s ({e}); "
+                           "not retried, the request may have been billed")
     raise VLMError(f"transport failed after {HTTP_RETRIES + 1} attempts: "
                    f"{last}")
 
@@ -1591,6 +1616,7 @@ class CallLog:
     views: int = 0         # image blocks attached (modality evidence)
     legend: bool = False   # frames_legend in the user turn
     entry: bool = False    # entry_line in the user turn
+    truncated: int = 0     # attempts cut off at max_tokens (ResponseTruncated)
 
 
 class Client:
@@ -1608,27 +1634,39 @@ class Client:
     # -- core loop -------------------------------------------------------
 
     def _ask(self, touchpoint: str, system: str, messages: list,
-             parse) -> object:
+             parse, max_tokens: int | None = None) -> object:
+        """A cut-off answer (ResponseTruncated) is counted in
+        log.truncated and its text parsed like any other, so the retry turn
+        is the parser's, exactly as before. An empty answer is never sent
+        back (the API refuses empty text blocks): that retry resends the
+        same messages."""
         log = CallLog(touchpoint)
         self.logs.append(log)
         msgs = list(messages)
         for _ in range(1 + MAX_PARSE_RETRIES):
             log.attempts += 1
-            payload = {"model": self.model, "max_tokens": self.max_tokens}
+            payload = {"model": self.model,
+                       "max_tokens": max_tokens or self.max_tokens}
             if TEMPERATURE is not None:
                 payload["temperature"] = TEMPERATURE
-            raw = self._transport({**payload, "system": system,
-                                   "messages": msgs})
+            try:
+                raw = self._transport({**payload, "system": system,
+                                       "messages": msgs})
+            except ResponseTruncated as cut:
+                log.truncated += 1
+                print(f"[vlm] {touchpoint}: {cut}")
+                raw = cut.text
             try:
                 result = parse(raw)
             except ParseRejection as rej:
                 log.rejections.append(rej.reason)
-                msgs = msgs + [
-                    {"role": "assistant", "content": [_text(raw)]},
-                    {"role": "user", "content": [_text(
-                        f"Your response was rejected: {rej.reason}. "
-                        "Re-emit the corrected JSON object only.")]},
-                ]
+                if raw.strip():
+                    msgs = msgs + [
+                        {"role": "assistant", "content": [_text(raw)]},
+                        {"role": "user", "content": [_text(
+                            f"Your response was rejected: {rej.reason}. "
+                            "Re-emit the corrected JSON object only.")]},
+                    ]
                 continue
             for f in getattr(result, "flags_all", lambda: [])():
                 log.flags.append(f)
@@ -1752,7 +1790,8 @@ class Client:
         above is unchanged."""
         system, messages = build_critic_prompt_v2(report, views, vocab)
         return self._ask("critique_preview_v2", system, messages,
-                         lambda raw: parse_critic_v2(raw, vocab, state, ledger))
+                         lambda raw: parse_critic_v2(raw, vocab, state, ledger),
+                         max_tokens=CRITIC_MAX_TOKENS)
 
     def repair(self, failure_type: str, context: dict,
                vocab: Vocabulary) -> RepairAction:

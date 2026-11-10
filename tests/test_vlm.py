@@ -804,3 +804,111 @@ def test_temperature_in_request(monkeypatch, temp, sent):
         return "ok"
     Client(transport=transport)._ask("t", "sys", [], lambda raw: raw)
     assert payloads[0].get("temperature", "absent") == sent
+
+
+# ------------------------------------------------- cut-off and empty answers
+
+def test_empty_answer_is_not_sent_back(vocab):
+    """An empty answer (thinking used the budget) is never echoed back as
+    an assistant turn: the API refuses empty text blocks with a 400. The
+    retry resends the same messages."""
+    seen = []
+    good = json.dumps({"candidate_id": 7, "rationale": "r"})
+
+    def transport(payload):
+        seen.append(payload)
+        return ["", good][len(seen) - 1]
+
+    c = Client(transport=transport)
+    sel = c.select_point_axis(STAGE, vocab, view_paths=[])
+    assert sel.candidate_id == 7
+    assert c.logs[-1].attempts == 2 and len(c.logs[-1].rejections) == 1
+    assert seen[1]["messages"] == seen[0]["messages"]
+    for m in seen[1]["messages"]:
+        for b in m["content"]:
+            assert b.get("type") != "text" or b["text"].strip()
+
+
+def test_cut_off_answer_retries_exactly_as_the_same_text(vocab):
+    """A ResponseTruncated answer is counted in the log and its text goes
+    through the parser like any other: the retry request is byte-identical
+    to the one a plain response with the same text produces."""
+    from manip_sim.vlm import ResponseTruncated
+    partial = '{"candidate_id": 7, "rati'
+    good = json.dumps({"candidate_id": 7, "rationale": "r"})
+
+    def run(first):
+        seen = []
+
+        def transport(payload):
+            seen.append(payload)
+            if len(seen) == 1:
+                return first()
+            return good
+        c = Client(transport=transport)
+        c.select_point_axis(STAGE, vocab, view_paths=[])
+        return c.logs[-1], seen
+
+    def cut():
+        raise ResponseTruncated(partial, 2000)
+    log_cut, seen_cut = run(cut)
+    log_txt, seen_txt = run(lambda: partial)
+    assert json.dumps(seen_cut, sort_keys=True) == json.dumps(seen_txt, sort_keys=True)
+    assert log_cut.truncated == 1 and log_txt.truncated == 0
+    assert log_cut.rejections == log_txt.rejections
+
+
+class _Resp:
+    def __init__(self, doc):
+        self.body = json.dumps(doc).encode()
+
+    def read(self):
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def _patch_urlopen(monkeypatch, outcome):
+    import urllib.request
+    calls = []
+
+    def urlopen(req, timeout):
+        calls.append(timeout)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return _Resp(outcome)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    return calls
+
+
+def test_transport_raises_truncated_on_max_tokens_stop(monkeypatch):
+    from manip_sim.vlm import ResponseTruncated, _urllib_transport
+    doc = {"content": [{"type": "thinking", "thinking": "..."},
+                       {"type": "text", "text": '{"a": '}],
+           "stop_reason": "max_tokens"}
+    _patch_urlopen(monkeypatch, doc)
+    with pytest.raises(ResponseTruncated) as e:
+        _urllib_transport({"max_tokens": 2000})
+    assert e.value.text == '{"a": ' and e.value.max_tokens == 2000
+    assert isinstance(e.value, VLMError)
+
+
+def test_transport_returns_text_on_end_turn(monkeypatch):
+    from manip_sim.vlm import _urllib_transport
+    doc = {"content": [{"type": "thinking", "thinking": "..."},
+                       {"type": "text", "text": "{}"}], "stop_reason": "end_turn"}
+    _patch_urlopen(monkeypatch, doc)
+    assert _urllib_transport({"max_tokens": 2000}) == "{}"
+
+
+def test_transport_read_timeout_is_a_vlm_error_and_not_retried(monkeypatch):
+    from manip_sim.vlm import HTTP_TIMEOUT_S, _urllib_transport
+    calls = _patch_urlopen(monkeypatch, TimeoutError("timed out"))
+    with pytest.raises(VLMError) as e:
+        _urllib_transport({"max_tokens": 2000})
+    assert calls == [HTTP_TIMEOUT_S] and "not retried" in str(e.value)
