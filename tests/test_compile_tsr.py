@@ -495,7 +495,7 @@ def test_sigma_floors_fixed_rows():
     np.testing.assert_allclose(cs.path.Bw[3], (-np.pi / 2 - h, h), atol=1e-9)
     floored = [n for n in cs.notes if "perception floor" in n]
     assert floored and all(f"SIGMA_K={SIGMA_K:g}" in n for n in floored)
-    assert any(n.startswith("pour.subgoal.") for n in floored)
+    assert any(n.startswith("pour.subgoal.rot[0]: ") for n in floored)
 
 
 def test_no_floor_note_without_sigmas():

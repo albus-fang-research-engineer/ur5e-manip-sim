@@ -804,7 +804,7 @@ def compile_stage(emission: StageEmission,
                 half[k] = (h, slot)
                 floored.pop(k, None)
                 if h > ROT_TOL_RAD[tol]:
-                    floored[k] = (f"{emission.name}.{ctx}.{slot}: "
+                    floored[k] = (f"{slot}: "
                                   f"{('roll', 'pitch', 'yaw')[k]} band "
                                   f"+-{np.rad2deg(h):.1f} deg set by the perception "
                                   f"floor (SIGMA_K={SIGMA_K:g} x sigma {sig:.1f} deg), "
