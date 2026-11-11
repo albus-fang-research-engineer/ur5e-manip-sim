@@ -315,24 +315,51 @@ reviewed in the claude.ai chat "Langfold manipulation planning system",
 - **Paper impact:** none.
 - **Source:** Claude Code session 2026-11-06.
 
+### D10. Critic tighten edits that the perception floor makes no-ops
+
+- **Status:** deferred (logged 2026-11-10, after SIGMA_K 3 -> 1, `a9c8e98`).
+- **What:** on hardware, front/lateral axes carry ~20 deg heading sigma, so
+  the perception floor (`SIGMA_K` x sigma, `manip_sim/compile_tsr.py`) sets
+  those rows to ~+-20 deg whether the token is `tight` or `moderate`. A critic
+  edit that tightens such a row changes no band but still spends a round.
+- **Where:** the edit applier (critic `REPAIR_ACTIONS_V2` path) and the
+  critic report's row bounds (`manip_sim/critic.py`, `bounds_in_w`).
+- **Why deferred:** not seen yet at K=1; with +-20 bands the critic should
+  rarely ask to tighten. The spout_repick re-run is the first check.
+- **Revisit when:** a live critic round returns a tighten edit on a
+  front/lateral row whose compiled band is floor-set.
+- **Plan if revisited:** compile the row before and after the edit; if the
+  band is unchanged, log the edit as refused ("bounded by the perception
+  floor, +-20.2 deg") instead of counting it as applied, and show in the
+  critic report when a row's width comes from the floor. The stage notes
+  already name floor-set rows with SIGMA_K (`a9c8e98`).
+- **Paper impact:** none.
+- **Source:** review in "UR5e hardware deployment review" (claude.ai chat),
+  2026-11-10.
+
+### D11. Direction-aware perception floor
+
+- **Status:** deferred; not worth it for the MVP.
+- **What:** the front/lateral sigma is a heading uncertainty (a rotation about
+  the object's up), but the floor widens every fixed row on that axis as a
+  cone. How much heading error affects a row depends on the attitude:
+  "lateral perpendicular to world.z" is unaffected while upright and affected
+  by about sigma x sin(tilt) mid-pour. A directional floor would let `tight`
+  mean tight where the heading does not matter.
+- **Where:** the floor in `compile_stage` (`manip_sim/compile_tsr.py`,
+  `h = max(ROT_TOL_RAD[tol], SIGMA_K * ...)`).
+- **Revisit when:** the first hardware stage needs a `tight` row on a front or
+  lateral axis; insertion is the likely one if the marker's shaft is a front
+  or lateral axis (a 20 deg floor on "shaft parallel world.z" would decide
+  that task).
+- **Plan if revisited:** propagate the up-axis-rotation sigma through the
+  row's geometry at the stage's goal attitude instead of applying it
+  isotropically.
+- **Paper impact:** none for the MVP; a limitation sentence if insertion hits it.
+- **Source:** review in "UR5e hardware deployment review" (claude.ai chat),
+  2026-11-10.
+
 ## Open design items (need a decision before or during the MVP)
-
-### O2. Pour compile when the mug faces away from the teapot
-
-- **What:** on 11/05 the mug's front (its handle direction) is about 18 deg off
-  the teapot's facing direction, so the pour's tilt-axis row does not land on
-  a w basis vector and fails the alignment gate (`ALIGN_TOL_RAD` = 10 deg,
-  `manip_sim/compile_tsr.py:174`). Sim scenes always align them.
-- **Why open, not deferred:** random placement on real scenes will rarely put
-  the mug square to the teapot, so the next hardware run will likely hit it,
-  and every misaligned scene spends paid compile retries. Placing the mug
-  square on captures is a setup guard, not a general fix.
-- **Candidate fix:** let the passive frame w take its yaw from the teapot's
-  approach direction instead of the mug's front when the mug's front is
-  arbitrary (rotationally symmetric body), or treat the mug as front-less
-  (hardware already reports front as None for such objects).
-- **Paper impact:** possibly the canonicalization description.
-- **Source:** Claude Code session 2026-11-07; doc review 2026-11-08.
 
 ### O3. Goal ranking on the hardware path
 
@@ -446,6 +473,12 @@ deployment review" chat (2026-11-08) unless noted.
   diagnosis.
 
 ## Closed
+
+- **O2. Pour compile when the mug faces away from the teapot** -- fixed
+  2026-11-10 (`40c49d2`): when no row depends on the passive's heading, w.x
+  takes the mover's lateral at entry, so the 11/05 pour compiles (fixed
+  ['pitch'] only). A row that does use the passive's heading keeps it and is
+  named in the notes.
 
 - **O1. Free path rows in the path-boundary renders** -- decided 2026-11-08:
   render them, with `reemit_stage` as the critic's edit (see the decisions
