@@ -97,6 +97,9 @@ def main() -> None:
     ap.add_argument("--timeout", type=float, default=20.0)
     ap.add_argument("--grasp-program", metavar="JSON", default=None,
                     help="take the grasp from this program instead of sampling one")
+    ap.add_argument("--grasp-source", choices=("standin", "antipodal"), default="standin",
+                    help="without --grasp-program: the handle-TSR stand-in (default) or "
+                         "analytic antipodal grasps on the object's mesh (manip_sim.antipodal)")
     ap.add_argument("--out", default=None, help="default outputs/plans/vlm/<scene>_task_vlm.npz")
     add_scene_arg(ap)
     args = ap.parse_args()
@@ -232,10 +235,44 @@ def plan(args, scene, out: Path, report: dict) -> None:
     # ---- GRASP ----------------------------------------------------------
     print("\n================ grasp ================")
     grasp_allowed = (("gripper0", "gripper0"), ("gripper0", obj))
+    grasp_quality: list[float] = []       # antipodal score per candidate (lookahead tie-break)
     if args.grasp_program:
         cands, report["grasp"] = given_grasp(args.grasp_program, obj, kin, ik, T0[obj],
                                              q_home, seeds, grasp_allowed)
         print(f"[grasp] given: {report['grasp']}")
+    elif args.grasp_source == "antipodal":
+        from manip_sim.antipodal import synthesize
+        V, F = load_obj(Path(asset_dirs[obj]) / "meshes" / f"{obj}_visual.obj")
+        grasps, funnel = synthesize(V, F, T0[obj], scene.table_top_z, seed=args.seed)
+        cands, n_tried, n_ik, offenders = [], 0, 0, Counter()
+        for g in grasps:                         # best first, spread along the object
+            if len(cands) >= args.max_grasp_candidates:
+                break
+            T_site = T0[obj] @ g.T_body_site
+            for T in (T_site, wrist_flip(T_site)):
+                n_tried += 1
+                q, ok = ik.solve_multiseed(T, seeds)
+                if not ok:
+                    continue
+                n_ik += 1
+                if kin.in_collision(q, allowed_prefix_pairs=grasp_allowed):
+                    offenders[contact_offender(kin, grasp_allowed)] += 1
+                    continue
+                cands.append((q, kin.fk(q)))
+                grasp_quality.append(g.score)
+        report["grasp"] = {"source": "antipodal", "funnel": funnel,
+                           "proposals": [{"score": round(g.score, 3),
+                                          "antipodality": round(g.antipodality, 3),
+                                          "com": round(g.com, 3),
+                                          "pad_support": round(g.pad_support, 3),
+                                          "width_mm": round(1000 * g.width, 1)} for g in grasps],
+                           "ik_tried": n_tried, "ik_feasible": n_ik,
+                           "collision_free": len(cands),
+                           "offenders": dict(offenders.most_common()), "reachable": len(cands)}
+        print(f"[grasp] antipodal: {funnel} -> {n_tried} poses (with wrist flips) -> "
+              f"{n_ik} IK-feasible -> {len(cands)} collision-free")
+        if offenders:
+            print(f"[grasp] collision offenders: {dict(offenders.most_common())}")
     else:
         pool = load_pool(asset_dirs[obj])
         cand = pool.get(int(sels[grasp_role].candidate_id), {})
@@ -299,13 +336,14 @@ def plan(args, scene, out: Path, report: dict) -> None:
                                                  n=args.n_probe, rng=rng).accepted)
         T_ent = cs.subgoal.nominal()
     scored = []
-    for q_g, T_g in cands:
+    for k, (q_g, T_g) in enumerate(cands):
         fr, sc = probe_fractions(ik, kin, T_g, T0[obj], probe_samples, seeds)
-        scored.append((sc, fr, q_g, T_g))
+        scored.append((sc, fr, q_g, T_g, grasp_quality[k] if grasp_quality else 0.0))
     if not args.grasp_program:        # a given grasp's configurations stay in IK order
-        scored.sort(key=lambda s: (-s[0], float(np.linalg.norm(s[2] - q_home))))
+        scored.sort(key=lambda s: (-s[0], -s[4], float(np.linalg.norm(s[2] - q_home))))
+    scored = [s[:4] for s in scored]
     def slide_offset_mm(T):
-        if args.grasp_program:
+        if args.grasp_program or args.grasp_source == "antipodal":
             return None
         axis_w = T0[obj][:3, :3] @ gp.axis
         centre_w = (T0[obj] @ np.r_[gp.center, 1.0])[:3]
