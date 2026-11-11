@@ -315,39 +315,56 @@ reviewed in the claude.ai chat "Langfold manipulation planning system",
 - **Paper impact:** none.
 - **Source:** Claude Code session 2026-11-06.
 
-### D9. Ablation: our typed critic/repair loop vs OmniManip's label-only RRC
+### D9. Ablation: typed infeasibility feedback vs OmniManip's blind retry
 
-- **Status:** deferred until the critic loop works live (after D6's first
-  runs). Separate from the call #3 authoring ablation (branch
-  `authoring-ablation`, worktree `~/ur5e-authoring`), which runs critic-off.
-- **What:** give both repair loops the same faulty specifications and compare
-  how well and how cheaply each recovers. Ours returns typed edits (this
-  branch's `CRITIC_ACTIONS` / `REPAIR_ACTIONS_V2`); OmniManip's RRC returns a
-  label only (success / failure / refinement) and resamples (R5).
-- **Setup:** start from specifications known to plan and pass the task spec,
-  then inject one fault of a known type per case: wrong anchor point (the
-  11/05 handle carry), missing rotation row, tolerance too loose, clearance
-  too small, wrong axis. Both loops get the same model, the same preview
-  renders and the same round budget; OmniManip's loop is ported onto our
-  renders so the evidence is identical.
+- **Status:** design starting 2026-11-11 in its own session. Its first check is
+  whether the critic loop runs live end to end; paid runs wait for that.
+  Separate from the call #3 authoring ablation (branch `authoring-ablation`,
+  worktree `~/ur5e-authoring`), which runs critic-off.
+- **Claim:** typed infeasibility feedback to the critic recovers more faults
+  with fewer VLM calls than OmniManip's blind retry. The claim is about the
+  loop as a whole (typed feedback plus typed edits). It does not say the
+  typing alone causes the gain; two variants cannot separate the feedback
+  from the repair.
+- **Variants (two):**
+  - **OmniManip RRC (blind retry):** on failure the VLM gets a bare label
+    (success / failure / refinement) and the spec is resampled (re-run call #3
+    with the same prompt) (R5). Ported from OmniManip's published prompts and
+    procedure onto our renders.
+  - **Ours:** the critic gets the typed infeasibility report and returns typed
+    edits (this branch's `CRITIC_ACTIONS` / `REPAIR_ACTIONS_V2`).
+  - The only difference is what comes back after a failure. Same model, same
+    renders, same round budget, same starting spec.
+  - **Optional third, if time and a reviewer would ask:** ours with the reason
+    withheld (the infeasibility report replaced by "failed"; one flag, no
+    port). Isolates the typed report.
+- **Faults:** start from specifications known to plan and pass the task spec,
+  then inject one fault per case. Use faults that make the spec infeasible,
+  since the claim is about infeasibility feedback: clearance too small, wrong
+  anchor point leaving no IK (the 11/05 handle carry), a handoff the next stage
+  rejects. Faults that still plan but violate the task (tolerance too loose,
+  wrong axis) do not exercise infeasibility feedback; leave them out or report
+  them in a separate row. Scenes: pour tea, insert marker.
 - **Metrics:**
-  - planning success and spec-graded task success after the loop (primary);
-  - recovery rate per fault type (which faults each loop can fix at all);
-  - cost: VLM calls, tokens and rounds to acceptance;
-  - collateral damage: edits to rows or stages that were already right, and
-    successes turned into failures;
-  - false accepts and false rejects against D6's human labels;
-  - oscillation: edits reversed or repeated within a run.
-- **Revisit when:** the critic loop has run live end to end and D6 has its
-  first labeled runs.
-- **Plan if revisited:** a fault-injection script over the sim scenes
-  (pour tea, insert marker) writing faulty emissions plus the fault label;
-  run both loops per case; one table per fault type. Paid calls proposed with
-  a count before running.
-- **Paper impact:** evidence for typed edits over label-only verdicts (the
-  contrast with OmniManip's RRC in the related work and D7).
+  - fix success rate (primary): the spec after the loop plans and passes the
+    task spec (kinematic grading, `eval_plan.py` / `eval_pour.py`: goal, path
+    and no penetration; no physics execution);
+  - VLM cost: calls, tokens and rounds to acceptance;
+  - per fault type, from the same runs: which faults each loop fixes at all;
+  - collateral damage (edits to rows or stages that were already right,
+    successes turned into failures) and oscillation (edits reversed or
+    repeated), from the same logs.
+  - Dropped for now: false accepts and rejects against D6's labels.
+- **Planner:** use the chord-checked planner (every move between CBiRRT nodes
+  collision-checked at 0.02 rad, on `authoring-ablation`); without it a
+  "success" can pass through objects.
+- **Plan:** a fault-injection script writing faulty emissions plus the fault
+  label; run both loops per case; a few cases per fault first, then decide
+  whether to scale. Paid calls proposed with a count before running.
+- **Paper impact:** the sentence in **Claim**, against OmniManip's RRC in the
+  related work and D7.
 - **Source:** Claude Code session (authoring ablation), 2026-11-08; the user's
-  proposal.
+  proposal; scope narrowed to two variants 2026-11-11.
 
 ### D10. Critic tighten edits that the perception floor makes no-ops
 
