@@ -484,13 +484,24 @@ def test_two_rows_fully_determine_attitude():
 def test_sigma_floors_fixed_rows():
     tp = SYMBOLS["teapot"]
     noisy = Symbols("teapot", tp.points, tp.axes, tp.quantities,
-                    sigmas={"axes.front_axis": 5.0})
+                    sigmas={"axes.front_axis": 20.0})   # hardware heading sigma
     cs = compile_stage(emission(POUR), {**SYMBOLS, "teapot": noisy}, POUR_POSES,
                        w_point=OPENING, e_point=TIP)
-    h = SIGMA_K * np.deg2rad(5.0)             # > tight (5 deg)
+    h = SIGMA_K * np.deg2rad(20.0)
+    assert h > ROT_TOL_RAD["tight"]           # the floor, not the tol, sets it
+    assert h < np.deg2rad(30.0)               # 1 sigma: still a real band
     np.testing.assert_allclose(cs.subgoal.Bw[3], (-h, h))
     np.testing.assert_allclose(cs.subgoal.Bw[4], (-h, h))
     np.testing.assert_allclose(cs.path.Bw[3], (-np.pi / 2 - h, h), atol=1e-9)
+    floored = [n for n in cs.notes if "perception floor" in n]
+    assert floored and all(f"SIGMA_K={SIGMA_K:g}" in n for n in floored)
+    assert any(n.startswith("pour.subgoal.") for n in floored)
+
+
+def test_no_floor_note_without_sigmas():
+    cs = compile_stage(emission(POUR), SYMBOLS, POUR_POSES,
+                       w_point=OPENING, e_point=TIP)
+    assert not any("perception floor" in n for n in cs.notes)
 
 
 # ------------------------------------------------------------ expr terms

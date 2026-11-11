@@ -87,11 +87,12 @@ route to touchpoint #5 rather than silently mis-compiling):
   Each fixed row is +-t widened by the referenced symbols' sigmas:
   half = max(t, SIGMA_K * sqrt(sigma_A^2 + sigma_R^2 [+ sigma_up_w^2 on
   roll/pitch, the w frame's own tilt])) — refine.couple_rot_bound's
-  floor rule, row-wise, from the per-symbol sigmas frames.json carries
-  (none -> no floor, the authored sidecars' regime). The box requires the
-  fixed rotation axes to land on w basis vectors within ALIGN_TOL; with
-  canonical references that is automatic (R is w's z or x or y), a part
-  axis or a tilted passive can fail it, typed.
+  floor rule (with SIGMA_K = 1 rather than its 3), row-wise, from the
+  per-symbol sigmas frames.json carries (none -> no floor, the authored
+  sidecars' regime). The box requires the fixed rotation axes to land on
+  w basis vectors within ALIGN_TOL; with canonical references that is
+  automatic (R is w's z or x or y), a part axis or a tilted passive can
+  fail it, typed.
 
   PATH rows additionally carry the entry-to-goal sweep: when the
   rotation from entry to the path rows' goal is about an axis within
@@ -182,7 +183,14 @@ INSIDE_TOL_M = {                      # containment-cube half-width
 }
 
 ALIGN_TOL_RAD = np.deg2rad(10.0)      # "lands on a w basis vector" gate
-SIGMA_K = 3.0                         # k-sigma floor, refine.couple_rot_bound's k
+# k-sigma floor on fixed rows. 1, not refine.couple_rot_bound's 3: hardware
+# front/lateral axes carry ~20 deg heading sigma (Orient Anything), and 3x
+# that (~60 deg) left "spout down" and "no roll" rows nearly unconstrained
+# (11/05 pour). 1 sigma keeps the bands meaningful (~20 deg). Up-axis rows
+# (~2 deg sigma) are floored only below ~3 deg, so a tight (5) up row narrows
+# from ~7.8 to 5; sim (no sigmas) is unaffected. A row the floor sets is
+# named in the stage notes with SIGMA_K, so records state which K they used.
+SIGMA_K = 1.0
 
 _UP, _FRONT, _LATERAL = FRAME_AXES
 _ROW_IDX = {"x": 0, "y": 1, "z": 2, "roll": 3, "pitch": 4, "yaw": 5}
@@ -786,6 +794,7 @@ def compile_stage(emission: StageEmission,
         R_goal = Rd @ R_entry if mover is not None else None
 
         half: dict[int, tuple[float, str]] = {}
+        floored: dict[int, str] = {}    # row -> note when the floor sets its band
         for k, slot, tol in fixed:
             r = next(rr for s, rr, _, _ in rel if s == slot)
             sig = np.sqrt(_sigma(r.axis) ** 2 + _sigma(r.reference) ** 2
@@ -793,6 +802,14 @@ def compile_stage(emission: StageEmission,
             h = max(ROT_TOL_RAD[tol], SIGMA_K * np.deg2rad(sig))
             if k not in half or h < half[k][0]:
                 half[k] = (h, slot)
+                floored.pop(k, None)
+                if h > ROT_TOL_RAD[tol]:
+                    floored[k] = (f"{emission.name}.{ctx}.{slot}: "
+                                  f"{('roll', 'pitch', 'yaw')[k]} band "
+                                  f"+-{np.rad2deg(h):.1f} deg set by the perception "
+                                  f"floor (SIGMA_K={SIGMA_K:g} x sigma {sig:.1f} deg), "
+                                  f"wider than tol {tol}")
+        notes.extend(floored[k] for k in sorted(floored))
         rows: dict[int, tuple[float, float, str]] = {
             k: (-h, h, s) for k, (h, s) in half.items()}
         if rel:
