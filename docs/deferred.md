@@ -315,6 +315,40 @@ reviewed in the claude.ai chat "Langfold manipulation planning system",
 - **Paper impact:** none.
 - **Source:** Claude Code session 2026-11-06.
 
+### D9. Ablation: our typed critic/repair loop vs OmniManip's label-only RRC
+
+- **Status:** deferred until the critic loop works live (after D6's first
+  runs). Separate from the call #3 authoring ablation (branch
+  `authoring-ablation`, worktree `~/ur5e-authoring`), which runs critic-off.
+- **What:** give both repair loops the same faulty specifications and compare
+  how well and how cheaply each recovers. Ours returns typed edits (this
+  branch's `CRITIC_ACTIONS` / `REPAIR_ACTIONS_V2`); OmniManip's RRC returns a
+  label only (success / failure / refinement) and resamples (R5).
+- **Setup:** start from specifications known to plan and pass the task spec,
+  then inject one fault of a known type per case: wrong anchor point (the
+  11/05 handle carry), missing rotation row, tolerance too loose, clearance
+  too small, wrong axis. Both loops get the same model, the same preview
+  renders and the same round budget; OmniManip's loop is ported onto our
+  renders so the evidence is identical.
+- **Metrics:**
+  - planning success and spec-graded task success after the loop (primary);
+  - recovery rate per fault type (which faults each loop can fix at all);
+  - cost: VLM calls, tokens and rounds to acceptance;
+  - collateral damage: edits to rows or stages that were already right, and
+    successes turned into failures;
+  - false accepts and false rejects against D6's human labels;
+  - oscillation: edits reversed or repeated within a run.
+- **Revisit when:** the critic loop has run live end to end and D6 has its
+  first labeled runs.
+- **Plan if revisited:** a fault-injection script over the sim scenes
+  (pour tea, insert marker) writing faulty emissions plus the fault label;
+  run both loops per case; one table per fault type. Paid calls proposed with
+  a count before running.
+- **Paper impact:** evidence for typed edits over label-only verdicts (the
+  contrast with OmniManip's RRC in the related work and D7).
+- **Source:** Claude Code session (authoring ablation), 2026-11-08; the user's
+  proposal.
+
 ### D10. Critic tighten edits that the perception floor makes no-ops
 
 - **Status:** deferred (logged 2026-11-10, after SIGMA_K 3 -> 1, `a9c8e98`).
