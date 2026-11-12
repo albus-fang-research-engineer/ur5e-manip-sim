@@ -158,8 +158,8 @@ def handoff_of(task: str, emission: Path) -> dict:
     try:
         rows = handoff_scores(t["scene"], t["grounding"], t["stage_plan"], t["selections"],
                               str(emission))
-    except Exception as e:
-        return {"error": f"{type(e).__name__}: {e}"[:200]}
+    except (Exception, SystemExit) as e:   # the loaders refuse e.g. a gate-failed
+        return {"error": f"{type(e).__name__}: {e}"[:200]}   # emission with SystemExit
     pairs = [r for r in rows if "tested" in r and r["tested"]]
     if not pairs:
         return {"pairs": rows}

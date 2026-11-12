@@ -63,6 +63,7 @@ alike.
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import os
 import re
@@ -1464,7 +1465,9 @@ def _urllib_transport(payload: dict) -> str:
                      "x-api-key": key,
                      "anthropic-version": API_VERSION})
         try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            # non-streaming: the reply arrives whole, so allow a long one (the ablation
+            # runner sets MANIP_VLM_MAX_TOKENS=16000; a much larger cap needs more)
+            with urllib.request.urlopen(req, timeout=600) as resp:
                 doc = json.loads(resp.read().decode())
             LAST_RESPONSE.update(stop_reason=doc.get("stop_reason"),
                                  usage=doc.get("usage"))
@@ -1477,7 +1480,10 @@ def _urllib_transport(payload: dict) -> str:
                 continue
             raise VLMError(f"API error {e.code}: "
                            f"{e.read().decode(errors='replace')[:500]}")
-        except urllib.error.URLError as e:
+        # a timeout or dropped connection while waiting for the reply raises these,
+        # not URLError; retry them too rather than crash the emit step
+        except (urllib.error.URLError, TimeoutError, ConnectionError,
+                http.client.HTTPException) as e:
             last = e
             if attempt < HTTP_RETRIES:
                 time.sleep(HTTP_BACKOFF_S * (2 ** attempt))

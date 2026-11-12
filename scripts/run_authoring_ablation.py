@@ -57,7 +57,10 @@ TASKS = {
 METHODS = ("A0", "A3", "A4", "A5")
 MODEL = "claude-opus-5"        # hardware's model (ur5e-manip-hardware .env)
 TEMPERATURE = "none"           # hardware omits the key; the API default applies
-MAX_TOKENS = "4000"            # one cap for every method (code replies are longer)
+MAX_TOKENS = "16000"           # one cap for every method. claude-opus-5 thinks by default
+                               # (no `thinking` field sent) and hidden thinking counts against
+                               # the cap: pilot2 at 4000 billed up to 3514 output tokens for
+                               # ~465 tokens of visible reply; no max_tokens stops
 PARSE_ATTEMPTS, GATE_ATTEMPTS = 3, 3   # vlm.MAX_PARSE_RETRIES + 1, COMPILE_RETRIES + 1
 
 
