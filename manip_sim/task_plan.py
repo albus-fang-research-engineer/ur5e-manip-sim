@@ -273,9 +273,12 @@ def probe_fractions(ik, kin, T0_ee_grasp, T0_body_now, stage_samples, seeds):
 
 
 def walk_goals(plan, kin, attached, path_tsrs, q_start, goals, k_max, timeout,
-               stage: str, **kw):
+               stage: str, rng=None, **kw):
     """Plan to the ranked goals in turn (a failure on one goal is
-    attrition); all failed -> typed failure with the reason histogram."""
+    attrition); all failed -> typed failure with the reason histogram.
+    rng is passed to every plan call (one stream across the goals)."""
+    if rng is not None:
+        kw = {**kw, "rng": rng}
     fails = []
     for k, g in enumerate(goals[:k_max]):
         r = plan(kin, attached, path_tsrs, q_start, g, timeout=timeout, **kw)
@@ -327,3 +330,52 @@ def decomposition(stage_reports: list[dict]) -> str:
             parts.append(f"{s['role']}: {inside:.0f} deg inside the stage "
                          "(under its path TSR)")
     return "; ".join(parts)
+
+
+# ------------------------------------------------------------------ handoffs
+
+def handoff_rejection(compile_fn, next_stage: "MoverStage", symbols, body_poses,
+                      w_point, e_point) -> str | None:
+    """None if the next stage accepts `body_poses` (the mover where this stage
+    ends) as its start: the compile the planner runs at the actual handoff,
+    with its entry-admission check. Otherwise the compiler's reason.
+    `compile_fn` is code_authoring.compile_any (passed in, so this module does
+    not depend on the authoring code)."""
+    from .compile_tsr import CompileError
+    try:
+        compile_fn(next_stage.emission, symbols, body_poses, w_point=w_point,
+                   e_point=e_point, entry_synthesized=False)
+    except CompileError as e:
+        return e.text() if hasattr(e, "text") else str(e)
+    except Exception as e:           # a crash in the recompile also means "cannot start here"
+        return f"error: {type(e).__name__}: {e}"
+    return None
+
+
+def chained(movers: list["MoverStage"], i: int) -> "MoverStage | None":
+    """The stage after movers[i] when it starts where movers[i] ends (same
+    mover, not a synthesized start); else None."""
+    if i + 1 >= len(movers):
+        return None
+    nxt = movers[i + 1]
+    return nxt if (nxt.stage.active == movers[i].stage.active and not nxt.synthesized) else None
+
+
+def handoff_consistency(compile_fn, subgoal, next_stage: "MoverStage", symbols,
+                        passive_poses: dict, w_point, e_point, n: int = 64,
+                        seed: int = 0) -> dict:
+    """Of n poses sampled from this stage's goal region, how many the next
+    stage rejects as its start. (The ablation's per-emission score is
+    manip_sim.spec_scores.handoff_scores, which samples goal ∩ path.)"""
+    rng = np.random.default_rng(seed)
+    reasons, rejected = Counter(), 0
+    mover = next_stage.stage.active
+    for _ in range(n):
+        T = subgoal.sample(rng)
+        why = handoff_rejection(compile_fn, next_stage, symbols,
+                                {**passive_poses, mover: T}, w_point, e_point)
+        if why is not None:
+            rejected += 1
+            reasons[why.split(";")[0][:100]] += 1
+    return {"to": next_stage.role, "tested": n, "rejected": rejected,
+            "reasons": dict(reasons.most_common(3))}

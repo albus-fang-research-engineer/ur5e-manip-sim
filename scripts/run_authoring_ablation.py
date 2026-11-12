@@ -41,6 +41,14 @@ TASKS = {
                       "stage_plan": "outputs/runs/gt_opus1/stage_plan.json",
                       "selections": "outputs/runs/gt_opus1/selections.json",
                       "authored_stages": {"A0": 3, "A3": 2, "A4": 2, "A5": 2}},
+    # the same task with the marker standing (user's choice, 2026-11-11): the sim 2F-85
+    # cannot hold a lying marker securely; calls #1 / #2 artifacts are reused frozen
+    "insert_marker_upright": {"scene": "scenes/insert_marker_upright.json",
+                              "grounding": "outputs/grounding/insert_marker_gt_opus1",
+                              "stage_plan": "outputs/runs/gt_opus1/stage_plan.json",
+                              "selections": "outputs/runs/gt_opus1/selections.json",
+                              "grasp": "antipodal",
+                              "authored_stages": {"A0": 3, "A3": 2, "A4": 2, "A5": 2}},
     # authored sidecars and the fixed pour-tea stages, as plan_pour_tea.py uses
     "pour_tea": {"scene": "scenes/pour_tea.json", "grounding": None,
                  "stage_plan": None, "selections": "outputs/selections/pour_tea.json",

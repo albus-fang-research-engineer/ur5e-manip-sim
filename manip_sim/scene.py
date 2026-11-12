@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 DEFAULT_SCENE = Path("scenes/pour_tea.json")
 
@@ -42,6 +43,10 @@ DEFAULT_SCENE = Path("scenes/pour_tea.json")
 class Placement:
     xy: tuple[float, float]
     yaw: float | dict          # rad, or {"face": obj, "along": axis}
+    tilt: tuple | None = None  # optional (body axis xyz, deg): rotate the body by this
+                               # BEFORE the yaw, e.g. stand an object up; None = as authored
+    drop_height: float | None = None   # optional per-object override of the scene's
+                                       # drop height (body origin above the table)
 
 
 @dataclass(frozen=True)
@@ -89,7 +94,22 @@ class Scene:
 
     @property
     def spawn_z(self) -> float:
+        """The scene's default spawn height (objects without their own drop_height)."""
         return self.table_top_z + self.drop_height
+
+    def spawn_z_of(self, name: str) -> float:
+        """This object's spawn height: its own drop_height when it declares one."""
+        d = self.objects[name].placement.drop_height
+        return self.table_top_z + (self.drop_height if d is None else d)
+
+    def tilt_rotation(self, name: str) -> R:
+        """The placement's tilt (identity when none), applied before the yaw."""
+        t = self.objects[name].placement.tilt
+        if t is None:
+            return R.identity()
+        axis, deg = t
+        a = np.asarray(axis, float)
+        return R.from_rotvec(np.radians(deg) * a / np.linalg.norm(a))
 
     def front(self, name: str) -> np.ndarray | None:
         """The object's declared FRONT (body coords): the authored axis a
@@ -109,15 +129,23 @@ class Scene:
         y = self.objects[name].placement.yaw
         if not isinstance(y, dict):
             return float(y)
-        axis = self.front(name)
+        axis = self.tilt_rotation(name).apply(self.front(name))   # the front after the tilt
+        if np.hypot(axis[0], axis[1]) < 1e-6:
+            raise ValueError(f"{name}: the tilt makes the facing axis vertical; "
+                             "a `face` yaw cannot point it at another object")
         body_yaw = float(np.arctan2(axis[1], axis[0]))
         bearing = self.xy(y["face"]) - self.xy(name)
         return float(np.arctan2(bearing[1], bearing[0])) - body_yaw
 
     def fixed_poses(self) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-        """name -> (pos[3], quat_wxyz[4]) at spawn."""
-        return {n: (np.array([*self.xy(n), self.spawn_z]), yaw_quat_wxyz(self.yaw(n)))
-                for n in self.objects}
+        """name -> (pos[3], quat_wxyz[4]) at spawn: the placement's tilt (if
+        any) about a body axis, then its yaw about world z."""
+        out = {}
+        for n in self.objects:
+            rot = R.from_rotvec([0.0, 0.0, self.yaw(n)]) * self.tilt_rotation(n)
+            out[n] = (np.array([*self.xy(n), self.spawn_z_of(n)]),
+                      rot.as_quat(scalar_first=True))
+        return out
 
 
 def yaw_quat_wxyz(yaw: float) -> np.ndarray:
@@ -133,7 +161,10 @@ def load_scene(path: str | Path = DEFAULT_SCENE,
         p = o["placement"]
         objects[name] = SceneObject(
             name=name, asset=Path(o["asset"]),
-            placement=Placement(xy=tuple(p["xy"]), yaw=p.get("yaw", 0.0)))
+            placement=Placement(xy=tuple(p["xy"]), yaw=p.get("yaw", 0.0),
+                                tilt=(tuple(p["tilt"]["axis"]), float(p["tilt"]["deg"]))
+                                if "tilt" in p else None,
+                                drop_height=p.get("drop_height")))
     t = doc["table"]
     return Scene(name=doc["name"], task=doc["task"],
                  table_size=tuple(t["size"]), table_top_z=float(t["top_z"]),

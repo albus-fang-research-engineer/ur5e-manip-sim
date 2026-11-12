@@ -15,10 +15,14 @@ from manip_sim.frames import load_symbols  # noqa: E402
 from manip_sim.planning import (  # noqa: E402
     ArmKinematics,
     AttachedObject,
+    TRACK_STEP_RAD,
     MinkIK,
+    chord_clear,
+    densify,
     plan_constrained,
     project_config,
 )
+from manip_sim.grasping import free_tsr  # noqa: E402
 from manip_sim.pour_stages import transport_pair  # noqa: E402
 from manip_sim.tsr import make_pose, sample_intersection  # noqa: E402
 
@@ -113,3 +117,41 @@ def test_full_stage2_plan(scene):
     # start and end match the requested configs
     assert np.linalg.norm(res.path[0] - q_home) < 0.05
     assert np.linalg.norm(res.path[-1] - q_goal) < 0.05
+
+class _ThinPost:
+    """The arm's kinematics with a stand-in obstacle: a post 0.03 rad thick in
+    joint 0, thinner than the planner's 0.12 rad node spacing, so a search that
+    checks only its nodes can step over it."""
+
+    def __init__(self, kin, q_ref):
+        self.kin, self.q_ref = kin, np.asarray(q_ref, float)
+
+    def __getattr__(self, name):
+        return getattr(self.kin, name)
+
+    def in_collision(self, q, **_):
+        d = np.asarray(q) - self.q_ref
+        return bool(0.04 < d[0] < 0.07 and abs(d[1]) < 0.3)
+
+
+def test_chord_clear_sees_an_obstacle_between_clear_nodes(scene):
+    _, kin, q_home, _, _, _ = scene
+    post = _ThinPost(kin, q_home)
+    qb = q_home + np.array([0.11, 0, 0, 0, 0, 0])
+    assert not post.in_collision(q_home) and not post.in_collision(qb)
+    assert not chord_clear(post, q_home, qb)
+    assert chord_clear(post, q_home, q_home + np.array([0.03, 0, 0, 0, 0, 0]))
+
+
+def test_planned_path_is_clear_at_the_trackers_step(scene):
+    """Every config the tracker commands (the path densified at
+    TRACK_STEP_RAD, as eval_plan.py grades it) is collision-free, not only the
+    planner's nodes."""
+    _, kin, q_home, att, _, _ = scene
+    post = _ThinPost(kin, q_home)
+    q_goal = np.clip(q_home + np.array([0.6, 0, 0, 0, 0, 0]), *kin.joint_range.T)
+    res = plan_constrained(post, att, [free_tsr()], q_home, q_goal, timeout=60.0,
+                           max_iters=500, rng=np.random.default_rng(0))
+    assert res.ok, res.reason
+    hits = [q for q in densify(res.path, TRACK_STEP_RAD) if post.in_collision(q)]
+    assert not hits, f"{len(hits)} tracked configs inside the post"

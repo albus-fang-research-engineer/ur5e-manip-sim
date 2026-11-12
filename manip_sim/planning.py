@@ -36,6 +36,48 @@ from scipy.spatial.transform import Rotation as R
 
 from .tsr import START_PROJECTION_BUDGET_M, TSR, make_pose
 
+# Search budget the planner scripts pass to plan_constrained(max_iters=...).
+# Calibrated on successful calls (15 of them: insert-marker A0 with the fixed
+# grasp, seeds 0-2, and pour-tea A3, seeds 0-1): main-loop iterations were
+# 1 (x8), 2, 3 (x3), 5, 21, 22, so p95 ~= 21. Those were easy cases, so the
+# budget is set well above them (about 10x the largest) to keep hard searches
+# that used to succeed late within the old 20 s; a larger budget costs nothing
+# on success, since a search stops when it connects. An iteration budget instead
+# of a wall clock makes a seeded plan independent of CPU load. Raised from 200 to
+# 500 (user, 2026-11-11) with the chord checks (chord_clear): they reject more
+# extensions, so a search needs more iterations to connect, and 200 was
+# calibrated before them. Freeze it before the ablation runs; never tune it per
+# variant.
+DEFAULT_MAX_ITERS = 500
+# Wall-clock safety cap only; the iteration budget is what normally stops the search.
+DEFAULT_TIMEOUT_S = 120.0
+# The tracker's per-joint step (Tracker.track's max_joint_step): execution and
+# the graders interpolate every planned chord at this step, so the planner
+# collision-checks every chord at the same step (chord_clear).
+TRACK_STEP_RAD = 0.02
+
+
+def densify(path: np.ndarray, max_joint_step: float) -> np.ndarray:
+    """Insert waypoints so consecutive targets differ by <= max_joint_step
+    on every joint. Endpoints (the planner's projected configs) are kept."""
+    out = [path[0]]
+    for qa, qb in zip(path[:-1], path[1:]):
+        n = max(1, int(np.ceil(np.max(np.abs(qb - qa)) / max_joint_step)))
+        for k in range(1, n + 1):
+            out.append(qa + (qb - qa) * k / n)
+    return np.asarray(out)
+
+
+def chord_clear(kin, qa: np.ndarray, qb: np.ndarray,
+                step: float = TRACK_STEP_RAD) -> bool:
+    """True if the straight joint-space chord qa -> qb is collision-free at
+    the points the tracker commands on it (the endpoints are the caller's to
+    check). Planner nodes are up to eps = 0.12 rad apart, along which the held
+    object can sweep ~10 cm; checking only the nodes let it clip the cup rim
+    between two clear nodes (authoring trial, 2026-11-11)."""
+    return not any(kin.in_collision(q)
+                   for q in densify(np.stack([qa, qb]), step)[1:-1])
+
 # --------------------------------------------------------------- kinematics
 
 
@@ -388,7 +430,7 @@ def project_config(kin: ArmKinematics, attached: AttachedObject,
 
 
 def _constrained_segment(kin, attached, tsrs, qa, qb, eps, tol,
-                         check_collision, max_steps=200):
+                         check_collision, max_steps=200, check_chords=True):
     """CBiRRT ConstrainedExtend: step from qa toward qb in eps-sized joint
     moves, projecting each step onto the manifold, requiring monotone
     progress and (optionally) collision-freedom. Returns the list of
@@ -401,14 +443,16 @@ def _constrained_segment(kin, attached, tsrs, qa, qb, eps, tol,
         n = np.linalg.norm(d)
         if n <= eps:                              # arrival
             q_new, ok = project_config(kin, attached, tsrs, qb, tol=tol)
-            if ok and not (check_collision and kin.in_collision(q_new)):
+            if ok and not (check_collision and (kin.in_collision(q_new) or
+                                                (check_chords and not chord_clear(kin, q, q_new)))):
                 out.append(q_new)
             return out
         q_step = q + d * (eps / n)
         q_new, ok = project_config(kin, attached, tsrs, q_step, tol=tol)
         if not ok:
             return out
-        if check_collision and kin.in_collision(q_new):
+        if check_collision and (kin.in_collision(q_new) or
+                                (check_chords and not chord_clear(kin, q, q_new))):
             return out
         dist_new = np.linalg.norm(qb - q_new)
         if dist_new >= dist_prev or np.linalg.norm(q_new - q) > 3 * eps:
@@ -418,7 +462,7 @@ def _constrained_segment(kin, attached, tsrs, qa, qb, eps, tol,
     return out
 
 
-def plan_constrained(
+def _plan_constrained(
     kin: ArmKinematics,
     attached: AttachedObject,
     path_tsrs: list[TSR],
@@ -432,6 +476,8 @@ def plan_constrained(
     n_shortcut: int = 80,
     rng: np.random.Generator | None = None,
     goal_test=None,
+    max_iters: int | None = None,
+    check_chords: bool = True,
 ) -> PlanResult:
     """CBiRRT (Berenson et al.): bidirectional RRT whose every extension is
     projected onto the TSR manifold by project_config.
@@ -439,6 +485,17 @@ def plan_constrained(
     goal_test: q -> bool, for a goal that is a region: the plan also ends at the
     first node of the start tree it accepts, whichever arm configuration that is.
     q_goal then only seeds the search.
+
+    max_iters: budget on iterations of the main search loop. With a seeded rng
+    it makes the search repeatable (the result no longer depends on CPU load);
+    timeout stays as a wall-clock safety cap. Whichever runs out first stops
+    the search, and the failure reason says which.
+
+    check_chords: also collision-check the chord between consecutive configs
+    at the tracker's step (chord_clear), as execution and the graders see it.
+    False is the pre-2026-11-11 planner (nodes only), kept for before/after
+    comparisons. Every search prints one '[cbirrt]' line (result, iterations,
+    time) for those comparisons.
 
     Implemented directly rather than via OMPL's ProjectedStateSpace: the
     TSR residual is zero (with zero Jacobian) on a full-dimensional region,
@@ -489,17 +546,29 @@ def plan_constrained(
         i = nearest(tree, q_target)
         seg = _constrained_segment(kin, attached, path_tsrs,
                                    tree["q"][i], q_target, eps,
-                                   constraint_tol, check_collision)
+                                   constraint_tol, check_collision,
+                                   check_chords=check_chords)
         for q in seg:
             tree["q"].append(q)
             tree["parent"].append(i)
             i = len(tree["q"]) - 1
+        # the bridge chord (this tree's last node -> the other tree's node)
+        # goes into the path, so it is checked like every other chord
         return i, (len(seg) > 0 and
-                   np.linalg.norm(tree["q"][i] - q_target) <= eps)
+                   np.linalg.norm(tree["q"][i] - q_target) <= eps and
+                   not (check_collision and check_chords and
+                        not chord_clear(kin, tree["q"][i], q_target)))
 
     a, b = 0, 1
     bridge, region_hit = None, None
-    while _time.time() < t_end:
+    n_iters, stopped_by = 0, "timeout"
+    while True:
+        if max_iters is not None and n_iters >= max_iters:
+            stopped_by = f"iteration budget exhausted ({max_iters})"
+            break
+        if _time.time() >= t_end:
+            break
+        n_iters += 1
         q_rand = rng.uniform(lo_s, hi_s)
         n_start = len(trees[0]["q"])
         ia, _ = grow(trees[a], q_rand)
@@ -515,9 +584,12 @@ def plan_constrained(
         a, b = b, a
 
     if bridge is None and region_hit is None:
-        return PlanResult(False, reason=f"no path in {timeout}s",
-                          solve_time=timeout,
-                          stats={"tree_sizes": [len(t["q"]) for t in trees]})
+        reason = (f"no path in {timeout}s (timeout)" if stopped_by == "timeout"
+                  else f"no path: {stopped_by}")
+        return PlanResult(False, reason=reason,
+                          solve_time=timeout - max(0.0, t_end - _time.time()),
+                          stats={"tree_sizes": [len(t["q"]) for t in trees],
+                                 "n_iters": n_iters})
 
     def backtrack(tree, i):
         out = []
@@ -537,16 +609,18 @@ def plan_constrained(
             path = path[::-1]
         path = np.array(path)
 
-    # shortcut smoothing (constrained: shortcuts are projected segments)
+    # shortcut smoothing (constrained: shortcuts are projected segments). The
+    # fixed count n_shortcut alone bounds it: a wall-clock stop here made a
+    # seeded plan depend on machine load whenever the search ran near its cap.
     for _ in range(n_shortcut):
-        if len(path) < 4 or _time.time() > t_end + 5.0:
+        if len(path) < 4:
             break
         i, j = sorted(rng.choice(len(path), 2, replace=False))
         if j - i < 2:
             continue
         seg = _constrained_segment(kin, attached, path_tsrs,
                                    path[i], path[j], eps, constraint_tol,
-                                   check_collision)
+                                   check_collision, check_chords=check_chords)
         if seg and np.linalg.norm(seg[-1] - path[j]) <= 1e-9 and \
            len(seg) < (j - i):
             # seg[:-1] may be empty (single-config shortcut): reshape keeps
@@ -560,9 +634,11 @@ def plan_constrained(
         n = max(1, int(np.ceil(np.linalg.norm(qb - qa) / eps)))
         for k in range(1, n + 1):
             dense.append(qa + (qb - qa) * k / n)
-    # The dense path IS the plan: consecutive configs are <= eps apart by
-    # construction, and every one of them was projected and collision-
-    # checked. The old count-based subsample (linspace to n_interp) silently
+    # The dense path IS the plan: consecutive configs are <= eps apart. Every
+    # chord between the search's own configs was collision-checked at the
+    # tracker's step (chord_clear); a chord longer than eps (a projection
+    # lurch) gets interpolated configs here that lie on that checked chord,
+    # but are not projected. The old count-based subsample (linspace to n_interp) silently
     # MULTIPLIED the spacing on long paths — the tracker then linearly
     # re-interpolates between distant projected configs, and those chords
     # are off-manifold and collision-UNchecked. n_interp now only bounds
@@ -581,4 +657,19 @@ def plan_constrained(
                       stats={"n_waypoints": len(qs),
                              "tree_sizes": [len(t["q"]) for t in trees],
                              "start_nudge_m": start_nudge,
+                             "n_iters": n_iters,
                              "ended_in_goal_region": region_hit is not None})
+
+def plan_constrained(*args, **kw) -> PlanResult:
+    """_plan_constrained, plus one '[cbirrt]' log line per search (result,
+    main-loop iterations, wall time, chord checks on/off)."""
+    import time as _time
+    t0 = _time.time()
+    res = _plan_constrained(*args, **kw)
+    print(f"[cbirrt] ok={res.ok} iters={res.stats.get('n_iters', 0)} "
+          f"time_s={_time.time() - t0:.2f} chords={'on' if kw.get('check_chords', True) else 'off'}"
+          + ("" if res.ok else f" reason={res.reason}"), flush=True)
+    return res
+
+
+plan_constrained.__doc__ = _plan_constrained.__doc__

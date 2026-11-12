@@ -33,6 +33,13 @@ Render the saved plan:
     MUJOCO_GL=osmesa PYTHONPATH=. python scripts/render_full_plan.py
 """
 
+import os
+
+# single-threaded math: BLAS thread scheduling must not change float results
+# (set before numpy is imported)
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
+
 import argparse
 import json
 import time
@@ -53,6 +60,7 @@ from manip_sim.grasping import (
 )
 from manip_sim.planning import (ArmKinematics, AttachedArmKinematics,
                                 AttachedObject, MinkIK, plan_constrained)
+from manip_sim.planning import DEFAULT_MAX_ITERS, DEFAULT_TIMEOUT_S
 from manip_sim.provenance import LABEL, arm_of_run, plan_path, stamp
 from manip_sim.tsr import pose_from_pos_quat_wxyz, sample_intersection
 
@@ -137,6 +145,9 @@ def _goal_funnel(rep, ik, kin, attached, seeds, containment, label,
     return goals
 
 
+HANDOFF_ROUNDS = 3     # draws of transport goals when none is a start the pour accepts
+HANDOFF_PROBE = 30     # transport goals probed per draw for the pour handoff
+
 # goal-sample escalation ceiling. Not a flag: the ablation compares
 # --n-goal-samples values, and a per-run cap would make the escalation
 # path itself a hidden variable.
@@ -187,7 +198,13 @@ def main() -> None:
                     help="waypoints holding the pour attitude")
     ap.add_argument("--upright-deg", type=float, default=15.0,
                     help="transport TSRs: tilt allowed from upright")
-    ap.add_argument("--timeout", type=float, default=20.0)
+    ap.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S,
+                    help="wall-clock safety cap per plan_constrained call (s)")
+    ap.add_argument("--max-iters", type=int, default=DEFAULT_MAX_ITERS,
+                    help="search-iteration budget per plan_constrained call")
+    ap.add_argument("--no-chord-check", action="store_true",
+                    help="check only the search's nodes, not the chords between them "
+                         "(the pre-2026-11-11 planner); for before/after comparisons")
     ap.add_argument("--eps", type=float, default=0.12,
                     help="transport: joint step, rad, between collision checks; "
                          "a thin obstacle needs a finer one")
@@ -214,7 +231,11 @@ def main() -> None:
                          "the pot: no grasp stage, so the grip is not compared")
     add_scene_arg(ap)
     args = ap.parse_args()
-    rng = np.random.default_rng(args.seed)
+    rng = np.random.default_rng(args.seed)       # grasp candidates and IK seeds
+    # independent streams per planning stage (grasp reach, transport, pour),
+    # so one stage's randomness does not depend on what earlier stages consumed
+    rng_reach, rng_transport, rng_pour = (
+        np.random.default_rng(ss) for ss in np.random.SeedSequence(args.seed).spawn(3))
     scene = load_scene(args.scene, getattr(args, "grounding", None))
 
     # the arm is decided here, by whether --selections was passed, and is
@@ -302,7 +323,14 @@ def main() -> None:
               f"{np.round(T0_teapot[:3, 3], 3)}, mug {np.round(T0_mug[:3, 3], 3)}")
 
     kin = ArmKinematics(env)
+    # grasp phase: fingers as execution opens them for the reach and approach
+    # (fully open); later phases use their own kinematics objects
+    from manip_sim.antipodal import approach_joints, set_gripper_joints
+    set_gripper_joints(kin, approach_joints())
     ik = MinkIK(kin)
+    # the grasp lookahead probes later stages' goals, where the fingers hold the
+    # object: the carrying phase's finger state (default), not the open approach
+    kin_probe = ArmKinematics(env)
     q_home = env.sim.data.qpos[kin.qpos_ids].copy()
     lo, hi = kin.joint_range[:, 0], kin.joint_range[:, 1]
     lo_s, hi_s = np.maximum(lo, -np.pi), np.minimum(hi, np.pi)
@@ -384,7 +412,7 @@ def main() -> None:
         scored = []
         t0 = time.time()
         for q_g, T_g in candidates:
-            rep = lookahead_probe(ik, kin, T_g, T0_teapot, ctx)
+            rep = lookahead_probe(ik, kin_probe, T_g, T0_teapot, ctx)
             scored.append((rep.score, q_g, T_g, rep))
         scored.sort(key=lambda s: (-s[0], float(np.linalg.norm(s[1] - q_home))))
         print(f"[grasp] lookahead probe over {len(candidates)} candidates "
@@ -460,7 +488,9 @@ def main() -> None:
             q_pre = retreat[-1]
             approach = retreat[-2::-1] + [q_grasp]
             res1 = plan_constrained(kin, attached_none, [free_tsr()],
-                                    q_home, q_pre, timeout=args.timeout)
+                                    q_home, q_pre, timeout=args.timeout,
+                                    max_iters=args.max_iters,
+            check_chords=not args.no_chord_check, rng=rng_reach)
             if not res1.ok:
                 print(f"[grasp]   candidate skipped: reach planning failed "
                       f"({res1.reason})")
@@ -528,17 +558,26 @@ def main() -> None:
     pair = frames.transport(T0_teapot, T0_mug,
                             **({} if ems else dict(transport_kw, height=(0.04, 0.10))))
     def _entries():
-        """Transport goals to try, best first. With more than one round, an entry the
-        pour cannot work from is skipped, and a fresh draw follows the last one."""
-        for round_ in range(args.entry_rounds):
+        """Transport goals to try, best first. Only goals the pour accepts as its start
+        (the pour compiled at that entry, which checks entry admission, and the
+        entry inside the pour path) are kept; if a draw has none, fresh draws follow
+        (HANDOFF_ROUNDS in all), then the typed failure no_admitted_handoff. With
+        more than one entry round, an entry the pour cannot work from is skipped too."""
+        n_rounds = max(args.entry_rounds, HANDOFF_ROUNDS)
+        had_goals = False
+        for round_ in range(n_rounds):
             rep2, goals2, _ = _sample_funnel_escalating(
-                pair.subgoal, [pair.path], args.n_goal_samples, rng,
+                pair.subgoal, [pair.path], args.n_goal_samples, rng_transport,
                 (ik_att, kin_att, attached, [q_lift] + seeds,
                  [pair.path, pair.subgoal], "transport", q_lift), "transport")
             if not goals2:
                 if round_ + 1 < args.entry_rounds:
                     continue
+                if had_goals:     # earlier draws had goals, none a start the pour accepts
+                    raise SystemExit("[transport] FAILED no_admitted_handoff: no transport "
+                                     "goal is a start the pour accepts")
                 raise SystemExit("[transport] no feasible goal configs.")
+            had_goals = True
             # stage-2 -> stage-3 lookahead: rank transport goals by whether the
             # pour subgoal is IK-reachable FROM THAT ENTRY (the pour pair is frozen
             # wherever transport ends, so approach azimuth decides pour
@@ -546,9 +585,14 @@ def main() -> None:
             # from which the tilt is out of the arm's reach)
             t0 = time.time()
             ranked2 = []
-            for q in goals2[: min(len(goals2), 10)]:
+            for q in goals2[: min(len(goals2), HANDOFF_PROBE)]:
                 T_ent = attached.body_pose(kin_att.fk(q))
-                pp = frames.pour(T_ent, T0_mug, tilt_target)
+                try:
+                    pp = frames.pour(T_ent, T0_mug, tilt_target)
+                except Exception as e:        # the pour rejects this start outright
+                    ranked2.append((True, True, float(np.linalg.norm(q - q_lift)), q))
+                    print(f"[transport]   entry rejected by the pour: {str(e)[:120]}")
+                    continue
                 # nominal(), NOT zero(): the pour pair's Tw_e composes zero()
                 # back to the entry pose itself (IK to where the arm already is
                 # — a gate that always passes). The Bw midpoint is the actual
@@ -576,9 +620,17 @@ def main() -> None:
                 print("[transport] WARNING: no pourable entry lies in the pour "
                       "path — stage 3 will start from a projection; the seam "
                       "check at the emit gate should have rejected this pair.")
-            usable = [r for r in ranked2 if not (retrying and r[0])]
+            usable = [r for r in ranked2 if not r[1] and not (retrying and r[0])]
+            if not usable:
+                if round_ + 1 < n_rounds:
+                    print("[transport] no sampled goal is a start the pour admits; drawing again")
+                    continue
+                raise SystemExit("[transport] FAILED no_admitted_handoff: no transport goal "
+                                 "is a start the pour accepts")
             for k, entry in enumerate(usable):
                 yield k, len(usable), entry[3]
+            if round_ + 1 >= args.entry_rounds:
+                break
 
     # walk the ranking (same funnel shape as stage 1's candidate walk):
     # a planning failure on one goal is attrition, not a verdict — the
@@ -588,7 +640,9 @@ def main() -> None:
     res2, res3, fails2 = None, None, []
     for k, n_entries, q_goal2 in _entries():
         r = plan_constrained(kin_att, attached, [pair.path], q_lift,
-                             q_goal2, timeout=args.timeout, eps=args.eps)
+                             q_goal2, timeout=args.timeout, eps=args.eps,
+                             max_iters=args.max_iters,
+            check_chords=not args.no_chord_check, rng=rng_transport)
         if not r.ok:
             fails2.append(r)
             print(f"[transport]   goal {k + 1}/{n_entries} skipped: "
@@ -610,7 +664,7 @@ def main() -> None:
               f"{np.round(ex_entry[:3], 4).tolist()} m "
               f"{np.round(np.degrees(ex_entry[3:]), 1).tolist()} deg")
         rep3, goals3, _ = _sample_funnel_escalating(
-            ppair.subgoal, [ppair.path], args.n_goal_samples, rng,
+            ppair.subgoal, [ppair.path], args.n_goal_samples, rng_pour,
             (ik_att, kin_att, attached, [q2_end] + seeds,
              [ppair.path, ppair.subgoal], "pour", q2_end, {"iters": 200}), "pour",
             n_max=args.n_goal_samples if retrying else GOAL_SAMPLE_MAX)
@@ -629,6 +683,8 @@ def main() -> None:
 
         res3 = plan_constrained(kin_att, attached, [ppair.path], q2_end,
                                 goals3[0], timeout=args.timeout, eps=0.05,
+                                max_iters=args.max_iters,
+            check_chords=not args.no_chord_check, rng=rng_pour,
                                 goal_test=_at_pour if args.pour_goal_region else None)
         if not res3.ok:
             if retrying:

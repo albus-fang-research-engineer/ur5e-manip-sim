@@ -40,6 +40,13 @@ goal). On failure only the report is written, with status "failed".
 
 from __future__ import annotations
 
+import os
+
+# single-threaded math: BLAS thread scheduling must not change float results
+# (set before numpy is imported)
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
+
 import argparse
 import json
 import sys
@@ -56,6 +63,7 @@ from manip_sim.grasping import (classify_grasps, free_tsr, handle_grasp_tsr,
                                 propose_handle_grasps, wrist_flip)
 from manip_sim.planning import (ArmKinematics, AttachedArmKinematics,
                                 AttachedObject, MinkIK, plan_constrained)
+from manip_sim.planning import DEFAULT_MAX_ITERS, DEFAULT_TIMEOUT_S
 from manip_sim.proposal import load_obj
 from manip_sim.provenance import stamp, tagged
 from manip_sim.scene import add_scene_arg, load_scene, make_env
@@ -68,7 +76,7 @@ from manip_sim.task_plan import (GRASP_ELEVATION_RAD, GRASP_PAD_BACKOFF_M,
                                  mover_stages, probe_fractions,
                                  rotation_angle_deg, sample_goals,
                                  synthesized_start, topdown_approach_h,
-                                 transform_points, walk_goals)
+                                 transform_points, walk_goals, chained, handoff_rejection)
 from manip_sim.tsr import pose_from_pos_quat_wxyz, sample_intersection
 from scripts.emit_constraints import bound_stages
 from scripts.plan_pour_tea import (GOAL_SAMPLE_MAX, MIN_ACCEPT_RATE,
@@ -79,6 +87,7 @@ PREGRASP_STANDOFF = 0.08          # same as plan_pour_tea
 LIFT_HEIGHT = 0.05
 APPROACH_STEPS = 12
 GOALS_TRIED = 10                  # ranked goals walked per stage
+HANDOFF_ROUNDS = 3                # goal draws when none is a start the next stage accepts
 DISTINCT_CONFIG_RAD = 0.1         # IK solutions closer than this are one arm configuration
 
 
@@ -94,12 +103,21 @@ def main() -> None:
     ap.add_argument("--max-grasp-candidates", type=int, default=6)
     ap.add_argument("--n-goal-samples", type=int, default=120)
     ap.add_argument("--n-probe", type=int, default=8)
-    ap.add_argument("--timeout", type=float, default=20.0)
+    ap.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S,
+                    help="wall-clock safety cap per plan_constrained call (s)")
+    ap.add_argument("--max-iters", type=int, default=DEFAULT_MAX_ITERS,
+                    help="search-iteration budget per plan_constrained call")
+    ap.add_argument("--no-chord-check", action="store_true",
+                    help="check only the search's nodes, not the chords between them "
+                         "(the pre-2026-11-11 planner); for before/after comparisons")
     ap.add_argument("--grasp-program", metavar="JSON", default=None,
                     help="take the grasp from this program instead of sampling one")
     ap.add_argument("--grasp-source", choices=("standin", "antipodal"), default="standin",
                     help="without --grasp-program: the handle-TSR stand-in (default) or "
                          "analytic antipodal grasps on the object's mesh (manip_sim.antipodal)")
+    ap.add_argument("--grasp-seed", type=int, default=0,
+                    help="antipodal: the surface-sampling seed, fixed apart from --seed so "
+                         "every planner seed and variant sees the same grasp candidates")
     ap.add_argument("--out", default=None, help="default outputs/plans/vlm/<scene>_task_vlm.npz")
     add_scene_arg(ap)
     args = ap.parse_args()
@@ -138,7 +156,7 @@ def given_grasp(program, obj, kin, ik, T_obj, q_home, seeds, allowed) -> tuple[l
     if g["object"] != obj:
         raise TaskPlanError("grasp", "grasp", f"{program} grasps {g['object']}, the stage grasps {obj}")
     T = grasp_pose(T_obj, g["point_body"], g["closing_body"], g["approach_world"], kin.fk(q_home))
-    rec, cands, n_ik = {"given": program, "point_body": g["point_body"]}, [], 0
+    rec, cands, n_ik = {"source": "program", "given": program, "point_body": g["point_body"]}, [], 0
     for seed in seeds:
         q, ok = ik.solve_multiseed(T, [seed])
         if not ok:
@@ -184,7 +202,7 @@ def _jsonable(o):
 
 
 def plan(args, scene, out: Path, report: dict) -> None:
-    rng = np.random.default_rng(args.seed)
+    rng = np.random.default_rng(args.seed)       # grasp candidates and IK seeds
     asset_dirs = scene.asset_dirs
     symbols = {n: load_symbols(d) for n, d in asset_dirs.items()}
     frames_docs = {n: json.loads((Path(d) / "frames.json").read_text())
@@ -208,6 +226,12 @@ def plan(args, scene, out: Path, report: dict) -> None:
     report["emit_method"] = em_doc.get("method")    # code artifacts: A3 / A4
     report["emit_medium"] = em_doc.get("medium")
     movers = mover_stages(staged, ems, b.entry_synthesized)
+    # independent streams per planning stage, so a stage's randomness does not
+    # depend on how much the earlier stages consumed: [0] the grasp reach plan,
+    # [1 + k] mover stage k (its synthesized-start reach, goal sampling, searches)
+    stage_rngs = [np.random.default_rng(ss) for ss in
+                  np.random.SeedSequence(args.seed).spawn(1 + len(movers))]
+    reach_rng = stage_rngs[0]
     sels = load_selections(args.selections)
     objects = selection_objects(args.selections, sels)
     role_index = {r: st.index for r, (_, st) in b.roles.items()}
@@ -226,7 +250,14 @@ def plan(args, scene, out: Path, report: dict) -> None:
     reader = PoseReader(env, list(objs))
     T0 = {n: pose_from_pos_quat_wxyz(*reader.pose(n)) for n in objs}
     kin = ArmKinematics(env)
+    # grasp phase: fingers as execution opens them for the reach and approach
+    # (fully open); later phases use their own kinematics objects
+    from manip_sim.antipodal import approach_joints, set_gripper_joints
+    set_gripper_joints(kin, approach_joints())
     ik = MinkIK(kin)
+    # the grasp lookahead probes later stages' goals, where the fingers hold the
+    # object: the carrying phase's finger state (default), not the open approach
+    kin_probe = ArmKinematics(env)
     q_home = env.sim.data.qpos[kin.qpos_ids].copy()
     lo, hi = kin.joint_range[:, 0], kin.joint_range[:, 1]
     seeds = [q_home] + [q_home + np.r_[d, np.zeros(5)] for d in (-1.0, -0.5, 0.5, 1.0)]
@@ -243,7 +274,7 @@ def plan(args, scene, out: Path, report: dict) -> None:
     elif args.grasp_source == "antipodal":
         from manip_sim.antipodal import synthesize
         V, F = load_obj(Path(asset_dirs[obj]) / "meshes" / f"{obj}_visual.obj")
-        grasps, funnel = synthesize(V, F, T0[obj], scene.table_top_z, seed=args.seed)
+        grasps, funnel = synthesize(V, F, T0[obj], scene.table_top_z, seed=args.grasp_seed)
         cands, n_tried, n_ik, offenders = [], 0, 0, Counter()
         for g in grasps:                         # best first, spread along the object
             if len(cands) >= args.max_grasp_candidates:
@@ -260,7 +291,7 @@ def plan(args, scene, out: Path, report: dict) -> None:
                     continue
                 cands.append((q, kin.fk(q)))
                 grasp_quality.append(g.score)
-        report["grasp"] = {"source": "antipodal", "funnel": funnel,
+        report["grasp"] = {"source": "antipodal", "grasp_seed": args.grasp_seed, "funnel": funnel,
                            "proposals": [{"score": round(g.score, 3),
                                           "antipodality": round(g.antipodality, 3),
                                           "com": round(g.com, 3),
@@ -303,7 +334,7 @@ def plan(args, scene, out: Path, report: dict) -> None:
                     continue
                 cands.append((q, kin.fk(q)))
         site_h = [round(float(p.T0_ee[2, 3] - scene.table_top_z), 4) for p in survivors]
-        report["grasp"] = {"part": gp.part, "primitive": gp.primitive,
+        report["grasp"] = {"source": "standin", "part": gp.part, "primitive": gp.primitive,
                            "slide_half_length_m": gp.half_length,
                            "proposed": len(proposals), "classified": len(survivors),
                            "ik_tried": n_tried, "ik_feasible": n_ik,
@@ -337,7 +368,7 @@ def plan(args, scene, out: Path, report: dict) -> None:
         T_ent = cs.subgoal.nominal()
     scored = []
     for k, (q_g, T_g) in enumerate(cands):
-        fr, sc = probe_fractions(ik, kin, T_g, T0[obj], probe_samples, seeds)
+        fr, sc = probe_fractions(ik, kin_probe, T_g, T0[obj], probe_samples, seeds)
         scored.append((sc, fr, q_g, T_g, grasp_quality[k] if grasp_quality else 0.0))
     if not args.grasp_program:        # a given grasp's configurations stay in IK order
         scored.sort(key=lambda s: (-s[0], -s[4], float(np.linalg.norm(s[2] - q_home))))
@@ -383,7 +414,9 @@ def plan(args, scene, out: Path, report: dict) -> None:
             skips.append(f"approach corridor: {why}")
             continue
         res1 = plan_constrained(kin, AttachedObject(np.eye(4)), [free_tsr()],
-                                q_home, retreat[-1], timeout=args.timeout)
+                                q_home, retreat[-1], timeout=args.timeout,
+                                max_iters=args.max_iters,
+            check_chords=not args.no_chord_check, rng=reach_rng)
         if not res1.ok:
             skips.append(f"reach: {res1.reason}")
             continue
@@ -411,7 +444,8 @@ def plan(args, scene, out: Path, report: dict) -> None:
 
     # ---- MOVER STAGES ---------------------------------------------------
     last_target = {}                 # the final stage's passive point, for execution
-    for m in movers:
+    for i_m, m in enumerate(movers):
+        stage_rng = stage_rngs[1 + i_m]
         print(f"\n================ {m.role}: {m.stage.name} ================")
         mover, passive = m.stage.active, m.stage.passive
         w_pt, e_pt = points[m.role]
@@ -444,7 +478,9 @@ def plan(args, scene, out: Path, report: dict) -> None:
                                     "no collision-free IK at the synthesized start",
                                     {"ik": bool(ok), "offender": _funnel_offender(kin_att) if ok else None})
             r = plan_constrained(kin_att, attached, [free_tsr()], q_cur, q_s,
-                                 timeout=args.timeout)
+                                 timeout=args.timeout, max_iters=args.max_iters,
+            check_chords=not args.no_chord_check,
+                                 rng=stage_rng)
             if not r.ok:
                 raise TaskPlanError("free_reach", m.role, f"free-space reach to the "
                                     f"synthesized start failed: {r.reason}")
@@ -453,18 +489,53 @@ def plan(args, scene, out: Path, report: dict) -> None:
                                                                       T_start[:3, :3]), 1)
             q_stage, T_stage = q_s, attached.body_pose(kin_att.fk(q_s))
 
-        goals, funnel = sample_goals(cs.subgoal, cs.path, args.n_goal_samples,
-                                     GOAL_SAMPLE_MAX, MIN_ACCEPT_RATE, rng, ik_att,
-                                     kin_att, attached, [q_stage] + seeds,
-                                     _funnel_offender, q_stage)
-        rec["goal_funnel"] = funnel.as_dict()
-        print(f"[{m.role}] goal funnel: {funnel.as_dict()}")
-        if not goals:
+        nxt = chained(movers, i_m)
+        admitted, rejected, checked, funnels = [], Counter(), 0, []
+        for draw in range(HANDOFF_ROUNDS if nxt is not None else 1):
+            # keep only goals the next stage accepts as its start; draw again when a
+            # draw has none (the stage's stream continues, so each draw is new)
+            goals, funnel = sample_goals(cs.subgoal, cs.path, args.n_goal_samples,
+                                         GOAL_SAMPLE_MAX, MIN_ACCEPT_RATE, stage_rng, ik_att,
+                                         kin_att, attached, [q_stage] + seeds,
+                                         _funnel_offender, q_stage)
+            funnels.append(funnel.as_dict())
+            print(f"[{m.role}] goal funnel: {funnel.as_dict()}")
+            if nxt is None:
+                admitted = goals
+                break
+            wn, en = points[nxt.role]
+            for g in goals:
+                if len(admitted) >= GOALS_TRIED:
+                    break
+                checked += 1
+                why = handoff_rejection(compile_any, nxt, symbols,
+                                        {mover: attached.body_pose(kin_att.fk(g)),
+                                         nxt.stage.passive: T0[nxt.stage.passive]}, wn, en)
+                if why is None:
+                    admitted.append(g)
+                else:
+                    rejected[why.split(";")[0][:100]] += 1
+            if admitted:
+                break
+        rec["goal_funnel"] = funnels[0] if len(funnels) == 1 else funnels
+        if nxt is not None:
+            rec["handoff_filter"] = {"draws": len(funnels), "checked": checked,
+                                     "admitted": len(admitted),
+                                     "rejected": dict(rejected.most_common(3))}
+            print(f"[{m.role}] handoff filter: {len(admitted)} of {checked} goals accepted "
+                  f"by {nxt.role} as its start ({len(funnels)} draw(s))")
+        if not any(f["n_contained"] for f in funnels):
             raise TaskPlanError("empty_goal_set", m.role,
-                                "no collision-free, contained goal configuration",
-                                funnel.as_dict())
+                                "no collision-free, contained goal configuration", funnels[-1])
+        if not admitted:
+            raise TaskPlanError("no_admitted_handoff", m.role,
+                                f"none of this stage's goals is a start {nxt.role} accepts",
+                                rec["handoff_filter"])
+        goals = admitted
         res, k, fails = walk_goals(plan_constrained, kin_att, attached, [cs.path],
-                                   q_stage, goals, GOALS_TRIED, args.timeout, m.role)
+                                   q_stage, goals, GOALS_TRIED, args.timeout, m.role,
+                                   rng=stage_rng, max_iters=args.max_iters,
+            check_chords=not args.no_chord_check)
         rec["planning"] = {"goal_rank_used": k, "failed_before": fails,
                            "n_waypoints": len(res.path),
                            "max_path_excess": round(float(res.max_excess), 4)}

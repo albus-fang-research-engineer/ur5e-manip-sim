@@ -36,13 +36,13 @@ import mujoco
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from manip_sim.execution import densify
+from manip_sim.antipodal import approach_joints, set_gripper_joints
 from manip_sim.frames import load_symbols
-from manip_sim.planning import ArmKinematics, AttachedArmKinematics, AttachedObject
+from manip_sim.planning import (TRACK_STEP_RAD, ArmKinematics, AttachedArmKinematics,  # noqa: F401
+                                AttachedObject, densify)
 from manip_sim.scene import add_scene_arg, load_scene, make_env
 
 ROBOT = ("robot0", "gripper0", "fixed_mount0", "mount0")
-TRACK_STEP_RAD = 0.02             # Tracker.track's max_joint_step
 
 
 def end_state(end_a: np.ndarray, end_b: np.ndarray, opening: np.ndarray) -> dict:
@@ -128,6 +128,9 @@ def evaluate(plan_path, env, scene, spec) -> dict:
     T_p = plan[f"T0_{passive}"]
     opening = T_p[:3, :3] @ load_symbols(scene.asset_dirs[passive]).points[spec["opening"]] + T_p[:3, 3]
     free = ArmKinematics(env)
+    # the grasp phase (reach + approach) with the fingers as the planners check them
+    # and execution commands them: fully open
+    set_gripper_joints(free, approach_joints())
     held = AttachedArmKinematics(env, AttachedObject(T_ee_body),
                                  env.objects[active].joints[0], active)
 

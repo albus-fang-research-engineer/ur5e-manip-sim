@@ -44,14 +44,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.run_authoring_ablation import METHODS, TASKS  # noqa: E402
 
 INSERT_GRASP = "manip_sim/omnimanip/programs/insert_marker.json"
-SPECS = {"insert_marker": "tasks/specs/insert_marker.json", "pour_tea": "tasks/specs/pour_tea.json"}
-GRADERS = {"insert_marker": "scripts/eval_plan.py", "pour_tea": "scripts/eval_pour.py"}
+SPECS = {"insert_marker": "tasks/specs/insert_marker.json",
+         "insert_marker_upright": "tasks/specs/insert_marker.json",
+         "pour_tea": "tasks/specs/pour_tea.json"}
+GRADERS = {"insert_marker": "scripts/eval_plan.py", "insert_marker_upright": "scripts/eval_plan.py",
+           "pour_tea": "scripts/eval_pour.py"}
 NAMES = {"A0": "A0 framed-chained (default)", "A3": "A3 constrained code",
          "A4": "A4 unconstrained code", "A5": "A5 direct bounds",
          "A4-pilot": "A4-pilot (pilot design: code computed the frames)"}
 START_OUTSIDE = ("entry pose lies outside", "entry attitude lies outside",
                  "must admit the entry")
 NO_GOAL = ("empty_goal_set", "no feasible goal", "no collision-free")
+NO_HANDOFF = ("no_admitted_handoff",)
 
 
 def code_version() -> str:
@@ -82,9 +86,11 @@ def plan_command(task: str, emission: Path, plan: Path, seed: int) -> list[str]:
     t = TASKS[task]
     common = ["--scene", t["scene"], "--selections", t["selections"],
               "--emissions", str(emission), "--seed", str(seed), "--out", str(plan)]
-    if task == "insert_marker":
+    if task.startswith("insert_marker"):
+        grasp = (["--grasp-source", "antipodal"] if t.get("grasp") == "antipodal"
+                 else ["--grasp-program", INSERT_GRASP])
         return [sys.executable, "scripts/plan_task.py", *common, "--grounding", t["grounding"],
-                "--stage-plan", t["stage_plan"], "--grasp-program", INSERT_GRASP]
+                "--stage-plan", t["stage_plan"], *grasp]
     return [sys.executable, "scripts/plan_pour_tea.py", *common]
 
 
@@ -94,13 +100,19 @@ def grade_command(task: str, plan: Path) -> list[str]:
 
 
 def last_failure(out: Path) -> str:
-    """The tool's own failure line, verbatim (its last FAILED / 'no feasible' / Error line)."""
+    """The tool's own failure line, verbatim: its last FAILED line, else its last
+    'no feasible' / Error line (detail lines printed after FAILED may contain 'Error')."""
     lines = [l.strip() for l in out.read_text(errors="replace").splitlines() if l.strip()]
-    hits = [l for l in lines if "FAILED" in l or "no feasible" in l or "Error" in l]
-    return (hits or lines or ["(no output)"])[-1][:300]
+    for keys in (("FAILED",), ("no feasible", "Error")):
+        hits = [l for l in lines if any(k in l for k in keys)]
+        if hits:
+            return hits[-1][:300]
+    return (lines or ["(no output)"])[-1][:300]
 
 
 def plan_category(why: str) -> str:
+    if any(k in why for k in NO_HANDOFF):
+        return "no goal the next stage can start from"
     if any(k in why for k in START_OUTSIDE):
         return "start outside the next path"
     if any(k in why for k in NO_GOAL):
@@ -138,11 +150,31 @@ def success(task: str, ev: dict) -> tuple[bool, bool]:
     return free, bool(ev["goal_pass"] and ev["path_pass"] and free)
 
 
+def handoff_of(task: str, emission: Path) -> dict:
+    """Robot-free handoff consistency, once per emission (manip_sim.spec_scores):
+    worst stage pair's rejected fraction, and whether any pair admits none / all."""
+    from manip_sim.spec_scores import handoff_scores
+    t = TASKS[task]
+    try:
+        rows = handoff_scores(t["scene"], t["grounding"], t["stage_plan"], t["selections"],
+                              str(emission))
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"[:200]}
+    pairs = [r for r in rows if "tested" in r and r["tested"]]
+    if not pairs:
+        return {"pairs": rows}
+    return {"pairs": rows,
+            "rejected_max": max(r["rejected"] / r["tested"] for r in pairs),
+            "none_admitted": any(r["none_admitted"] for r in pairs),
+            "all_admitted": all(r["all_admitted"] for r in pairs)}
+
+
 def score_one(task: str, emission: Path, seed: int, version: str, inputs: str,
               force: bool) -> dict:
     stem = Path(f"{emission.with_suffix('')}.s{seed}")      # .../A0.0.s1
     plan, plan_out = Path(f"{stem}.plan.npz"), Path(f"{stem}.plan.out")
     ev_json, ev_out = Path(f"{stem}.plan.eval.json"), Path(f"{stem}.eval.out")
+    report = Path(f"{stem}.plan.report.json")              # plan_task / plan_pour_tea
     cache = Path(f"{stem}.score.json")
     reusable = not force and not version.endswith("+dirty") and not version.startswith("unknown")
     if cache.exists() and reusable:
@@ -155,13 +187,15 @@ def score_one(task: str, emission: Path, seed: int, version: str, inputs: str,
     method = LABEL.get(art_doc.get("medium")) or art_doc.get("method") or prefix   # A0: prefix
     row = {"task": task, "method": method, "rep": int(rep), "seed": seed,
            "emission": str(emission), "version": version, "inputs": inputs}
-    for f in (plan, plan_out, ev_json, ev_out):
+    for f in (plan, plan_out, ev_json, ev_out, report):
         f.unlink(missing_ok=True)
     why = gate_failure(json.loads(emission.read_text()))
     if why:
         row |= {"stage": "emission", "why": why}
     else:
         run(plan_command(task, emission, plan, seed), plan_out)
+        rep_doc = json.loads(report.read_text()) if report.exists() else {}
+        row["grasp_source"] = (rep_doc.get("grasp") or {}).get("source")
         if not plan.exists():
             why = last_failure(plan_out)
             row |= {"stage": "plan", "category": plan_category(why), "why": why}
@@ -185,7 +219,7 @@ def score_one(task: str, emission: Path, seed: int, version: str, inputs: str,
 
 def detail(task: str, ev: dict) -> dict:
     """The grader's own numbers that its pass/fail is decided on."""
-    if task == "insert_marker":
+    if task.startswith("insert_marker"):
         return {**ev["goal"], "inserted_max_tilt_deg": ev["inserted"].get("max_tilt_deg")}
     return {"carry_max_tilt_deg": ev["carrying"]["max_tilt_deg"],
             "pour_max_off_axis_mm": ev["pouring"]["max_off_axis_mm"],
@@ -212,13 +246,17 @@ def tables(rows: list[dict]) -> str:
         if not rs:
             continue
         seeds = sorted({r["seed"] for r in rs})
+        sources = sorted({r["grasp_source"] for r in rs if r.get("grasp_source")})
         out.append(f"## {task} (spec {SPECS[task]}, grader {GRADERS[task]}; "
                    f"planner seeds {seeds}; a run is one emission, the unit of comparison; "
-                   "(run, seed) columns are detail, not independent samples)\n")
+                   "(run, seed) columns are detail, not independent samples; grasp source "
+                   + (", ".join(sources) or "unknown")
+                   + (" -- MIXED: these rows are not comparable" if len(sources) > 1 else "")
+                   + ")\n")
         out.append("| method | runs | succeeded in a majority of seeds | in any seed | "
                    "(run, seed) success | planned | goal | path | collision-free | "
-                   "not planned / plan failures |")
-        out.append("|---|---|---|---|---|---|---|---|---|---|")
+                   "handoff rejected (mean) / runs with a pair admitting none | not planned / plan failures |")
+        out.append("|---|---|---|---|---|---|---|---|---|---|---|")
         for m in list(METHODS) + sorted({r["method"] for r in rs} - set(METHODS)):
             mr = [r for r in rs if r["method"] == m]
             if not mr:
@@ -235,9 +273,15 @@ def tables(rows: list[dict]) -> str:
             k = len(seeds)
             major = sum(per_run[i] * 2 > k for i in runs)
             anyok = sum(per_run[i] > 0 for i in runs)
+            hr = [next((r["handoff_rejected"] for r in mr if r["rep"] == i
+                        and r.get("handoff_rejected") is not None), None) for i in runs]
+            hr = [h for h in hr if h is not None]
+            none_runs = sum(1 for i in runs if next((r["handoff"].get("none_admitted")
+                                                     for r in mr if r["rep"] == i), False))
+            hr_s = (f"{100 * sum(hr) / len(hr):.0f}%" if hr else "-") + f" / {none_runs}"
             out.append(f"| {NAMES.get(m, m)} | {len(runs)} | {major}/{len(runs)} | {anyok}/{len(runs)} | "
                        f"{c('success')} | {len(g)}/{n} | {c('goal_pass')} | "
-                       f"{c('path_pass')} | {c('collision_free')} | "
+                       f"{c('path_pass')} | {c('collision_free')} | {hr_s} | "
                        + ("; ".join(f"{k} x{v}" for k, v in fails.most_common()) or "-") + " |")
         out.append("\n| run | seed | outcome | grader numbers |")
         out.append("|---|---|---|---|")
@@ -263,12 +307,19 @@ def main() -> None:
                  if re.fullmatch(r"[A-Z]\d+\.\d+\.json", e.name)]   # <method>.<i>.json only
     version = code_version()
     hashes = {e: input_hash(task, e) for task, e in emissions}
+    with ThreadPoolExecutor(args.jobs) as pool:          # robot-free, once per emission
+        handoffs = dict(zip([e for _, e in emissions],
+                            pool.map(lambda te: handoff_of(*te), emissions)))
     todo = [(task, e, s, hashes[e]) for task, e in emissions for s in args.seeds]
     print(f"[score] {len(emissions)} emissions x {len(args.seeds)} seeds under {root}, "
           f"{args.jobs} at once, code {version}")
     with ThreadPoolExecutor(args.jobs) as pool:
         rows = list(pool.map(lambda t: score_one(t[0], t[1], t[2], version, t[3],
                                                  args.force), todo))
+    for r in rows:
+        h = handoffs.get(Path(r["emission"]), {})
+        r["handoff"] = h
+        r["handoff_rejected"] = h.get("rejected_max")
     (root / "scores.json").write_text(json.dumps(rows, indent=2) + "\n")
     md = f"# Authoring ablation scores: {args.tag}\n\ncode {version}\n\n" + tables(rows)
     (root / "scores.md").write_text(md)
