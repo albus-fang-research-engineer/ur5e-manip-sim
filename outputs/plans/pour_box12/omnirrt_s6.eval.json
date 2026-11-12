@@ -1,0 +1,39 @@
+{
+  "plan": "outputs/plans/pour_box12/omnirrt_s6.npz",
+  "carrying": {
+    "max_tilt_deg": 77.1,
+    "tilt_at_quarters_deg": [
+      11.0,
+      23.2,
+      57.4
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 43.5,
+    "spout_wander_mm": 22.0,
+    "tilt_axis_off_level_deg": 4.7
+  },
+  "end": {
+    "lateral_mm": 1.1,
+    "height_mm": 69.9,
+    "tilt_deg": 89.1,
+    "spout_off_down_deg": 0.9,
+    "stream_off_mm": 1.1
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {},
+  "colliding_points": 0,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": false,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": false
+}

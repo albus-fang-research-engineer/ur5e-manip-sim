@@ -1,0 +1,41 @@
+{
+  "plan": "outputs/plans/pour_compare/rekepsoft_s3.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.7,
+      5.4,
+      52.9
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 12.8,
+    "spout_wander_mm": 31.6,
+    "tilt_axis_off_level_deg": 6.2
+  },
+  "end": {
+    "lateral_mm": 0.1,
+    "height_mm": 50.0,
+    "tilt_deg": 84.7,
+    "spout_off_down_deg": 5.9,
+    "stream_off_mm": 5.1
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 2.2,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 2.2
+  },
+  "colliding_points": 2,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

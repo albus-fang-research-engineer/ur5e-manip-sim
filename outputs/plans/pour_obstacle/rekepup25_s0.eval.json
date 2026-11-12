@@ -1,0 +1,45 @@
+{
+  "plan": "outputs/plans/pour_obstacle/rekepup25_s0.npz",
+  "carrying": {
+    "max_tilt_deg": 5.5,
+    "tilt_at_quarters_deg": [
+      3.4,
+      22.9,
+      54.5
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 56.5,
+    "spout_wander_mm": 28.0,
+    "tilt_axis_off_level_deg": 16.2
+  },
+  "end": {
+    "lateral_mm": 0.5,
+    "height_mm": 49.8,
+    "tilt_deg": 85.1,
+    "spout_off_down_deg": 10.6,
+    "stream_off_mm": 9.8
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 58.8
+  },
+  "pairs_max_depth_mm": {
+    "obstacle_main <-> teapot_main": 58.8,
+    "gripper0_right_right_inner_finger <-> obstacle_main": 8.6,
+    "gripper0_right_right_outer_knuckle <-> obstacle_main": 19.9,
+    "gripper0_right_right_inner_knuckle <-> obstacle_main": 2.6,
+    "gripper0_right_robotiq_85_adapter_link <-> obstacle_main": 2.7
+  },
+  "colliding_points": 41,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": false
+  },
+  "goal_pass": true,
+  "path_pass": false
+}

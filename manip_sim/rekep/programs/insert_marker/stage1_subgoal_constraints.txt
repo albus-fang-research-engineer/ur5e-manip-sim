@@ -1,0 +1,9 @@
+def stage1_subgoal_constraint1(end_effector, keypoints):
+    """Put the gripper on the marker's tip side (keypoint 0), so the fingers stay above the rim with the tail in the cup."""
+    return np.linalg.norm(end_effector - keypoints[0])
+
+def stage1_subgoal_constraint2(end_effector, keypoints):
+    """Close across the marker: the closing axis (virtual keypoint -1) is perpendicular to the shaft (keypoints 1, 2)."""
+    closing = keypoints[-1] - end_effector
+    shaft = keypoints[1] - keypoints[2]
+    return abs(np.dot(closing, shaft)) / (np.linalg.norm(closing) * np.linalg.norm(shaft))

@@ -1,0 +1,74 @@
+{
+  "planner": "rekep",
+  "mode": "open-loop",
+  "upstream_commit": "63c43fd",
+  "program": "/sp/prog_up25",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "given": true,
+      "colliding_waypoints": 1
+    }
+  ],
+  "status": "failed",
+  "failure": {
+    "kind": "subgoal",
+    "stage": "stage2",
+    "message": "[stage2] subgoal: no solution in 5 attempts",
+    "detail": {
+      "failures": [
+        {
+          "attempt": 0,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0,
+            0.0,
+            0.0164
+          ]
+        },
+        {
+          "attempt": 1,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0,
+            0.0,
+            0.0079
+          ]
+        },
+        {
+          "attempt": 2,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0,
+            0.0,
+            0.0083
+          ]
+        },
+        {
+          "attempt": 3,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0,
+            0.0,
+            0.0203
+          ]
+        },
+        {
+          "attempt": 4,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0,
+            0.0,
+            0.0164
+          ]
+        }
+      ]
+    }
+  },
+  "seconds": 206.5
+}

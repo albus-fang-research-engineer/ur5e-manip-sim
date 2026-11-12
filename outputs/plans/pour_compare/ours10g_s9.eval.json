@@ -1,0 +1,39 @@
+{
+  "plan": "outputs/plans/pour_compare/ours10g_s9.npz",
+  "carrying": {
+    "max_tilt_deg": 9.7,
+    "tilt_at_quarters_deg": [
+      7.9,
+      34.2,
+      72.7
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 18.6,
+    "spout_wander_mm": 3.0,
+    "tilt_axis_off_level_deg": 12.2
+  },
+  "end": {
+    "lateral_mm": 17.5,
+    "height_mm": 90.8,
+    "tilt_deg": 96.3,
+    "spout_off_down_deg": 10.5,
+    "stream_off_mm": 34.1
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {},
+  "colliding_points": 0,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

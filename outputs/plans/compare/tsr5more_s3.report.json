@@ -1,0 +1,219 @@
+{
+  "scene": "scenes/insert_marker.json",
+  "grounding": "outputs/grounding/insert_marker_gt_opus1",
+  "stage_plan": "outputs/runs/gt_opus1/stage_plan.json",
+  "selections": "outputs/runs/gt_opus1/selections.json",
+  "emissions": "outputs/runs/gt_opus1/emissions_call3_opus.json",
+  "seed": 3,
+  "constants": {
+    "SYNTH_START_CLEARANCE_M": 0.05,
+    "GRASP_ELEVATION_RAD (sim stand-in)": 1.5707963267948966,
+    "GRASP_PAD_BACKOFF_M (sim stand-in)": 0.005
+  },
+  "status": "ok",
+  "grasp": {
+    "part": "body",
+    "primitive": "line",
+    "slide_half_length_m": 0.03705,
+    "proposed": 80,
+    "classified": 23,
+    "ik_tried": 46,
+    "ik_feasible": 37,
+    "collision_free": 8,
+    "offenders": {
+      "gripper0_right_left_inner_finger <-> table": 15,
+      "gripper0_right_right_inner_finger <-> table": 14
+    },
+    "grip_site_height_above_table_m": [
+      0.0104,
+      0.0189
+    ],
+    "reachable": 8,
+    "lookahead": [
+      {
+        "score": 0.088,
+        "fractions": [
+          0.938,
+          0.094
+        ],
+        "slide_offset_mm": -12.4
+      },
+      {
+        "score": 0.085,
+        "fractions": [
+          0.906,
+          0.094
+        ],
+        "slide_offset_mm": -21.9
+      },
+      {
+        "score": 0.061,
+        "fractions": [
+          0.969,
+          0.062
+        ],
+        "slide_offset_mm": -21.9
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.844,
+          0.0
+        ],
+        "slide_offset_mm": 11.8
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.906,
+          0.0
+        ],
+        "slide_offset_mm": 11.7
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.812,
+          0.0
+        ],
+        "slide_offset_mm": 34.1
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.906,
+          0.0
+        ],
+        "slide_offset_mm": 34.1
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.875,
+          0.0
+        ],
+        "slide_offset_mm": -12.4
+      }
+    ],
+    "chosen_score": 0.088,
+    "chosen_slide_offset_mm": -12.4,
+    "skips": []
+  },
+  "stages": [
+    {
+      "role": "transport_active",
+      "name": "align marker above cup opening",
+      "entry": "chained",
+      "compile_notes": [
+        "w = cup canonical frame at [-0.0, 0.0001, 0.0372]: z = up_axis, x = marker lateral (up x front) at entry; rooted on body_poses['cup']",
+        "align marker above cup opening.path: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free",
+        "align marker above cup opening.subgoal: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free"
+      ],
+      "goal_funnel": {
+        "n_sampled": 480,
+        "accept_rate": 1.0,
+        "n_ik": 475,
+        "n_collision_free": 324,
+        "n_contained": 324,
+        "offenders": {
+          "fixed_mount0_pedestal <-> robot0_upper_arm_link": 58,
+          "robot0_upper_arm_link <-> table": 50,
+          "cup_main <-> marker_main": 31,
+          "cup_main <-> gripper0_right_left_inner_finger": 12
+        },
+        "n_rounds": 1
+      },
+      "planning": {
+        "goal_rank_used": 0,
+        "failed_before": [],
+        "n_waypoints": 7,
+        "max_path_excess": 0.0
+      },
+      "reorient_in_stage_deg": 39.6,
+      "lowest_end_at_goal": {
+        "lowest_point_body": [
+          0.0001,
+          -0.0596,
+          -0.0093
+        ],
+        "lowest_point_world_z": 0.9089,
+        "depth_below_target_m": -0.0339,
+        "radial_from_target_axis_m": 0.0567,
+        "nearest_symbol": "body_tip",
+        "nearest_symbol_distance_m": 0.0248
+      }
+    },
+    {
+      "role": "insert",
+      "name": "insert marker into cup",
+      "entry": "chained",
+      "compile_notes": [
+        "w = cup canonical frame at [-0.0, 0.0001, 0.0372]: z = up_axis, x = marker lateral (up x front) at entry; rooted on body_poses['cup']",
+        "insert marker into cup.path: goal attitude from 1 relation row(s); fixed ['pitch'], rest free",
+        "insert marker into cup.subgoal: goal attitude from 1 relation row(s); fixed ['roll', 'pitch'], rest free",
+        "insert marker into cup.path: rotation admits the subgoal (64/64 sampled attitudes)"
+      ],
+      "goal_funnel": {
+        "n_sampled": 480,
+        "accept_rate": 1.0,
+        "n_ik": 233,
+        "n_collision_free": 30,
+        "n_contained": 30,
+        "offenders": {
+          "robot0_upper_arm_link <-> table": 103,
+          "robot0_forearm_link <-> table": 57,
+          "cup_main <-> gripper0_right_left_inner_finger": 15,
+          "cup_main <-> gripper0_right_right_inner_finger": 14,
+          "marker_main <-> table": 10,
+          "fixed_mount0_pedestal <-> robot0_upper_arm_link": 3,
+          "gripper0_right_left_outer_knuckle <-> robot0_forearm_link": 1
+        },
+        "n_rounds": 1
+      },
+      "planning": {
+        "goal_rank_used": 0,
+        "failed_before": [],
+        "n_waypoints": 19,
+        "max_path_excess": 0.0
+      },
+      "reorient_in_stage_deg": 89.0,
+      "lowest_end_at_goal": {
+        "lowest_point_body": [
+          -0.0014,
+          -0.0604,
+          -0.0074
+        ],
+        "lowest_point_world_z": 0.8259,
+        "depth_below_target_m": 0.049,
+        "radial_from_target_axis_m": 0.0139,
+        "nearest_symbol": "body_tip",
+        "nearest_symbol_distance_m": 0.0251
+      }
+    }
+  ],
+  "emit_model": null,
+  "emit_arm": "framed-chained",
+  "decomposition": "transport_active: 40 deg inside the stage (under its path TSR); insert: 89 deg inside the stage (under its path TSR)",
+  "plan": {
+    "path": "outputs/plans/compare/tsr5more_s3.npz",
+    "n_waypoints": 79,
+    "segments": [
+      [
+        "grasp:reach",
+        41
+      ],
+      [
+        "grasp:lift",
+        12
+      ],
+      [
+        "transport_active",
+        7
+      ],
+      [
+        "insert",
+        19
+      ]
+    ]
+  }
+}

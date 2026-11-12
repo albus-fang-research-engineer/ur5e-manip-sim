@@ -237,6 +237,14 @@ def pour_pair(
 
 # ------------------------------------------------------------ arm switch
 
+def _compile(emission, symbols, body_poses, w_point, e_point):
+    """compile_stage for a schema emission, or a code emission (authoring
+    ablation A3/A4) run by code_authoring.compile_any, which dispatches."""
+    from .code_authoring import compile_any
+    return compile_any(emission, symbols, body_poses, w_point=w_point,
+                       e_point=e_point)
+
+
 @dataclass
 class TaskFrames:
     """The passive/active task frames stages 2-3 consume — resolved once
@@ -269,8 +277,7 @@ class TaskFrames:
                 spout_tip=self.spout_tip,
                 teapot_body_pos_now=T_teapot_now[:3, 3],
                 rim_margin=self.rim_margin, **kw)
-        from .compile_tsr import compile_stage
-        return compile_stage(self.emissions["transport_active"], self.symbols,
+        return _compile(self.emissions["transport_active"], self.symbols,
                              {"teapot": T_teapot_now, "mug": T0_mug},
                              w_point=self.opening.point,
                              e_point=self.spout_tip.point)
@@ -281,8 +288,7 @@ class TaskFrames:
         the hand arm's; the emitted arm's tilt is the relation token."""
         if self.emissions is None:
             return pour_pair(T_entry, self.tilt_frame, tilt_target=tilt_target)
-        from .compile_tsr import compile_stage
-        return compile_stage(self.emissions["pour"], self.symbols,
+        return _compile(self.emissions["pour"], self.symbols,
                              {"teapot": T_entry, "mug": T0_mug},
                              w_point=self.opening.point,
                              e_point=self.tilt_frame.point)

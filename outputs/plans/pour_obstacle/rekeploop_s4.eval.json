@@ -1,0 +1,50 @@
+{
+  "plan": "outputs/plans/pour_obstacle/rekeploop_s4.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.1,
+      0.1,
+      0.1
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 49.3,
+    "spout_wander_mm": 38.7,
+    "tilt_axis_off_level_deg": 14.0
+  },
+  "end": {
+    "lateral_mm": 0.1,
+    "height_mm": 50.0,
+    "tilt_deg": 86.2,
+    "spout_off_down_deg": 8.3,
+    "stream_off_mm": 7.2
+  },
+  "max_penetration_mm": {
+    "self": 55.7,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 51.4
+  },
+  "pairs_max_depth_mm": {
+    "gripper0_right_right_outer_knuckle <-> obstacle_main": 41.2,
+    "gripper0_right_right_inner_finger <-> obstacle_main": 17.9,
+    "gripper0_right_right_inner_knuckle <-> obstacle_main": 48.7,
+    "gripper0_right_robotiq_85_adapter_link <-> obstacle_main": 51.4,
+    "gripper0_right_left_inner_knuckle <-> obstacle_main": 43.6,
+    "gripper0_right_left_outer_knuckle <-> obstacle_main": 39.0,
+    "gripper0_right_left_inner_finger <-> obstacle_main": 7.9,
+    "robot0_upper_arm_link <-> robot0_wrist_1_link": 55.7,
+    "robot0_forearm_link <-> robot0_shoulder_link": 36.1,
+    "robot0_shoulder_link <-> robot0_wrist_1_link": 14.0
+  },
+  "colliding_points": 111,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": false
+  },
+  "goal_pass": true,
+  "path_pass": false
+}

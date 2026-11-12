@@ -1,0 +1,48 @@
+{
+  "planner": "rekep",
+  "mode": "open-loop",
+  "upstream_commit": "63c43fd",
+  "program": "/sp/prog_up",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "given": true,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "attempts": 1,
+      "failures": [],
+      "solve_seconds": 93.7,
+      "subgoal_violations": [
+        0.0,
+        0.00204,
+        0.0,
+        -0.00801
+      ],
+      "path_max_violation": 0.0,
+      "n_waypoints": 17,
+      "max_joint_step_rad": 0.254,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage3",
+      "attempts": 1,
+      "failures": [],
+      "solve_seconds": 79.9,
+      "subgoal_violations": [
+        0.00029,
+        0.0,
+        0.0,
+        0.0045,
+        -0.03674
+      ],
+      "path_max_violation": 0.02452,
+      "n_waypoints": 7,
+      "max_joint_step_rad": 0.345,
+      "colliding_waypoints": 1
+    }
+  ],
+  "status": "ok",
+  "seconds": 239.2
+}

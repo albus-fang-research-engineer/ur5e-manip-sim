@@ -1,0 +1,45 @@
+{
+  "planner": "rekep",
+  "mode": "upstream-loop",
+  "upstream_commit": "63c43fd",
+  "program": "manip_sim/rekep/programs/pour_tea",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "given": true,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "iterations": 4,
+      "backtrack_to": null,
+      "solve_seconds": 367.6,
+      "n_waypoints": 21,
+      "max_joint_step_rad": 0.34,
+      "tracking_max_mm": 0.0,
+      "tracking_max_deg": 0.0,
+      "tracking_misses": 0,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage3",
+      "iterations": 3,
+      "backtrack_to": 0,
+      "solve_seconds": 190.3,
+      "n_waypoints": 22,
+      "max_joint_step_rad": 0.765,
+      "tracking_max_mm": 300.97,
+      "tracking_max_deg": 2.42,
+      "tracking_misses": 6,
+      "colliding_waypoints": 1
+    }
+  ],
+  "status": "failed",
+  "failure": {
+    "kind": "backtrack",
+    "stage": "stage3",
+    "message": "[stage3] backtrack: backtracked to the grasp, which this plan cannot redo",
+    "detail": {}
+  },
+  "seconds": 621.1
+}

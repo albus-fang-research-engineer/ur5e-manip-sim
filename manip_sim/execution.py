@@ -42,7 +42,7 @@ import mujoco
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from .planning import _raw_model
+from .planning import TRACK_STEP_RAD, _raw_model, densify  # noqa: F401 (densify re-exported)
 
 
 # ------------------------------------------------------------- controller
@@ -215,17 +215,6 @@ class TrackStats:
         self.max_track_err = max(self.max_track_err, other.max_track_err)
 
 
-def densify(path: np.ndarray, max_joint_step: float) -> np.ndarray:
-    """Insert waypoints so consecutive targets differ by <= max_joint_step
-    on every joint. Endpoints (the planner's projected configs) are kept."""
-    out = [path[0]]
-    for qa, qb in zip(path[:-1], path[1:]):
-        n = max(1, int(np.ceil(np.max(np.abs(qb - qa)) / max_joint_step)))
-        for k in range(1, n + 1):
-            out.append(qa + (qb - qa) * k / n)
-    return np.asarray(out)
-
-
 class Tracker:
     """Delta-action joint tracking through the JOINT_POSITION controller."""
 
@@ -241,7 +230,7 @@ class Tracker:
         return err
 
     def track(self, path: np.ndarray, gripper: float,
-              max_joint_step: float = 0.02, tol: float = 0.015,
+              max_joint_step: float = TRACK_STEP_RAD, tol: float = 0.015,
               steps_per_target: int = 6, on_step=None,
               stall_err: float = 0.10, stall_patience: int = 40) -> TrackStats:
         """stall_err/stall_patience: the runaway guard. The per-target step

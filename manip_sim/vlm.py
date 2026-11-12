@@ -80,7 +80,7 @@ import numpy as np
 API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 MODEL = os.environ.get("MANIP_VLM_MODEL", "claude-sonnet-4-6")   # run-level knob; recorded in artifacts
-MAX_TOKENS = 2000
+MAX_TOKENS = int(os.environ.get("MANIP_VLM_MAX_TOKENS", "2000"))   # run-level knob, like MODEL
 # Critic v2 only. Thinking (on by default on Opus 5) spends the same output
 # budget as the answer; at 2000 the critic's verdict was cut off or empty.
 CRITIC_MAX_TOKENS = 16000
@@ -1561,6 +1561,12 @@ def build_repair_prompt(failure_type: str, context: dict,
 
 # ---------------------------------------------------------------- client
 
+# Metadata of the last response _urllib_transport received (stop_reason,
+# usage). Logging only: _send copies it into the CallLog after each call and
+# clears it first, so a transport that does not set it logs None.
+LAST_RESPONSE: dict = {}
+
+
 def _urllib_transport(payload: dict) -> str:
     """Default transport: POST the Messages API, return concatenated text
     blocks. Retries 429/5xx and connection errors with exponential backoff;
@@ -1580,6 +1586,8 @@ def _urllib_transport(payload: dict) -> str:
         try:
             with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
                 doc = json.loads(resp.read().decode())
+            LAST_RESPONSE.update(stop_reason=doc.get("stop_reason"),
+                                 usage=doc.get("usage"))
             text = "".join(b.get("text", "") for b in doc.get("content", [])
                            if b.get("type") == "text")
             if doc.get("stop_reason") == "max_tokens":
@@ -1613,10 +1621,27 @@ class CallLog:
     rejections: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
     raw: str = ""          # accepted (parsed) response text, for replay
+    rejected_raw: list[str] = field(default_factory=list)  # text of each rejected reply, aligned with rejections
+    stop_reasons: list = field(default_factory=list)       # API stop_reason per attempt (None if the transport gives none)
+    usage: list = field(default_factory=list)              # API token usage per attempt
+    gate_rejection: str = ""  # set by the emit scripts when the parsed reply failed the compile gate
     views: int = 0         # image blocks attached (modality evidence)
     legend: bool = False   # frames_legend in the user turn
     entry: bool = False    # entry_line in the user turn
     truncated: int = 0     # attempts cut off at max_tokens (ResponseTruncated)
+
+
+def _send(transport, payload: dict, log: CallLog) -> str:
+    """One model call through `transport`, recording its stop reason and token
+    usage on `log`. Logging only: the payload and the returned text are
+    untouched. A cut-off answer (ResponseTruncated) is logged too, then
+    re-raised for _ask to handle."""
+    LAST_RESPONSE.clear()
+    try:
+        return transport(payload)
+    finally:
+        log.stop_reasons.append(LAST_RESPONSE.get("stop_reason"))
+        log.usage.append(LAST_RESPONSE.get("usage"))
 
 
 class Client:
@@ -1650,8 +1675,8 @@ class Client:
             if TEMPERATURE is not None:
                 payload["temperature"] = TEMPERATURE
             try:
-                raw = self._transport({**payload, "system": system,
-                                       "messages": msgs})
+                raw = _send(self._transport, {**payload, "system": system,
+                                              "messages": msgs}, log)
             except ResponseTruncated as cut:
                 log.truncated += 1
                 print(f"[vlm] {touchpoint}: {cut}")
@@ -1660,6 +1685,7 @@ class Client:
                 result = parse(raw)
             except ParseRejection as rej:
                 log.rejections.append(rej.reason)
+                log.rejected_raw.append(raw)
                 if raw.strip():
                     msgs = msgs + [
                         {"role": "assistant", "content": [_text(raw)]},

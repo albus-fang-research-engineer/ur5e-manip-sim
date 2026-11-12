@@ -1,0 +1,54 @@
+{
+  "plan": "outputs/plans/pour_obstacle/rekeploopcol30_s6.npz",
+  "carrying": {
+    "max_tilt_deg": 31.0,
+    "tilt_at_quarters_deg": [
+      10.3,
+      8.3,
+      8.0
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 40.8,
+    "spout_wander_mm": 41.8,
+    "tilt_axis_off_level_deg": 15.2
+  },
+  "end": {
+    "lateral_mm": 0.2,
+    "height_mm": 48.3,
+    "tilt_deg": 88.8,
+    "spout_off_down_deg": 9.9,
+    "stream_off_mm": 8.6
+  },
+  "max_penetration_mm": {
+    "self": 106.0,
+    "table": 135.5,
+    "passive": 25.8,
+    "other": 8.2
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 25.8,
+    "obstacle_main <-> robot0_wrist_1_link": 7.9,
+    "obstacle_main <-> robot0_wrist_2_link": 8.2,
+    "fixed_mount0_pedestal <-> robot0_upper_arm_link": 106.0,
+    "robot0_upper_arm_link <-> table": 129.0,
+    "robot0_forearm_link <-> table": 135.5,
+    "robot0_fixed_base_link <-> robot0_upper_arm_link": 5.9,
+    "fixed_mount0_pedestal <-> robot0_forearm_link": 95.7,
+    "robot0_upper_arm_link <-> robot0_wrist_1_link": 56.1,
+    "robot0_forearm_link <-> robot0_shoulder_link": 24.5,
+    "robot0_shoulder_link <-> robot0_wrist_1_link": 14.0,
+    "gripper0_right_robotiq_85_adapter_link <-> robot0_upper_arm_link": 19.2,
+    "robot0_fixed_base_link <-> robot0_forearm_link": 11.5,
+    "robot0_upper_arm_link <-> robot0_wrist_3_link": 11.1
+  },
+  "colliding_points": 325,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": false,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": false
+}

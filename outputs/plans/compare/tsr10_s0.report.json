@@ -1,0 +1,115 @@
+{
+  "scene": "scenes/insert_marker.json",
+  "grounding": "outputs/grounding/insert_marker_gt_opus1",
+  "stage_plan": "outputs/runs/gt_opus1/stage_plan.json",
+  "selections": "outputs/runs/gt_opus1/selections.json",
+  "emissions": "outputs/runs/gt_opus1/emissions_call3_opus.json",
+  "seed": 0,
+  "constants": {
+    "SYNTH_START_CLEARANCE_M": 0.05,
+    "GRASP_ELEVATION_RAD (sim stand-in)": 1.5707963267948966,
+    "GRASP_PAD_BACKOFF_M (sim stand-in)": 0.005
+  },
+  "status": "failed",
+  "grasp": {
+    "part": "body",
+    "primitive": "line",
+    "slide_half_length_m": 0.03705,
+    "proposed": 80,
+    "classified": 25,
+    "ik_tried": 50,
+    "ik_feasible": 47,
+    "collision_free": 4,
+    "offenders": {
+      "gripper0_right_right_inner_finger <-> table": 19,
+      "gripper0_right_left_inner_finger <-> table": 18,
+      "gripper0_right_left_outer_knuckle <-> table": 2,
+      "gripper0_right_right_outer_knuckle <-> table": 2,
+      "robot0_upper_arm_link <-> table": 2
+    },
+    "grip_site_height_above_table_m": [
+      0.0102,
+      0.0195
+    ],
+    "reachable": 4,
+    "lookahead": [
+      {
+        "score": 0.0,
+        "fractions": [
+          0.5,
+          0.0
+        ],
+        "slide_offset_mm": -22.6
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.75,
+          0.0
+        ],
+        "slide_offset_mm": 2.7
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.875,
+          0.0
+        ],
+        "slide_offset_mm": -22.6
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.875,
+          0.0
+        ],
+        "slide_offset_mm": 2.7
+      }
+    ]
+  },
+  "stages": [],
+  "emit_model": null,
+  "emit_arm": "framed-chained",
+  "failure": {
+    "kind": "grasp",
+    "stage": "grasp",
+    "message": "[grasp] grasp: no candidate with a positive lookahead score survived approach + reach",
+    "detail": {
+      "skips": [],
+      "lookahead": [
+        {
+          "score": 0.0,
+          "fractions": [
+            0.5,
+            0.0
+          ],
+          "slide_offset_mm": -22.6
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            0.75,
+            0.0
+          ],
+          "slide_offset_mm": 2.7
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            0.875,
+            0.0
+          ],
+          "slide_offset_mm": -22.6
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            0.875,
+            0.0
+          ],
+          "slide_offset_mm": 2.7
+        }
+      ]
+    }
+  }
+}

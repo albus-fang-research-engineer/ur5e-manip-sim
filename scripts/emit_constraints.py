@@ -283,6 +283,7 @@ def main() -> None:
                         print(f"         {n_}")
             except CompileError as e:
                 rejections.append((client.logs[-1].raw, e.text()))
+                client.logs[-1].gate_rejection = e.text()
                 print(f"         compile rejected: {e.text()}")
                 err = {"slot": e.slot, "reason": e.reason,
                        "others": [{"slot": o.slot, "reason": o.reason}

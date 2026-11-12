@@ -1,0 +1,41 @@
+{
+  "plan": "outputs/plans/pour_compare/rekepfree_s1.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.3,
+      24.5,
+      64.4
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 19.6,
+    "spout_wander_mm": 26.1,
+    "tilt_axis_off_level_deg": 33.4
+  },
+  "end": {
+    "lateral_mm": 3.8,
+    "height_mm": 48.5,
+    "tilt_deg": 89.7,
+    "spout_off_down_deg": 9.7,
+    "stream_off_mm": 10.8
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 2.9,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 2.9
+  },
+  "colliding_points": 6,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

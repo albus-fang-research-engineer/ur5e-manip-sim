@@ -1,0 +1,44 @@
+{
+  "plan": "outputs/plans/pour_box12/rekepup25_s3.npz",
+  "carrying": {
+    "max_tilt_deg": 3.5,
+    "tilt_at_quarters_deg": [
+      0.5,
+      10.3,
+      67.8
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 17.2,
+    "spout_wander_mm": 21.6,
+    "tilt_axis_off_level_deg": 3.1
+  },
+  "end": {
+    "lateral_mm": 0.4,
+    "height_mm": 49.9,
+    "tilt_deg": 94.9,
+    "spout_off_down_deg": 4.9,
+    "stream_off_mm": 4.6
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 1.8,
+    "other": 15.7
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 1.8,
+    "gripper0_right_left_outer_knuckle <-> obstacle_main": 15.7,
+    "gripper0_right_left_inner_finger <-> obstacle_main": 15.5,
+    "gripper0_right_left_inner_knuckle <-> obstacle_main": 10.3
+  },
+  "colliding_points": 15,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

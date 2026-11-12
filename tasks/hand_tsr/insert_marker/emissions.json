@@ -1,0 +1,193 @@
+{
+ "task": "insert the marker into the cup",
+ "arm": "hand",
+ "roles": [
+  "grasp",
+  "transport_active",
+  "insert"
+ ],
+ "emissions": [
+  {
+   "stage": 0,
+   "name": "grasp the marker",
+   "active": "marker",
+   "passive": null,
+   "path_tsr": {
+    "rot": [],
+    "trans": [
+     {
+      "term": "free",
+      "anchor": null,
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": null,
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     }
+    ]
+   },
+   "subgoal_tsr": {
+    "rot": [],
+    "trans": [
+     {
+      "term": "free",
+      "anchor": null,
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": null,
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     }
+    ]
+   },
+   "verify": "",
+   "goal": "Given by --grasp-program: this stage's TSRs are not compiled."
+  },
+  {
+   "stage": 1,
+   "name": "align marker above cup opening",
+   "active": "marker",
+   "passive": "cup",
+   "path_tsr": {
+    "rot": [],
+    "trans": [
+     {
+      "term": "free",
+      "anchor": null,
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": null,
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     }
+    ]
+   },
+   "subgoal_tsr": {
+    "rot": [
+     {
+      "axis": "marker.shaft_axis",
+      "relation": "parallel",
+      "reference": "cup.up_axis",
+      "tol": "tight",
+      "row": null
+     }
+    ],
+    "trans": [
+     {
+      "term": "centered",
+      "anchor": "cup.opening_center",
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": "snug",
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     },
+     {
+      "term": "expr",
+      "anchor": null,
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": null,
+      "row": "z",
+      "expr_lo": "0.035",
+      "expr_hi": "0.045",
+      "flags": []
+     }
+    ]
+   },
+   "verify": "",
+   "goal": "Upright, tail centred 4 cm above the opening: ReKep stage 2."
+  },
+  {
+   "stage": 2,
+   "name": "insert marker into cup",
+   "active": "marker",
+   "passive": "cup",
+   "path_tsr": {
+    "rot": [
+     {
+      "axis": "marker.shaft_axis",
+      "relation": "parallel",
+      "reference": "cup.up_axis",
+      "tol": "moderate",
+      "row": null
+     }
+    ],
+    "trans": [
+     {
+      "term": "centered",
+      "anchor": "cup.opening_center",
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": "moderate",
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     }
+    ]
+   },
+   "subgoal_tsr": {
+    "rot": [
+     {
+      "axis": "marker.shaft_axis",
+      "relation": "parallel",
+      "reference": "cup.up_axis",
+      "tol": "tight",
+      "row": null
+     }
+    ],
+    "trans": [
+     {
+      "term": "centered",
+      "anchor": "cup.opening_center",
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": "snug",
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     },
+     {
+      "term": "expr",
+      "anchor": null,
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": null,
+      "row": "z",
+      "expr_lo": "-0.05",
+      "expr_hi": "-0.04",
+      "flags": []
+     }
+    ]
+   },
+   "verify": "",
+   "goal": "Tail 4.5 cm below the opening, upright and within the corridor on the way: ReKep stage 3."
+  }
+ ]
+}

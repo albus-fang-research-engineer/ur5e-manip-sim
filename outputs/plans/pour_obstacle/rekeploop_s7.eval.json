@@ -1,0 +1,45 @@
+{
+  "plan": "outputs/plans/pour_obstacle/rekeploop_s7.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.9,
+      0.2,
+      54.4
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 15.2,
+    "spout_wander_mm": 28.7,
+    "tilt_axis_off_level_deg": 24.1
+  },
+  "end": {
+    "lateral_mm": 10.9,
+    "height_mm": 46.9,
+    "tilt_deg": 83.7,
+    "spout_off_down_deg": 8.5,
+    "stream_off_mm": 6.6
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 3.1,
+    "other": 34.9
+  },
+  "pairs_max_depth_mm": {
+    "obstacle_main <-> teapot_main": 34.9,
+    "mug_main <-> teapot_main": 3.1,
+    "gripper0_right_left_outer_knuckle <-> obstacle_main": 14.0,
+    "gripper0_right_left_inner_finger <-> obstacle_main": 25.5,
+    "gripper0_right_left_inner_knuckle <-> obstacle_main": 13.0
+  },
+  "colliding_points": 86,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

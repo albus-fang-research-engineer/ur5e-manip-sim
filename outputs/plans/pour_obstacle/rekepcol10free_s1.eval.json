@@ -1,0 +1,41 @@
+{
+  "plan": "outputs/plans/pour_obstacle/rekepcol10free_s1.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.4,
+      0.3,
+      52.3
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 55.4,
+    "spout_wander_mm": 63.1,
+    "tilt_axis_off_level_deg": 41.2
+  },
+  "end": {
+    "lateral_mm": 0.5,
+    "height_mm": 50.0,
+    "tilt_deg": 91.5,
+    "spout_off_down_deg": 3.6,
+    "stream_off_mm": 3.3
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 3.0,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 3.0
+  },
+  "colliding_points": 6,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": false
+  },
+  "goal_pass": true,
+  "path_pass": false
+}

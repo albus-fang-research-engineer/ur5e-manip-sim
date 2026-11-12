@@ -1,0 +1,83 @@
+{
+  "plan": "outputs/plans/pour_obstacle/rekeploopcol30_s0.npz",
+  "carrying": {
+    "max_tilt_deg": 4.5,
+    "tilt_at_quarters_deg": [
+      2.5,
+      0.5,
+      1.0
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 172.1,
+    "spout_wander_mm": 82.6,
+    "tilt_axis_off_level_deg": 23.7
+  },
+  "end": {
+    "lateral_mm": 0.5,
+    "height_mm": 50.9,
+    "tilt_deg": 97.3,
+    "spout_off_down_deg": 9.8,
+    "stream_off_mm": 9.1
+  },
+  "max_penetration_mm": {
+    "self": 219.8,
+    "table": 147.0,
+    "passive": 19.9,
+    "other": 96.4
+  },
+  "pairs_max_depth_mm": {
+    "fixed_mount0_pedestal <-> robot0_upper_arm_link": 110.8,
+    "robot0_upper_arm_link <-> table": 147.0,
+    "robot0_forearm_link <-> table": 139.5,
+    "obstacle_main <-> teapot_main": 58.3,
+    "robot0_fixed_base_link <-> robot0_upper_arm_link": 8.5,
+    "fixed_mount0_pedestal <-> robot0_forearm_link": 219.8,
+    "robot0_upper_arm_link <-> robot0_wrist_1_link": 60.2,
+    "robot0_fixed_base_link <-> robot0_forearm_link": 30.6,
+    "robot0_forearm_link <-> robot0_shoulder_link": 35.5,
+    "robot0_shoulder_link <-> robot0_wrist_1_link": 14.0,
+    "table <-> teapot_main": 79.9,
+    "gripper0_right_right_inner_finger <-> obstacle_main": 15.7,
+    "gripper0_right_left_inner_finger <-> obstacle_main": 9.1,
+    "fixed_mount0_controller_box <-> robot0_forearm_link": 122.9,
+    "fixed_mount0_controller_box <-> robot0_upper_arm_link": 22.0,
+    "fixed_mount0_pedestal_feet <-> gripper0_right_robotiq_85_adapter_link": 163.6,
+    "fixed_mount0_pedestal_feet <-> gripper0_right_left_outer_knuckle": 143.1,
+    "fixed_mount0_pedestal_feet <-> robot0_wrist_3_link": 126.8,
+    "fixed_mount0_controller_box <-> robot0_wrist_2_link": 10.9,
+    "fixed_mount0_pedestal_feet <-> gripper0_right_left_inner_knuckle": 138.2,
+    "fixed_mount0_pedestal_feet <-> robot0_wrist_2_link": 103.7,
+    "fixed_mount0_pedestal_feet <-> gripper0_right_right_inner_knuckle": 146.3,
+    "fixed_mount0_pedestal_feet <-> gripper0_right_left_inner_finger": 112.9,
+    "fixed_mount0_controller_box <-> robot0_wrist_1_link": 21.6,
+    "fixed_mount0_pedestal_feet <-> gripper0_right_right_outer_knuckle": 145.2,
+    "fixed_mount0_pedestal_feet <-> robot0_forearm_link": 80.7,
+    "fixed_mount0_pedestal_feet <-> robot0_wrist_1_link": 81.0,
+    "fixed_mount0_pedestal <-> robot0_wrist_2_link": 49.2,
+    "fixed_mount0_pedestal_feet <-> teapot_main": 96.4,
+    "fixed_mount0_pedestal_feet <-> gripper0_right_right_inner_finger": 110.9,
+    "fixed_mount0_pedestal <-> robot0_wrist_1_link": 16.2,
+    "robot0_wrist_2_link <-> table": 85.0,
+    "robot0_wrist_1_link <-> table": 63.6,
+    "robot0_wrist_3_link <-> table": 64.3,
+    "gripper0_right_robotiq_85_adapter_link <-> table": 67.9,
+    "gripper0_right_left_outer_knuckle <-> table": 50.5,
+    "gripper0_right_left_inner_knuckle <-> table": 52.2,
+    "gripper0_right_right_outer_knuckle <-> table": 45.6,
+    "gripper0_right_right_inner_knuckle <-> table": 51.2,
+    "gripper0_right_left_inner_finger <-> table": 45.0,
+    "gripper0_right_right_inner_finger <-> table": 43.2,
+    "gripper0_right_right_outer_knuckle <-> obstacle_main": 2.2,
+    "mug_main <-> teapot_main": 19.9
+  },
+  "colliding_points": 774,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": false
+  },
+  "goal_pass": true,
+  "path_pass": false
+}

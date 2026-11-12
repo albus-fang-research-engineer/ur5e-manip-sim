@@ -33,7 +33,15 @@ Render the saved plan:
     MUJOCO_GL=osmesa PYTHONPATH=. python scripts/render_full_plan.py
 """
 
+import os
+
+# single-threaded math: BLAS thread scheduling must not change float results
+# (set before numpy is imported)
+for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
+
 import argparse
+import json
 import time
 from pathlib import Path
 
@@ -52,6 +60,7 @@ from manip_sim.grasping import (
 )
 from manip_sim.planning import (ArmKinematics, AttachedArmKinematics,
                                 AttachedObject, MinkIK, plan_constrained)
+from manip_sim.planning import DEFAULT_MAX_ITERS, DEFAULT_TIMEOUT_S
 from manip_sim.provenance import LABEL, arm_of_run, plan_path, stamp
 from manip_sim.tsr import pose_from_pos_quat_wxyz, sample_intersection
 
@@ -136,6 +145,9 @@ def _goal_funnel(rep, ik, kin, attached, seeds, containment, label,
     return goals
 
 
+HANDOFF_ROUNDS = 3     # draws of transport goals when none is a start the pour accepts
+HANDOFF_PROBE = 30     # transport goals probed per draw for the pour handoff
+
 # goal-sample escalation ceiling. Not a flag: the ablation compares
 # --n-goal-samples values, and a per-run cap would make the escalation
 # path itself a hidden variable.
@@ -147,7 +159,7 @@ MIN_ACCEPT_RATE = 0.02
 
 
 def _sample_funnel_escalating(sampler, constraints, n, rng, funnel_args,
-                              label):
+                              label, n_max=GOAL_SAMPLE_MAX):
     """sample_intersection -> _goal_funnel, doubling n on funnel starvation
     up to GOAL_SAMPLE_MAX. Only re-draws when the intersection itself is
     healthy: IK/collision attrition is what more samples fix; a thin
@@ -156,14 +168,14 @@ def _sample_funnel_escalating(sampler, constraints, n, rng, funnel_args,
         rep = sample_intersection(sampler, constraints, n=n, rng=rng)
         print(f"[{label}] intersection (n={n}): {rep.summary()}")
         goals = _goal_funnel(rep, *funnel_args)
-        if goals or n >= GOAL_SAMPLE_MAX:
+        if goals or n >= n_max:
             return rep, goals, n
         if rep.acceptance_rate < MIN_ACCEPT_RATE:
             print(f"[{label}] intersection acceptance {rep.acceptance_rate:.3f} "
                   f"< {MIN_ACCEPT_RATE}: not escalating samples "
                   "(subgoal/path inconsistency, not attrition)")
             return rep, goals, n
-        n = min(2 * n, GOAL_SAMPLE_MAX)
+        n = min(2 * n, n_max)
         print(f"[{label}] funnel starved -> escalating to n={n}")
 
 
@@ -184,7 +196,24 @@ def main() -> None:
     ap.add_argument("--tilt-deg", type=float, default=95.0)
     ap.add_argument("--dwell", type=int, default=15,
                     help="waypoints holding the pour attitude")
-    ap.add_argument("--timeout", type=float, default=20.0)
+    ap.add_argument("--upright-deg", type=float, default=15.0,
+                    help="transport TSRs: tilt allowed from upright")
+    ap.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S,
+                    help="wall-clock safety cap per plan_constrained call (s)")
+    ap.add_argument("--max-iters", type=int, default=DEFAULT_MAX_ITERS,
+                    help="search-iteration budget per plan_constrained call")
+    ap.add_argument("--no-chord-check", action="store_true",
+                    help="check only the search's nodes, not the chords between them "
+                         "(the pre-2026-11-11 planner); for before/after comparisons")
+    ap.add_argument("--eps", type=float, default=0.12,
+                    help="transport: joint step, rad, between collision checks; "
+                         "a thin obstacle needs a finer one")
+    ap.add_argument("--pour-goal-region", action="store_true",
+                    help="end the pour at any configuration at the pouring tilt with "
+                         "the spout tip inside the rim, not only at one sampled goal")
+    ap.add_argument("--entry-rounds", type=int, default=1,
+                    help="draws of transport goals to try; above 1, an entry the pour "
+                         "cannot work from is skipped rather than committed to")
     ap.add_argument("--out", default=None,
                     help="plan artifact; default "
                          "outputs/plans/<arm>/pour_tea_full_<arm>.npz")
@@ -197,9 +226,16 @@ def main() -> None:
                          "the emitted schema instead of pour_stages.*; stage 1 "
                          "stays on handle_grasp_tsr (gripper nominal is not "
                          "in the emission vocabulary)")
+    ap.add_argument("--spec", default=None, metavar="JSON",
+                    help="task spec whose q_grasp the plan starts from, holding "
+                         "the pot: no grasp stage, so the grip is not compared")
     add_scene_arg(ap)
     args = ap.parse_args()
-    rng = np.random.default_rng(args.seed)
+    rng = np.random.default_rng(args.seed)       # grasp candidates and IK seeds
+    # independent streams per planning stage (grasp reach, transport, pour),
+    # so one stage's randomness does not depend on what earlier stages consumed
+    rng_reach, rng_transport, rng_pour = (
+        np.random.default_rng(ss) for ss in np.random.SeedSequence(args.seed).spawn(3))
     scene = load_scene(args.scene, getattr(args, "grounding", None))
 
     # the arm is decided here, by whether --selections was passed, and is
@@ -259,8 +295,8 @@ def main() -> None:
     from manip_sim.pour_stages import TaskFrames
     ems = None
     if args.emissions:
-        from manip_sim.vlm import load_emissions
-        ems = load_emissions(args.emissions)
+        from manip_sim.code_authoring import load_any_emissions
+        ems = load_any_emissions(args.emissions)   # schema or code (A3/A4)
         for r in ("transport_active", "pour"):
             if r not in ems:
                 raise SystemExit(f"[pour_tea] emissions file lacks role {r!r}")
@@ -270,7 +306,8 @@ def main() -> None:
                         rim_margin=mug_sym.quantities.get("rim_radius", 0.04) * 0.5,
                         emissions=ems,
                         symbols={"teapot": teapot_sym, "mug": mug_sym})
-    transport_kw = {} if ems else {"z_corridor": (-0.02, 0.45)}
+    transport_kw = {} if ems else {"z_corridor": (-0.02, 0.45),
+                                   "upright_tol": np.deg2rad(args.upright_deg)}
     tilt_target = np.deg2rad(args.tilt_deg)
 
     if objs:
@@ -286,7 +323,14 @@ def main() -> None:
               f"{np.round(T0_teapot[:3, 3], 3)}, mug {np.round(T0_mug[:3, 3], 3)}")
 
     kin = ArmKinematics(env)
+    # grasp phase: fingers as execution opens them for the reach and approach
+    # (fully open); later phases use their own kinematics objects
+    from manip_sim.antipodal import approach_joints, set_gripper_joints
+    set_gripper_joints(kin, approach_joints())
     ik = MinkIK(kin)
+    # the grasp lookahead probes later stages' goals, where the fingers hold the
+    # object: the carrying phase's finger state (default), not the open approach
+    kin_probe = ArmKinematics(env)
     q_home = env.sim.data.qpos[kin.qpos_ids].copy()
     lo, hi = kin.joint_range[:, 0], kin.joint_range[:, 1]
     lo_s, hi_s = np.maximum(lo, -np.pi), np.minimum(hi, np.pi)
@@ -302,159 +346,167 @@ def main() -> None:
 
     # ======================================================== STAGE 1: GRASP
     print("\n================ stage 1: grasp ================")
-    # approach: horizontal component of (handle -> body center), pitched
-    # down inside the TSR nominal (UR5e reach favors oblique-from-above)
-    a_body = -handle.point.copy()
-    a_h = handle.T()[:3, :3].T @ a_body
-    gtsr = handle_grasp_tsr(T0_teapot, handle, a_h,
-                            elevation=np.deg2rad(args.grasp_elevation))
+    if args.spec:
+        q_grasp = np.asarray(json.loads(Path(args.spec).read_text())["q_grasp"], float)
+        T0_ee_grasp = kin.fk(q_grasp)
+        path1 = q_grasp[None]
+        print(f"[grasp] given by {args.spec}")
+    else:
+        # approach: horizontal component of (handle -> body center), pitched
+        # down inside the TSR nominal (UR5e reach favors oblique-from-above)
+        a_body = -handle.point.copy()
+        a_h = handle.T()[:3, :3].T @ a_body
+        gtsr = handle_grasp_tsr(T0_teapot, handle, a_h,
+                                elevation=np.deg2rad(args.grasp_elevation))
 
-    proposals = propose_handle_grasps(
-        gtsr, rng, n=args.n_proposals,
-        junk_points=[(T0_teapot @ spout_tip.T())[:3, 3],
-                     T0_teapot[:3, 3] + [0.0, 0.0, 0.12]])
-    survivors, tally = classify_grasps(gtsr, proposals)
-    print(f"[grasp] classifier: {len(proposals)} proposed -> "
-          f"{len(survivors)} kept "
-          f"(handle {tally['handle_kept']}/{tally['handle_kept'] + tally['handle_rejected']}, "
-          f"junk {tally['junk_kept']}/{tally['junk_kept'] + tally['junk_rejected']})")
-    if not survivors:
-        raise SystemExit("[grasp] classifier kept nothing — widen the "
-                         "proposal spread or check handle frame symbols.")
-    survivors.sort(key=lambda p: p.tsr_distance)
+        proposals = propose_handle_grasps(
+            gtsr, rng, n=args.n_proposals,
+            junk_points=[(T0_teapot @ spout_tip.T())[:3, 3],
+                         T0_teapot[:3, 3] + [0.0, 0.0, 0.12]])
+        survivors, tally = classify_grasps(gtsr, proposals)
+        print(f"[grasp] classifier: {len(proposals)} proposed -> "
+              f"{len(survivors)} kept "
+              f"(handle {tally['handle_kept']}/{tally['handle_kept'] + tally['handle_rejected']}, "
+              f"junk {tally['junk_kept']}/{tally['junk_kept'] + tally['junk_rejected']})")
+        if not survivors:
+            raise SystemExit("[grasp] classifier kept nothing — widen the "
+                             "proposal spread or check handle frame symbols.")
+        survivors.sort(key=lambda p: p.tsr_distance)
 
-    # IK + collision, trying the parallel-jaw wrist flip on both branches
-    candidates = []                     # (q_grasp, T0_ee_achieved)
-    for p in survivors:
-        if len(candidates) >= args.max_grasp_candidates:
+        # IK + collision, trying the parallel-jaw wrist flip on both branches
+        candidates = []                     # (q_grasp, T0_ee_achieved)
+        for p in survivors:
+            if len(candidates) >= args.max_grasp_candidates:
+                break
+            # both wrist-flip branches are the same physical grasp but reach
+            # the handle through different joint configurations and approach
+            # sweeps — keep each that solves as its own candidate
+            for T in (p.T0_ee, wrist_flip(p.T0_ee)):
+                q, ok = ik.solve_multiseed(T, seeds)
+                if ok and not kin.in_collision(
+                        q, allowed_prefix_pairs=grasp_allowed):
+                    candidates.append((q, kin.fk(q)))
+        print(f"[grasp] IK + collision: {len(survivors)} classified -> "
+              f"{len(candidates)} reachable candidates")
+        if not candidates:
+            raise SystemExit("[grasp] no reachable grasp — add IK seeds or "
+                             "revisit the approach elevation.")
+
+        # lookahead feasibility probe: shared downstream samples, one score per
+        # candidate. Inter-stage coupling lives HERE, not in the grasp TSR.
+        tpair_probe = frames.transport(T0_teapot, T0_mug, **transport_kw)
+        rep2p = sample_intersection(tpair_probe.subgoal, [tpair_probe.path],
+                                    n=args.n_probe, rng=rng)
+        # pour probes are built over SEVERAL candidate entries, not one: the
+        # pour's feasibility depends strongly on the transport approach azimuth
+        # (the UR5e reach scan shows only a band of azimuths admits the full
+        # tilt), and a single lucky entry would zero every candidate's score
+        pour_samples = []
+        for entry_probe in rep2p.accepted[: max(1, args.n_probe // 2)]:
+            ppair_probe = frames.pour(entry_probe, T0_mug, tilt_target)
+            rep3p = sample_intersection(ppair_probe.subgoal, [ppair_probe.path],
+                                        n=2, rng=rng)
+            pour_samples.extend(rep3p.accepted)
+        ctx = ProbeContext(transport_samples=rep2p.accepted,
+                           pour_samples=pour_samples, seeds=seeds)
+        scored = []
+        t0 = time.time()
+        for q_g, T_g in candidates:
+            rep = lookahead_probe(ik, kin_probe, T_g, T0_teapot, ctx)
+            scored.append((rep.score, q_g, T_g, rep))
+        scored.sort(key=lambda s: (-s[0], float(np.linalg.norm(s[1] - q_home))))
+        print(f"[grasp] lookahead probe over {len(candidates)} candidates "
+              f"({time.time() - t0:.1f}s):")
+        for sc, q_g, _, rep in scored:
+            print(f"    {rep.summary()}")
+        def _track_line(p_to, q_seed, T_rot, steps, allowed, max_dq=0.35):
+            """Straight CARTESIAN segment: lerp the position (orientation
+            held), differential-IK each step seeded from the previous config.
+            A straight line in joint space is NOT a straight line in task
+            space — naive joint interpolation between two IK solutions swings
+            the elbow/wrist through table and self-collisions the endpoint
+            checks never see. Sequential seeding keeps the branch continuous;
+            max_dq rejects tracking that silently hops branches anyway.
+            Returns (configs, fail_reason)."""
+            qs, q = [], np.asarray(q_seed, float)
+            p_from = kin.fk(q)[:3, 3]
+            for k in range(1, steps + 1):
+                T = T_rot.copy()
+                T[:3, 3] = p_from + (p_to - p_from) * k / steps
+                q_new, ok = ik.solve(T, q, iters=60)
+                if not ok:
+                    return None, f"IK lost track at step {k}/{steps}"
+                if np.linalg.norm(q_new - q) > max_dq:
+                    return None, f"IK branch hop at step {k}/{steps}"
+                if kin.in_collision(q_new, allowed_prefix_pairs=allowed):
+                    return None, f"collides ({_offender(allowed)})"
+                qs.append(q_new)
+                q = q_new
+            return qs, None
+
+        def _offender(allowed):
+            """Name the first non-whitelisted deep contact at the config the
+            scratch data currently holds (call right after in_collision=True)."""
+            import mujoco as _mj
+            for i in range(kin.data.ncon):
+                con = kin.data.contact[i]
+                if con.dist > -1e-4:
+                    continue
+                b1 = _mj.mj_id2name(kin.model, _mj.mjtObj.mjOBJ_BODY,
+                                    kin.model.geom_bodyid[con.geom1]) or ""
+                b2 = _mj.mj_id2name(kin.model, _mj.mjtObj.mjOBJ_BODY,
+                                    kin.model.geom_bodyid[con.geom2]) or ""
+                if not (b1.startswith(("robot0", "gripper0", "mount0"))
+                        or b2.startswith(("robot0", "gripper0", "mount0"))):
+                    continue
+                if any((b1.startswith(p_) and b2.startswith(q_)) or
+                       (b1.startswith(q_) and b2.startswith(p_))
+                       for p_, q_ in allowed):
+                    continue
+                return f"{b1} <-> {b2}"
+            return "?"
+
+        # walk the probe ranking: the best-scoring grasp whose pre-grasp,
+        # reach plan, and approach sweep are all feasible wins. Hard-aborting
+        # on the top candidate's approach was the wrong funnel shape — an
+        # approach collision is just attrition, and the next azimuth or wrist
+        # flip usually clears it.
+        attached_none = AttachedObject(np.eye(4))
+        chosen = None
+        for cand_score, q_grasp, T0_ee_grasp, cand_rep in scored:
+            if cand_score <= 0.0:
+                break                       # ranked: everything after is 0 too
+            # retreat OUT from the grasp config along -approach, Cartesian-
+            # tracked; the approach segment is that retreat reversed, so the
+            # descent is a true straight line on a continuous IK branch
+            p_pre = T0_ee_grasp[:3, 3] - PREGRASP_STANDOFF * T0_ee_grasp[:3, 2]
+            retreat, why = _track_line(p_pre, q_grasp, T0_ee_grasp,
+                                       APPROACH_STEPS, grasp_allowed)
+            if retreat is None:
+                print(f"[grasp]   candidate skipped: approach corridor {why}")
+                continue
+            q_pre = retreat[-1]
+            approach = retreat[-2::-1] + [q_grasp]
+            res1 = plan_constrained(kin, attached_none, [free_tsr()],
+                                    q_home, q_pre, timeout=args.timeout,
+                                    max_iters=args.max_iters,
+            check_chords=not args.no_chord_check, rng=rng_reach)
+            if not res1.ok:
+                print(f"[grasp]   candidate skipped: reach planning failed "
+                      f"({res1.reason})")
+                continue
+            chosen = (q_grasp, T0_ee_grasp, cand_rep, res1, approach)
             break
-        # both wrist-flip branches are the same physical grasp but reach
-        # the handle through different joint configurations and approach
-        # sweeps — keep each that solves as its own candidate
-        for T in (p.T0_ee, wrist_flip(p.T0_ee)):
-            q, ok = ik.solve_multiseed(T, seeds)
-            if ok and not kin.in_collision(
-                    q, allowed_prefix_pairs=grasp_allowed):
-                candidates.append((q, kin.fk(q)))
-    print(f"[grasp] IK + collision: {len(survivors)} classified -> "
-          f"{len(candidates)} reachable candidates")
-    if not candidates:
-        raise SystemExit("[grasp] no reachable grasp — add IK seeds or "
-                         "revisit the approach elevation.")
-
-    # lookahead feasibility probe: shared downstream samples, one score per
-    # candidate. Inter-stage coupling lives HERE, not in the grasp TSR.
-    tpair_probe = frames.transport(T0_teapot, T0_mug, **transport_kw)
-    rep2p = sample_intersection(tpair_probe.subgoal, [tpair_probe.path],
-                                n=args.n_probe, rng=rng)
-    # pour probes are built over SEVERAL candidate entries, not one: the
-    # pour's feasibility depends strongly on the transport approach azimuth
-    # (the UR5e reach scan shows only a band of azimuths admits the full
-    # tilt), and a single lucky entry would zero every candidate's score
-    pour_samples = []
-    for entry_probe in rep2p.accepted[: max(1, args.n_probe // 2)]:
-        ppair_probe = frames.pour(entry_probe, T0_mug, tilt_target)
-        rep3p = sample_intersection(ppair_probe.subgoal, [ppair_probe.path],
-                                    n=2, rng=rng)
-        pour_samples.extend(rep3p.accepted)
-    ctx = ProbeContext(transport_samples=rep2p.accepted,
-                       pour_samples=pour_samples, seeds=seeds)
-    scored = []
-    t0 = time.time()
-    for q_g, T_g in candidates:
-        rep = lookahead_probe(ik, kin, T_g, T0_teapot, ctx)
-        scored.append((rep.score, q_g, T_g, rep))
-    scored.sort(key=lambda s: (-s[0], float(np.linalg.norm(s[1] - q_home))))
-    print(f"[grasp] lookahead probe over {len(candidates)} candidates "
-          f"({time.time() - t0:.1f}s):")
-    for sc, q_g, _, rep in scored:
-        print(f"    {rep.summary()}")
-    def _track_line(p_to, q_seed, T_rot, steps, allowed, max_dq=0.35):
-        """Straight CARTESIAN segment: lerp the position (orientation
-        held), differential-IK each step seeded from the previous config.
-        A straight line in joint space is NOT a straight line in task
-        space — naive joint interpolation between two IK solutions swings
-        the elbow/wrist through table and self-collisions the endpoint
-        checks never see. Sequential seeding keeps the branch continuous;
-        max_dq rejects tracking that silently hops branches anyway.
-        Returns (configs, fail_reason)."""
-        qs, q = [], np.asarray(q_seed, float)
-        p_from = kin.fk(q)[:3, 3]
-        for k in range(1, steps + 1):
-            T = T_rot.copy()
-            T[:3, 3] = p_from + (p_to - p_from) * k / steps
-            q_new, ok = ik.solve(T, q, iters=60)
-            if not ok:
-                return None, f"IK lost track at step {k}/{steps}"
-            if np.linalg.norm(q_new - q) > max_dq:
-                return None, f"IK branch hop at step {k}/{steps}"
-            if kin.in_collision(q_new, allowed_prefix_pairs=allowed):
-                return None, f"collides ({_offender(allowed)})"
-            qs.append(q_new)
-            q = q_new
-        return qs, None
-
-    def _offender(allowed):
-        """Name the first non-whitelisted deep contact at the config the
-        scratch data currently holds (call right after in_collision=True)."""
-        import mujoco as _mj
-        for i in range(kin.data.ncon):
-            con = kin.data.contact[i]
-            if con.dist > -1e-4:
-                continue
-            b1 = _mj.mj_id2name(kin.model, _mj.mjtObj.mjOBJ_BODY,
-                                kin.model.geom_bodyid[con.geom1]) or ""
-            b2 = _mj.mj_id2name(kin.model, _mj.mjtObj.mjOBJ_BODY,
-                                kin.model.geom_bodyid[con.geom2]) or ""
-            if not (b1.startswith(("robot0", "gripper0", "mount0"))
-                    or b2.startswith(("robot0", "gripper0", "mount0"))):
-                continue
-            if any((b1.startswith(p_) and b2.startswith(q_)) or
-                   (b1.startswith(q_) and b2.startswith(p_))
-                   for p_, q_ in allowed):
-                continue
-            return f"{b1} <-> {b2}"
-        return "?"
-
-    # walk the probe ranking: the best-scoring grasp whose pre-grasp,
-    # reach plan, and approach sweep are all feasible wins. Hard-aborting
-    # on the top candidate's approach was the wrong funnel shape — an
-    # approach collision is just attrition, and the next azimuth or wrist
-    # flip usually clears it.
-    attached_none = AttachedObject(np.eye(4))
-    chosen = None
-    for cand_score, q_grasp, T0_ee_grasp, cand_rep in scored:
-        if cand_score <= 0.0:
-            break                       # ranked: everything after is 0 too
-        # retreat OUT from the grasp config along -approach, Cartesian-
-        # tracked; the approach segment is that retreat reversed, so the
-        # descent is a true straight line on a continuous IK branch
-        p_pre = T0_ee_grasp[:3, 3] - PREGRASP_STANDOFF * T0_ee_grasp[:3, 2]
-        retreat, why = _track_line(p_pre, q_grasp, T0_ee_grasp,
-                                   APPROACH_STEPS, grasp_allowed)
-        if retreat is None:
-            print(f"[grasp]   candidate skipped: approach corridor {why}")
-            continue
-        q_pre = retreat[-1]
-        approach = retreat[-2::-1] + [q_grasp]
-        res1 = plan_constrained(kin, attached_none, [free_tsr()],
-                                q_home, q_pre, timeout=args.timeout)
-        if not res1.ok:
-            print(f"[grasp]   candidate skipped: reach planning failed "
-                  f"({res1.reason})")
-            continue
-        chosen = (q_grasp, T0_ee_grasp, cand_rep, res1, approach)
-        break
-    if chosen is None:
-        raise SystemExit("[grasp] no candidate survived pre-grasp/approach/"
-                         "reach feasibility — the skip reasons above name "
-                         "each blocker; more --n-proposals widens the "
-                         "azimuth pool.")
-    q_grasp, T0_ee_grasp, best_rep, res1, approach = chosen
-    print(f"[grasp] selected grasp: {best_rep.summary()}")
-    path1 = np.vstack([res1.path, approach])
-    print(f"[grasp] reach {res1.stats['n_waypoints']} waypoints in "
-          f"{res1.solve_time:.2f}s + {APPROACH_STEPS} approach steps")
+        if chosen is None:
+            raise SystemExit("[grasp] no candidate survived pre-grasp/approach/"
+                             "reach feasibility — the skip reasons above name "
+                             "each blocker; more --n-proposals widens the "
+                             "azimuth pool.")
+        q_grasp, T0_ee_grasp, best_rep, res1, approach = chosen
+        print(f"[grasp] selected grasp: {best_rep.summary()}")
+        path1 = np.vstack([res1.path, approach])
+        print(f"[grasp] reach {res1.stats['n_waypoints']} waypoints in "
+              f"{res1.solve_time:.2f}s + {APPROACH_STEPS} approach steps")
 
     # grasp completion: MEASURE the in-hand transform, freeze it, attach
     T_ee_body = np.linalg.inv(kin.fk(q_grasp)) @ T0_teapot
@@ -505,62 +557,141 @@ def main() -> None:
     # schema's clearance/slack enum)
     pair = frames.transport(T0_teapot, T0_mug,
                             **({} if ems else dict(transport_kw, height=(0.04, 0.10))))
-    rep2, goals2, _ = _sample_funnel_escalating(
-        pair.subgoal, [pair.path], args.n_goal_samples, rng,
-        (ik_att, kin_att, attached, [q_lift] + seeds,
-         [pair.path, pair.subgoal], "transport", q_lift), "transport")
-    if not goals2:
-        raise SystemExit("[transport] no feasible goal configs.")
-    # stage-2 -> stage-3 lookahead: rank transport goals by whether the
-    # pour subgoal is IK-reachable FROM THAT ENTRY (the pour pair is frozen
-    # wherever transport ends, so approach azimuth decides pour
-    # feasibility; nearest-config ranking alone routinely picks entries
-    # from which the tilt is out of the arm's reach)
-    t0 = time.time()
-    ranked2 = []
-    for q in goals2[: min(len(goals2), 10)]:
-        T_ent = attached.body_pose(kin_att.fk(q))
-        pp = frames.pour(T_ent, T0_mug, tilt_target)
-        # nominal(), NOT zero(): the pour pair's Tw_e composes zero()
-        # back to the entry pose itself (IK to where the arm already is
-        # — a gate that always passes). The Bw midpoint is the actual
-        # tilt_target attitude about the tilt axis at the tip.
-        qp, ok = ik_att.solve_multiseed(
-            pp.subgoal.nominal() @ np.linalg.inv(attached.T_ee_body),
-            [q] + seeds, iters=200)
-        pour_ok = ok and not kin_att.in_collision(qp)
-        # the pour PATH holds from its entry: an entry outside it is a
-        # start projection (unplanned, collision-checked only at its end)
-        in_path = pp.path.contains(T_ent, tol=1e-6)
-        ranked2.append((not pour_ok, not in_path,
-                        float(np.linalg.norm(q - q_lift)), q))
-    ranked2.sort(key=lambda r: r[:3])
-    n_pourable = sum(1 for r in ranked2 if not r[0])
-    n_in_path = sum(1 for r in ranked2 if not r[0] and not r[1])
-    print(f"[transport] pour lookahead: {n_pourable}/{len(ranked2)} goal "
-          f"entries admit the {args.tilt_deg:.0f} deg pour, {n_in_path} of "
-          f"those lie in the pour path ({time.time() - t0:.1f}s)")
-    if n_pourable == 0:
-        print("[transport] WARNING: no probed entry admits the pour — "
-              "proceeding with nearest goal; expect stage 3 to fail "
-              "(lower --tilt-deg or raise --n-goal-samples).")
-    elif n_in_path == 0:
-        print("[transport] WARNING: no pourable entry lies in the pour "
-              "path — stage 3 will start from a projection; the seam "
-              "check at the emit gate should have rejected this pair.")
+    def _entries():
+        """Transport goals to try, best first. Only goals the pour accepts as its start
+        (the pour compiled at that entry, which checks entry admission, and the
+        entry inside the pour path) are kept; if a draw has none, fresh draws follow
+        (HANDOFF_ROUNDS in all), then the typed failure no_admitted_handoff. With
+        more than one entry round, an entry the pour cannot work from is skipped too."""
+        n_rounds = max(args.entry_rounds, HANDOFF_ROUNDS)
+        had_goals = False
+        for round_ in range(n_rounds):
+            rep2, goals2, _ = _sample_funnel_escalating(
+                pair.subgoal, [pair.path], args.n_goal_samples, rng_transport,
+                (ik_att, kin_att, attached, [q_lift] + seeds,
+                 [pair.path, pair.subgoal], "transport", q_lift), "transport")
+            if not goals2:
+                if round_ + 1 < args.entry_rounds:
+                    continue
+                if had_goals:     # earlier draws had goals, none a start the pour accepts
+                    raise SystemExit("[transport] FAILED no_admitted_handoff: no transport "
+                                     "goal is a start the pour accepts")
+                raise SystemExit("[transport] no feasible goal configs.")
+            had_goals = True
+            # stage-2 -> stage-3 lookahead: rank transport goals by whether the
+            # pour subgoal is IK-reachable FROM THAT ENTRY (the pour pair is frozen
+            # wherever transport ends, so approach azimuth decides pour
+            # feasibility; nearest-config ranking alone routinely picks entries
+            # from which the tilt is out of the arm's reach)
+            t0 = time.time()
+            ranked2 = []
+            for q in goals2[: min(len(goals2), HANDOFF_PROBE)]:
+                T_ent = attached.body_pose(kin_att.fk(q))
+                try:
+                    pp = frames.pour(T_ent, T0_mug, tilt_target)
+                except Exception as e:        # the pour rejects this start outright
+                    ranked2.append((True, True, float(np.linalg.norm(q - q_lift)), q))
+                    print(f"[transport]   entry rejected by the pour: {str(e)[:120]}")
+                    continue
+                # nominal(), NOT zero(): the pour pair's Tw_e composes zero()
+                # back to the entry pose itself (IK to where the arm already is
+                # — a gate that always passes). The Bw midpoint is the actual
+                # tilt_target attitude about the tilt axis at the tip.
+                qp, ok = ik_att.solve_multiseed(
+                    pp.subgoal.nominal() @ np.linalg.inv(attached.T_ee_body),
+                    [q] + seeds, iters=200)
+                pour_ok = ok and not kin_att.in_collision(qp)
+                # the pour PATH holds from its entry: an entry outside it is a
+                # start projection (unplanned, collision-checked only at its end)
+                in_path = pp.path.contains(T_ent, tol=1e-6)
+                ranked2.append((not pour_ok, not in_path,
+                                float(np.linalg.norm(q - q_lift)), q))
+            ranked2.sort(key=lambda r: r[:3])
+            n_pourable = sum(1 for r in ranked2 if not r[0])
+            n_in_path = sum(1 for r in ranked2 if not r[0] and not r[1])
+            print(f"[transport] pour lookahead: {n_pourable}/{len(ranked2)} goal "
+                  f"entries admit the {args.tilt_deg:.0f} deg pour, {n_in_path} of "
+                  f"those lie in the pour path ({time.time() - t0:.1f}s)")
+            if n_pourable == 0:
+                print("[transport] WARNING: no probed entry admits the pour — "
+                      "proceeding with nearest goal; expect stage 3 to fail "
+                      "(lower --tilt-deg or raise --n-goal-samples).")
+            elif n_in_path == 0:
+                print("[transport] WARNING: no pourable entry lies in the pour "
+                      "path — stage 3 will start from a projection; the seam "
+                      "check at the emit gate should have rejected this pair.")
+            usable = [r for r in ranked2 if not r[1] and not (retrying and r[0])]
+            if not usable:
+                if round_ + 1 < n_rounds:
+                    print("[transport] no sampled goal is a start the pour admits; drawing again")
+                    continue
+                raise SystemExit("[transport] FAILED no_admitted_handoff: no transport goal "
+                                 "is a start the pour accepts")
+            for k, entry in enumerate(usable):
+                yield k, len(usable), entry[3]
+            if round_ + 1 >= args.entry_rounds:
+                break
+
     # walk the ranking (same funnel shape as stage 1's candidate walk):
     # a planning failure on one goal is attrition, not a verdict — the
     # next entry is usually at a different azimuth and connects fine
-    res2, fails2 = None, []
-    for k, (_no_pour, _off_path, _dist, q_goal2) in enumerate(ranked2):
+    retrying = args.entry_rounds > 1
+
+    res2, res3, fails2 = None, None, []
+    for k, n_entries, q_goal2 in _entries():
         r = plan_constrained(kin_att, attached, [pair.path], q_lift,
-                             q_goal2, timeout=args.timeout)
-        if r.ok:
-            res2 = r
-            break
-        fails2.append(r)
-        print(f"[transport]   goal {k + 1}/{len(ranked2)} skipped: "
-              f"{r.reason} (tree sizes {r.stats.get('tree_sizes')})")
+                             q_goal2, timeout=args.timeout, eps=args.eps,
+                             max_iters=args.max_iters,
+            check_chords=not args.no_chord_check, rng=rng_transport)
+        if not r.ok:
+            fails2.append(r)
+            print(f"[transport]   goal {k + 1}/{n_entries} skipped: "
+                  f"{r.reason} (tree sizes {r.stats.get('tree_sizes')})")
+            continue
+        res2 = r
+        print(f"[transport] path: {res2.stats['n_waypoints']} waypoints in "
+              f"{res2.solve_time:.2f}s; max path-TSR excess {res2.max_excess:.4f}")
+        q2_end = res2.path[-1]
+
+        # ========================================================= STAGE 3: POUR
+        print("\n================= stage 3: pour ================")
+        # pair FROZEN AT ENTRY: w = tilt axis at the spout tip where transport
+        # actually ended (not where it was nominally aimed)
+        T_entry = attached.body_pose(kin_att.fk(q2_end))
+        ppair = frames.pour(T_entry, T0_mug, tilt_target)
+        ex_entry = ppair.path.excess(T_entry)
+        print(f"[pour] entry vs path excess (x y z r p y): "
+              f"{np.round(ex_entry[:3], 4).tolist()} m "
+              f"{np.round(np.degrees(ex_entry[3:]), 1).tolist()} deg")
+        rep3, goals3, _ = _sample_funnel_escalating(
+            ppair.subgoal, [ppair.path], args.n_goal_samples, rng_pour,
+            (ik_att, kin_att, attached, [q2_end] + seeds,
+             [ppair.path, ppair.subgoal], "pour", q2_end, {"iters": 200}), "pour",
+            n_max=args.n_goal_samples if retrying else GOAL_SAMPLE_MAX)
+        if not goals3:
+            if retrying:
+                print("[pour] no feasible pour configs from this entry: next entry")
+                continue
+            raise SystemExit("[pour] no feasible pour configs — try a smaller "
+                             "--tilt-deg or a different grasp seed.")
+        # the pivot corridor is thin (5 mm / 3 deg): smaller extension steps
+        def _at_pour(q):
+            T = attached.body_pose(kin_att.fk(q))
+            off = (T @ spout_tip.T())[:2, 3] - (T0_mug @ opening.T())[:2, 3]
+            return ppair.subgoal.contains(T, tol=5e-3) and \
+                np.linalg.norm(off) < mug_sym.quantities.get("rim_radius", 0.04)
+
+        res3 = plan_constrained(kin_att, attached, [ppair.path], q2_end,
+                                goals3[0], timeout=args.timeout, eps=0.05,
+                                max_iters=args.max_iters,
+            check_chords=not args.no_chord_check, rng=rng_pour,
+                                goal_test=_at_pour if args.pour_goal_region else None)
+        if not res3.ok:
+            if retrying:
+                print(f"[pour] planning failed: {res3.reason}: next entry")
+                continue
+            raise SystemExit(f"[pour] planning failed: {res3.reason}")
+        break
     if res2 is None:
         # escalate with the reason HISTOGRAM, not a prescribed repair:
         # the three typed reasons plan_constrained emits map to three
@@ -578,34 +709,12 @@ def main() -> None:
             f"[transport] planning failed on all {len(fails2)} ranked "
             "goals: " + ", ".join(f"{n}x '{reason}'" for reason, n
                                   in tally.most_common()))
-    print(f"[transport] path: {res2.stats['n_waypoints']} waypoints in "
-          f"{res2.solve_time:.2f}s; max path-TSR excess {res2.max_excess:.4f}")
-    q2_end = res2.path[-1]
-
-    # ========================================================= STAGE 3: POUR
-    print("\n================= stage 3: pour ================")
-    # pair FROZEN AT ENTRY: w = tilt axis at the spout tip where transport
-    # actually ended (not where it was nominally aimed)
-    T_entry = attached.body_pose(kin_att.fk(q2_end))
-    ppair = frames.pour(T_entry, T0_mug, tilt_target)
-    ex_entry = ppair.path.excess(T_entry)
-    print(f"[pour] entry vs path excess (x y z r p y): "
-          f"{np.round(ex_entry[:3], 4).tolist()} m "
-          f"{np.round(np.degrees(ex_entry[3:]), 1).tolist()} deg")
-    rep3, goals3, _ = _sample_funnel_escalating(
-        ppair.subgoal, [ppair.path], args.n_goal_samples, rng,
-        (ik_att, kin_att, attached, [q2_end] + seeds,
-         [ppair.path, ppair.subgoal], "pour", q2_end, {"iters": 200}), "pour")
-    if not goals3:
-        raise SystemExit("[pour] no feasible pour configs — try a smaller "
-                         "--tilt-deg or a different grasp seed.")
-    # the pivot corridor is thin (5 mm / 3 deg): smaller extension steps
-    res3 = plan_constrained(kin_att, attached, [ppair.path], q2_end,
-                            goals3[0], timeout=args.timeout, eps=0.05)
-    if not res3.ok:
-        raise SystemExit(f"[pour] planning failed: {res3.reason}")
+    if res3 is None or not res3.ok:
+        raise SystemExit("[pour] no entry led to a pour plan in "
+                         f"{args.entry_rounds} rounds of entries")
     print(f"[pour] path: {res3.stats['n_waypoints']} waypoints in "
-          f"{res3.solve_time:.2f}s; max path-TSR excess {res3.max_excess:.4f}")
+          f"{res3.solve_time:.2f}s; max path-TSR excess {res3.max_excess:.4f}; "
+          f"ended in the goal region: {res3.stats['ended_in_goal_region']}")
     d_end = ppair.subgoal.displacement(
         attached.body_pose(kin_att.fk(res3.path[-1])))
     tilt_achieved = d_end[3]

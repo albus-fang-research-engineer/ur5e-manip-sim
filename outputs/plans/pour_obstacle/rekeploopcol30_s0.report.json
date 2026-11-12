@@ -1,0 +1,63 @@
+{
+  "planner": "rekep",
+  "mode": "upstream-loop",
+  "upstream_commit": "63c43fd",
+  "program": "manip_sim/rekep/programs/pour_tea",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "given": true,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "iterations": 3,
+      "backtrack_to": null,
+      "solve_seconds": 587.6,
+      "n_waypoints": 38,
+      "max_joint_step_rad": 6.401,
+      "tracking_max_mm": 898.36,
+      "tracking_max_deg": 5.49,
+      "tracking_misses": 29,
+      "colliding_waypoints": 11
+    },
+    {
+      "stage": "stage3",
+      "iterations": 1,
+      "backtrack_to": 1,
+      "solve_seconds": 0.0,
+      "n_waypoints": 1,
+      "max_joint_step_rad": 0.0,
+      "tracking_max_mm": 0.0,
+      "tracking_max_deg": 0.0,
+      "tracking_misses": 0,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "iterations": 1,
+      "backtrack_to": null,
+      "solve_seconds": 109.8,
+      "n_waypoints": 8,
+      "max_joint_step_rad": 0.319,
+      "tracking_max_mm": 0.0,
+      "tracking_max_deg": 0.0,
+      "tracking_misses": 0,
+      "colliding_waypoints": 2
+    },
+    {
+      "stage": "stage3",
+      "iterations": 1,
+      "backtrack_to": null,
+      "solve_seconds": 84.5,
+      "n_waypoints": 3,
+      "max_joint_step_rad": 0.31,
+      "tracking_max_mm": 0.0,
+      "tracking_max_deg": 0.0,
+      "tracking_misses": 0,
+      "colliding_waypoints": 1
+    }
+  ],
+  "status": "ok",
+  "seconds": 828.0
+}

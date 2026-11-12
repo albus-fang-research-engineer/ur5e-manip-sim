@@ -1,0 +1,43 @@
+{
+  "plan": "outputs/plans/pour_obstacle/rekepdef_s3.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.2,
+      34.5,
+      59.4
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 28.0,
+    "spout_wander_mm": 18.9,
+    "tilt_axis_off_level_deg": 24.6
+  },
+  "end": {
+    "lateral_mm": 0.1,
+    "height_mm": 50.0,
+    "tilt_deg": 86.5,
+    "spout_off_down_deg": 10.1,
+    "stream_off_mm": 8.9
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 31.9
+  },
+  "pairs_max_depth_mm": {
+    "obstacle_main <-> teapot_main": 31.9,
+    "gripper0_right_right_outer_knuckle <-> obstacle_main": 5.4,
+    "gripper0_right_right_inner_finger <-> obstacle_main": 2.9
+  },
+  "colliding_points": 57,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

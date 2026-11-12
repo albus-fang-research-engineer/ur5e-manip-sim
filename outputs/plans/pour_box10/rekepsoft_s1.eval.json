@@ -1,0 +1,43 @@
+{
+  "plan": "outputs/plans/pour_box10/rekepsoft_s1.npz",
+  "carrying": {
+    "max_tilt_deg": 9.0,
+    "tilt_at_quarters_deg": [
+      8.6,
+      2.4,
+      37.5
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 22.5,
+    "spout_wander_mm": 11.6,
+    "tilt_axis_off_level_deg": 2.0
+  },
+  "end": {
+    "lateral_mm": 3.9,
+    "height_mm": 67.1,
+    "tilt_deg": 94.9,
+    "spout_off_down_deg": 4.9,
+    "stream_off_mm": 4.5
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 14.7,
+    "other": 14.8
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 14.7,
+    "gripper0_right_left_outer_knuckle <-> obstacle_main": 5.8,
+    "gripper0_right_left_inner_finger <-> obstacle_main": 14.8
+  },
+  "colliding_points": 23,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

@@ -1,0 +1,7 @@
+{
+  "object": "obstacle",
+  "units": "meters",
+  "coordinates": "body frame of mjcf body 'object'; a 6 x 6 x 25 cm box standing on its base",
+  "points": {"center": {"xyz": [0.0, 0.0, 0.125], "status": "calibrated", "comment": "authored"}},
+  "axes": {"up_axis": {"xyz": [0.0, 0.0, 1.0], "status": "calibrated", "comment": "authored"}}
+}

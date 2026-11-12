@@ -1,0 +1,65 @@
+{
+  "planner": "rekep",
+  "mode": "open-loop",
+  "upstream_commit": "63c43fd",
+  "program": "/workspace/manip_sim/rekep/programs/insert_marker",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "attempts": 2,
+      "failures": [
+        {
+          "attempt": 0,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0925,
+            0.1248
+          ]
+        }
+      ],
+      "solve_seconds": 40.2,
+      "subgoal_violations": [
+        0.0,
+        0.0
+      ],
+      "path_max_violation": 0.0,
+      "n_waypoints": 11,
+      "max_joint_step_rad": 0.215,
+      "colliding_waypoints": 0
+    },
+    {
+      "stage": "stage2",
+      "attempts": 1,
+      "failures": [],
+      "solve_seconds": 42.8,
+      "subgoal_violations": [
+        0.00047,
+        5e-05,
+        0.0
+      ],
+      "path_max_violation": 0.0,
+      "n_waypoints": 11,
+      "max_joint_step_rad": 0.299,
+      "colliding_waypoints": 0
+    },
+    {
+      "stage": "stage3",
+      "attempts": 1,
+      "failures": [],
+      "solve_seconds": 42.5,
+      "subgoal_violations": [
+        0.00014,
+        0.0,
+        0.0,
+        -0.01
+      ],
+      "path_max_violation": 0.0,
+      "n_waypoints": 2,
+      "max_joint_step_rad": 0.144,
+      "colliding_waypoints": 0
+    }
+  ],
+  "status": "ok",
+  "seconds": 181.4
+}

@@ -1,0 +1,15 @@
+{
+  "keypoints": [
+    {"object": "teapot", "point": "handle_center"},
+    {"object": "teapot", "point": "spout_tip"},
+    {"object": "teapot", "xyz": [0.0, 0.0, 0.0]},
+    {"object": "teapot", "xyz": [0.0, 0.0, 0.1]},
+    {"object": "teapot", "xyz": [-0.06895, -0.07243, 0.0]},
+    {"object": "teapot", "xyz": [-0.07243, 0.06895, 0.0]},
+    {"object": "mug", "point": "opening_center"}
+  ],
+  "num_stages": 3,
+  "grasp_keypoints": [0, -1, -1],
+  "release_keypoints": [-1, -1, -1],
+  "target": {"object": "mug", "point": "opening_center", "up_axis": "up_axis"}
+}

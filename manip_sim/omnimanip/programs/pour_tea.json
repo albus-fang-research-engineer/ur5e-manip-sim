@@ -1,0 +1,28 @@
+{
+  "task": "pour tea from the teapot into the mug",
+  "grasp": {
+    "object": "teapot"
+  },
+  "stages": [
+    {
+      "action": "pour",
+      "active": {
+        "object": "teapot",
+        "point": "spout_tip",
+        "axis": "pour_axis"
+      },
+      "passive": {
+        "object": "mug",
+        "point": "opening_center",
+        "axis": "up_axis",
+        "sign": -1
+      },
+      "d_m": -0.07
+    }
+  ],
+  "target": {
+    "object": "mug",
+    "point": "opening_center",
+    "up_axis": "up_axis"
+  }
+}

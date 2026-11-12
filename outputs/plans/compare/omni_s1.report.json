@@ -1,0 +1,55 @@
+{
+  "planner": "omnimanip",
+  "mode": "open-loop",
+  "program": "/workspace/manip_sim/omnimanip/programs/insert_marker.json",
+  "config": {
+    "weights": {
+      "lambda_trans": 0.001,
+      "lambda_rot": 0.0001,
+      "rot_radius": 0.1,
+      "d_min": 0.02
+    },
+    "max_ee_points": 60,
+    "pos_tol": 0.005,
+    "rot_tol_deg": 5.0,
+    "line_pos_step": 0.005,
+    "line_rot_step_deg": 1.0,
+    "ik_pos_tol": 0.001,
+    "ik_rot_tol": 0.005,
+    "max_joint_step": 0.2,
+    "x0_jitter": [
+      0.01,
+      0.05
+    ],
+    "seed": 1
+  },
+  "stages": [
+    {
+      "stage": "grasp",
+      "n_waypoints": 114
+    },
+    {
+      "stage": "place",
+      "solve": {
+        "position_error_mm": 0.5,
+        "angle_error_deg": 0.053,
+        "losses": {
+          "constraint": 2.592e-07,
+          "collision": 0.0,
+          "path": 0.000641
+        },
+        "move_m": 0.484,
+        "rotation_deg": 90.1,
+        "n_iterations": 20,
+        "solver_message": "Optimization terminated successfully"
+      },
+      "obstacles": [
+        "table",
+        "cup_main"
+      ],
+      "n_waypoints": 122
+    }
+  ],
+  "status": "ok",
+  "seconds": 0.7
+}

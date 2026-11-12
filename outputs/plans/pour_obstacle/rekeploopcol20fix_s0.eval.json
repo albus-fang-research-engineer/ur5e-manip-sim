@@ -1,0 +1,42 @@
+{
+  "plan": "outputs/plans/pour_obstacle/rekeploopcol20fix_s0.npz",
+  "carrying": {
+    "max_tilt_deg": 34.0,
+    "tilt_at_quarters_deg": [
+      9.4,
+      5.9,
+      33.7
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 121.8,
+    "spout_wander_mm": 174.5,
+    "tilt_axis_off_level_deg": 66.6
+  },
+  "end": {
+    "lateral_mm": 0.1,
+    "height_mm": 50.0,
+    "tilt_deg": 96.3,
+    "spout_off_down_deg": 8.7,
+    "stream_off_mm": 7.7
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 18.8
+  },
+  "pairs_max_depth_mm": {
+    "robot0_upper_arm_link <-> teapot_main": 9.8,
+    "robot0_forearm_link <-> teapot_main": 18.8
+  },
+  "colliding_points": 16,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": false,
+    "spout_in_rim": false
+  },
+  "goal_pass": true,
+  "path_pass": false
+}

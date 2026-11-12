@@ -1,0 +1,96 @@
+{
+  "plan": "outputs/plans/compare/same10_s2.npz",
+  "spec": "insert_marker",
+  "goal": {
+    "lower_end": "tail_center",
+    "tilt_deg": 11.16,
+    "off_axis_mm": 16.2,
+    "depth_mm": 58.4
+  },
+  "checks": {
+    "first_end_lower": true,
+    "tilt": false,
+    "depth": true,
+    "inside_rim": true
+  },
+  "goal_pass": false,
+  "path_pass": false,
+  "inserted": {
+    "n_points": 11,
+    "max_tilt_deg": 13.87,
+    "max_off_axis_mm": 34.1
+  },
+  "transport": {
+    "travel_m": 0.772,
+    "rest_up_tilt_deg_at_travel": {
+      "0%": 0.1,
+      "25%": 2.9,
+      "50%": 6.7,
+      "75%": 13.6,
+      "100%": 81.8
+    },
+    "max_rest_up_tilt_deg": 81.8,
+    "total_rotation_deg": 83.6,
+    "rotation_done_at_half_travel_pct": 35.2
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 13.5,
+    "other": 0.0
+  },
+  "colliding_points": 3,
+  "n_tracked": 248,
+  "ee_travel_m": 1.361,
+  "ee_rotation_deg": 236.3,
+  "joint_travel_rad": 10.5,
+  "max_joint_step_rad": 0.108,
+  "segments": [
+    {
+      "segment": "grasp:reach",
+      "n_waypoints": 40,
+      "n_tracked": 116,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.589,
+      "ee_rotation_deg": 89.9,
+      "joint_travel_rad": 4.63,
+      "max_joint_step_rad": 0.08
+    },
+    {
+      "segment": "grasp:lift",
+      "n_waypoints": 12,
+      "n_tracked": 12,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.046,
+      "ee_rotation_deg": 0.0,
+      "joint_travel_rad": 0.14,
+      "max_joint_step_rad": 0.007
+    },
+    {
+      "segment": "transport_active",
+      "n_waypoints": 7,
+      "n_tracked": 34,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.513,
+      "ee_rotation_deg": 44.6,
+      "joint_travel_rad": 1.14,
+      "max_joint_step_rad": 0.108
+    },
+    {
+      "segment": "insert",
+      "n_waypoints": 27,
+      "n_tracked": 86,
+      "colliding_points": 3,
+      "pairs_max_depth_mm": {
+        "cup_main <-> marker_main": 13.5
+      },
+      "ee_travel_m": 0.213,
+      "ee_rotation_deg": 101.8,
+      "joint_travel_rad": 4.59,
+      "max_joint_step_rad": 0.091
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "planner": "rekep",
+  "mode": "open-loop",
+  "upstream_commit": "63c43fd",
+  "program": "manip_sim/rekep/programs/pour_tea",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "given": true,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "attempts": 1,
+      "failures": [],
+      "solve_seconds": 55.5,
+      "subgoal_violations": [
+        0.0,
+        1e-05,
+        0.0,
+        -0.03407
+      ],
+      "path_max_violation": 0.0,
+      "n_waypoints": 10,
+      "max_joint_step_rad": 0.345,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage3",
+      "attempts": 1,
+      "failures": [],
+      "solve_seconds": 51.2,
+      "subgoal_violations": [
+        4e-05,
+        0.0,
+        0.0,
+        3e-05,
+        -0.03587
+      ],
+      "path_max_violation": 0.01517,
+      "n_waypoints": 7,
+      "max_joint_step_rad": 0.3,
+      "colliding_waypoints": 2
+    }
+  ],
+  "status": "ok",
+  "seconds": 129.4
+}

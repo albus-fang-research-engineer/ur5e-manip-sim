@@ -1,0 +1,20 @@
+{
+  "task": "insert the marker into the cup",
+  "grasp": {
+    "object": "marker",
+    "point_body": [0.0, 0.022, 0.0039],
+    "closing_body": [1.0, 0.0, 0.0],
+    "approach_world": [0.0, 0.0, -1.0],
+    "standoff_m": 0.08
+  },
+  "stages": [
+    {
+      "action": "place",
+      "active": {"object": "marker", "point": "tail_center", "axis": "shaft_axis"},
+      "passive": {"object": "cup", "point": "opening_center", "axis": "up_axis"},
+      "d_m": -0.045,
+      "v_m": 0.085
+    }
+  ],
+  "target": {"object": "cup", "point": "opening_center", "up_axis": "up_axis"}
+}

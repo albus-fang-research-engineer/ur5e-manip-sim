@@ -243,6 +243,38 @@ def test_decomposition_line_names_where_the_rotation_happened():
 
 # ------------------------------------------------------ run_pipeline wiring
 
+def test_given_grasp_is_that_pose_or_nothing():
+    import scripts.plan_task as pt
+    from manip_sim.omnimanip.planner import default_program
+    program = default_program("insert_marker")
+    q = np.arange(6.0)
+
+    def world(colliding=False, reachable=True):
+        kin = SimpleNamespace(fk=lambda _q: np.eye(4), data=SimpleNamespace(ncon=0),
+                              in_collision=lambda _q, allowed_prefix_pairs: colliding)
+        return kin, SimpleNamespace(solve_multiseed=lambda T, seeds: (q, reachable))
+
+    kin, ik = world()
+    cands, rec = pt.given_grasp(program, "marker", kin, ik, np.eye(4), q, [q], ())
+    assert len(cands) == 1 and rec["collision_free"] == 1 and rec["point_body"] == [0.0, 0.022, 0.0039]
+    for bad in (dict(colliding=True), dict(reachable=False)):
+        kin, ik = world(**bad)
+        assert pt.given_grasp(program, "marker", kin, ik, np.eye(4), q, [q], ())[0] == []
+    # one per distinct configuration clear of everything, in seed order
+    kin, ik = world()
+    kin.in_collision = lambda _q, allowed_prefix_pairs: _q[0] == 0.0
+    ik.solve_multiseed = lambda T, seeds: (seeds[0], True)
+    seeds = [q, q + 1.0, q + 1.01, q + 2.0]
+    cands, rec = pt.given_grasp(program, "marker", kin, ik, np.eye(4), q, seeds, ())
+    assert [c[0][0] for c in cands] == [1.0, 2.0] and rec["ik_feasible"] == 4 and rec["collision_free"] == 2
+    # a full turn away is the same pose: it comes back nearest home
+    ik.solve_multiseed = lambda T, seeds: (q + np.r_[2 * np.pi, np.zeros(5)], True)
+    kin.in_collision = lambda _q, allowed_prefix_pairs: False
+    np.testing.assert_allclose(pt.given_grasp(program, "marker", kin, ik, np.eye(4), q, [q], ())[0][0][0], q)
+    with pytest.raises(TaskPlanError):
+        pt.given_grasp(program, "cup", *world(), np.eye(4), q, [q], ())
+
+
 def test_plan_task_imports():
     import scripts.plan_task as pt  # noqa: F401
     assert callable(pt.main)

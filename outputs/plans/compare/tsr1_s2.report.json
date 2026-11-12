@@ -1,0 +1,146 @@
+{
+  "scene": "scenes/insert_marker.json",
+  "grounding": "outputs/grounding/insert_marker_gt_opus1",
+  "stage_plan": "outputs/runs/gt_opus1/stage_plan.json",
+  "selections": "outputs/runs/gt_opus1/selections.json",
+  "emissions": "outputs/runs/gt_opus1/emissions_call3_opus.json",
+  "seed": 2,
+  "constants": {
+    "SYNTH_START_CLEARANCE_M": 0.05,
+    "GRASP_ELEVATION_RAD (sim stand-in)": 1.5707963267948966,
+    "GRASP_PAD_BACKOFF_M (sim stand-in)": 0.005
+  },
+  "status": "failed",
+  "grasp": {
+    "part": "body",
+    "primitive": "line",
+    "slide_half_length_m": 0.03705,
+    "proposed": 80,
+    "classified": 20,
+    "ik_tried": 36,
+    "ik_feasible": 32,
+    "collision_free": 6,
+    "offenders": {
+      "gripper0_right_right_inner_finger <-> table": 12,
+      "gripper0_right_left_inner_finger <-> table": 12,
+      "robot0_upper_arm_link <-> table": 1,
+      "gripper0_right_right_outer_knuckle <-> table": 1
+    },
+    "grip_site_height_above_table_m": [
+      0.0101,
+      0.0186
+    ],
+    "reachable": 6,
+    "lookahead": [
+      {
+        "score": 0.0,
+        "fractions": [
+          1.0,
+          0.0
+        ],
+        "slide_offset_mm": 11.1
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.875,
+          0.0
+        ],
+        "slide_offset_mm": 11.1
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          1.0,
+          0.0
+        ],
+        "slide_offset_mm": -5.9
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          1.0,
+          0.0
+        ],
+        "slide_offset_mm": 9.2
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          1.0,
+          0.0
+        ],
+        "slide_offset_mm": -5.9
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.875,
+          0.0
+        ],
+        "slide_offset_mm": 9.2
+      }
+    ]
+  },
+  "stages": [],
+  "emit_model": null,
+  "emit_arm": "framed-chained",
+  "failure": {
+    "kind": "grasp",
+    "stage": "grasp",
+    "message": "[grasp] grasp: no candidate with a positive lookahead score survived approach + reach",
+    "detail": {
+      "skips": [],
+      "lookahead": [
+        {
+          "score": 0.0,
+          "fractions": [
+            1.0,
+            0.0
+          ],
+          "slide_offset_mm": 11.1
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            0.875,
+            0.0
+          ],
+          "slide_offset_mm": 11.1
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            1.0,
+            0.0
+          ],
+          "slide_offset_mm": -5.9
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            1.0,
+            0.0
+          ],
+          "slide_offset_mm": 9.2
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            1.0,
+            0.0
+          ],
+          "slide_offset_mm": -5.9
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            0.875,
+            0.0
+          ],
+          "slide_offset_mm": 9.2
+        }
+      ]
+    }
+  }
+}

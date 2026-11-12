@@ -1,0 +1,96 @@
+{
+  "plan": "outputs/plans/separation_sweep/hand5_sep30_s0.npz",
+  "spec": "insert_marker",
+  "goal": {
+    "lower_end": "tail_center",
+    "tilt_deg": 5.18,
+    "off_axis_mm": 1.9,
+    "depth_mm": 49.0
+  },
+  "checks": {
+    "first_end_lower": true,
+    "tilt": true,
+    "depth": true,
+    "inside_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true,
+  "inserted": {
+    "n_points": 4,
+    "max_tilt_deg": 5.18,
+    "max_off_axis_mm": 9.0
+  },
+  "transport": {
+    "travel_m": 0.494,
+    "rest_up_tilt_deg_at_travel": {
+      "0%": 0.1,
+      "25%": 24.5,
+      "50%": 53.4,
+      "75%": 88.3,
+      "100%": 93.7
+    },
+    "max_rest_up_tilt_deg": 95.0,
+    "total_rotation_deg": 101.6,
+    "rotation_done_at_half_travel_pct": 52.9
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.3,
+    "other": 0.0
+  },
+  "colliding_points": 1,
+  "n_tracked": 254,
+  "ee_travel_m": 1.037,
+  "ee_rotation_deg": 209.9,
+  "joint_travel_rad": 9.4,
+  "max_joint_step_rad": 0.106,
+  "segments": [
+    {
+      "segment": "grasp:reach",
+      "n_waypoints": 42,
+      "n_tracked": 119,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.543,
+      "ee_rotation_deg": 87.9,
+      "joint_travel_rad": 4.47,
+      "max_joint_step_rad": 0.086
+    },
+    {
+      "segment": "grasp:lift",
+      "n_waypoints": 12,
+      "n_tracked": 12,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.046,
+      "ee_rotation_deg": 0.0,
+      "joint_travel_rad": 0.14,
+      "max_joint_step_rad": 0.007
+    },
+    {
+      "segment": "transport_active",
+      "n_waypoints": 31,
+      "n_tracked": 105,
+      "colliding_points": 1,
+      "pairs_max_depth_mm": {
+        "cup_main <-> marker_main": 0.3
+      },
+      "ee_travel_m": 0.357,
+      "ee_rotation_deg": 107.2,
+      "joint_travel_rad": 4.04,
+      "max_joint_step_rad": 0.106
+    },
+    {
+      "segment": "insert",
+      "n_waypoints": 8,
+      "n_tracked": 18,
+      "colliding_points": 0,
+      "pairs_max_depth_mm": {},
+      "ee_travel_m": 0.091,
+      "ee_rotation_deg": 14.8,
+      "joint_travel_rad": 0.75,
+      "max_joint_step_rad": 0.041
+    }
+  ]
+}

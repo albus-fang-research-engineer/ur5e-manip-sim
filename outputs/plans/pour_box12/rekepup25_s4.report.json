@@ -1,0 +1,76 @@
+{
+  "planner": "rekep",
+  "mode": "open-loop",
+  "upstream_commit": "63c43fd",
+  "program": "/sp/prog_up25",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "given": true,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "attempts": 1,
+      "failures": [],
+      "solve_seconds": 187.5,
+      "subgoal_violations": [
+        8e-05,
+        0.0,
+        0.0
+      ],
+      "path_max_violation": 0.00034,
+      "n_waypoints": 15,
+      "max_joint_step_rad": 0.349,
+      "colliding_waypoints": 1
+    }
+  ],
+  "status": "failed",
+  "failure": {
+    "kind": "joint_path",
+    "stage": "stage3",
+    "message": "[stage3] joint_path: no solution in 5 attempts",
+    "detail": {
+      "failures": [
+        {
+          "attempt": 0,
+          "kind": "joint_path",
+          "reason": "no IK within tolerance (6.4 mm)"
+        },
+        {
+          "attempt": 1,
+          "kind": "joint_path",
+          "reason": "no IK within tolerance (7.2 mm)"
+        },
+        {
+          "attempt": 2,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0053,
+            0.0,
+            0.0,
+            0.0044
+          ]
+        },
+        {
+          "attempt": 3,
+          "kind": "subgoal",
+          "ik": true,
+          "violations": [
+            0.0197,
+            0.1064,
+            0.0,
+            0.0082
+          ]
+        },
+        {
+          "attempt": 4,
+          "kind": "joint_path",
+          "reason": "no IK within tolerance (7.6 mm)"
+        }
+      ]
+    }
+  },
+  "seconds": 496.3
+}

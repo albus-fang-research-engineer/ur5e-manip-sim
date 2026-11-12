@@ -1,0 +1,135 @@
+{
+  "planner": "rekep",
+  "mode": "upstream-loop",
+  "upstream_commit": "63c43fd",
+  "program": "manip_sim/rekep/programs/pour_tea",
+  "stages": [
+    {
+      "stage": "reach+approach",
+      "given": true,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "iterations": 5,
+      "backtrack_to": null,
+      "solve_seconds": 654.4,
+      "n_waypoints": 48,
+      "max_joint_step_rad": 0.344,
+      "tracking_max_mm": 206.29,
+      "tracking_max_deg": 3.6,
+      "tracking_misses": 5,
+      "colliding_waypoints": 13
+    },
+    {
+      "stage": "stage3",
+      "iterations": 1,
+      "backtrack_to": 1,
+      "solve_seconds": 0.0,
+      "n_waypoints": 1,
+      "max_joint_step_rad": 0.0,
+      "tracking_max_mm": 0.0,
+      "tracking_max_deg": 0.0,
+      "tracking_misses": 0,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "iterations": 1,
+      "backtrack_to": null,
+      "solve_seconds": 112.1,
+      "n_waypoints": 8,
+      "max_joint_step_rad": 0.288,
+      "tracking_max_mm": 226.14,
+      "tracking_max_deg": 3.43,
+      "tracking_misses": 3,
+      "colliding_waypoints": 8
+    },
+    {
+      "stage": "stage3",
+      "iterations": 1,
+      "backtrack_to": 1,
+      "solve_seconds": 0.0,
+      "n_waypoints": 1,
+      "max_joint_step_rad": 0.0,
+      "tracking_max_mm": 0.0,
+      "tracking_max_deg": 0.0,
+      "tracking_misses": 0,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "iterations": 1,
+      "backtrack_to": null,
+      "solve_seconds": 126.3,
+      "n_waypoints": 10,
+      "max_joint_step_rad": 0.334,
+      "tracking_max_mm": 239.06,
+      "tracking_max_deg": 3.26,
+      "tracking_misses": 3,
+      "colliding_waypoints": 7
+    },
+    {
+      "stage": "stage3",
+      "iterations": 1,
+      "backtrack_to": 1,
+      "solve_seconds": 0.0,
+      "n_waypoints": 1,
+      "max_joint_step_rad": 0.0,
+      "tracking_max_mm": 0.0,
+      "tracking_max_deg": 0.0,
+      "tracking_misses": 0,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "iterations": 1,
+      "backtrack_to": null,
+      "solve_seconds": 113.9,
+      "n_waypoints": 10,
+      "max_joint_step_rad": 0.337,
+      "tracking_max_mm": 239.25,
+      "tracking_max_deg": 3.26,
+      "tracking_misses": 3,
+      "colliding_waypoints": 7
+    },
+    {
+      "stage": "stage3",
+      "iterations": 1,
+      "backtrack_to": 1,
+      "solve_seconds": 0.0,
+      "n_waypoints": 1,
+      "max_joint_step_rad": 0.0,
+      "tracking_max_mm": 0.0,
+      "tracking_max_deg": 0.0,
+      "tracking_misses": 0,
+      "colliding_waypoints": 1
+    },
+    {
+      "stage": "stage2",
+      "iterations": 2,
+      "backtrack_to": null,
+      "solve_seconds": 140.1,
+      "n_waypoints": 15,
+      "max_joint_step_rad": 0.316,
+      "tracking_max_mm": 20.42,
+      "tracking_max_deg": 0.93,
+      "tracking_misses": 2,
+      "colliding_waypoints": 11
+    },
+    {
+      "stage": "stage3",
+      "iterations": 1,
+      "backtrack_to": null,
+      "solve_seconds": 51.4,
+      "n_waypoints": 3,
+      "max_joint_step_rad": 0.329,
+      "tracking_max_mm": 0.0,
+      "tracking_max_deg": 0.0,
+      "tracking_misses": 0,
+      "colliding_waypoints": 3
+    }
+  ],
+  "status": "ok",
+  "seconds": 1345.2
+}

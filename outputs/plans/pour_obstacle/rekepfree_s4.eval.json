@@ -1,0 +1,46 @@
+{
+  "plan": "outputs/plans/pour_obstacle/rekepfree_s4.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.1,
+      15.6,
+      50.4
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 48.6,
+    "spout_wander_mm": 23.3,
+    "tilt_axis_off_level_deg": 8.8
+  },
+  "end": {
+    "lateral_mm": 0.2,
+    "height_mm": 49.9,
+    "tilt_deg": 82.2,
+    "spout_off_down_deg": 10.1,
+    "stream_off_mm": 9.0
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 9.3,
+    "other": 60.5
+  },
+  "pairs_max_depth_mm": {
+    "obstacle_main <-> teapot_main": 60.5,
+    "gripper0_right_right_inner_finger <-> obstacle_main": 10.1,
+    "gripper0_right_right_outer_knuckle <-> obstacle_main": 21.6,
+    "gripper0_right_right_inner_knuckle <-> obstacle_main": 1.9,
+    "mug_main <-> teapot_main": 9.3,
+    "gripper0_right_robotiq_85_adapter_link <-> obstacle_main": 7.3
+  },
+  "colliding_points": 70,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": false
+  },
+  "goal_pass": true,
+  "path_pass": false
+}

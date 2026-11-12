@@ -1,0 +1,46 @@
+{
+  "plan": "outputs/plans/pour_box12/rekephigh_s2.npz",
+  "carrying": {
+    "max_tilt_deg": 2.6,
+    "tilt_at_quarters_deg": [
+      1.9,
+      4.9,
+      46.7
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 21.6,
+    "spout_wander_mm": 14.3,
+    "tilt_axis_off_level_deg": 2.8
+  },
+  "end": {
+    "lateral_mm": 3.4,
+    "height_mm": 100.2,
+    "tilt_deg": 94.9,
+    "spout_off_down_deg": 5.6,
+    "stream_off_mm": 11.0
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 3.3,
+    "other": 34.3
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 3.3,
+    "gripper0_right_left_outer_knuckle <-> obstacle_main": 34.3,
+    "gripper0_right_left_inner_finger <-> obstacle_main": 33.8,
+    "gripper0_right_left_inner_knuckle <-> obstacle_main": 31.5,
+    "gripper0_right_robotiq_85_adapter_link <-> obstacle_main": 4.8,
+    "obstacle_main <-> teapot_main": 2.1
+  },
+  "colliding_points": 32,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

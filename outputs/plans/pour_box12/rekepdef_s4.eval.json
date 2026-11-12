@@ -1,0 +1,41 @@
+{
+  "plan": "outputs/plans/pour_box12/rekepdef_s4.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.0,
+      0.1,
+      40.4
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 23.2,
+    "spout_wander_mm": 28.1,
+    "tilt_axis_off_level_deg": 14.6
+  },
+  "end": {
+    "lateral_mm": 0.2,
+    "height_mm": 50.0,
+    "tilt_deg": 81.1,
+    "spout_off_down_deg": 10.1,
+    "stream_off_mm": 8.8
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 3.2,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 3.2
+  },
+  "colliding_points": 3,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

@@ -1,0 +1,47 @@
+{
+  "plan": "outputs/plans/pour_obstacle/rekeploopfix_s0.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.3,
+      12.0,
+      52.5
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 24.5,
+    "spout_wander_mm": 24.9,
+    "tilt_axis_off_level_deg": 25.3
+  },
+  "end": {
+    "lateral_mm": 0.1,
+    "height_mm": 50.0,
+    "tilt_deg": 91.2,
+    "spout_off_down_deg": 10.1,
+    "stream_off_mm": 8.8
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 3.0,
+    "other": 43.6
+  },
+  "pairs_max_depth_mm": {
+    "obstacle_main <-> teapot_main": 23.0,
+    "mug_main <-> teapot_main": 3.0,
+    "gripper0_right_left_inner_finger <-> obstacle_main": 43.6,
+    "gripper0_right_left_outer_knuckle <-> obstacle_main": 21.2,
+    "gripper0_right_left_inner_knuckle <-> obstacle_main": 29.6,
+    "gripper0_right_robotiq_85_adapter_link <-> obstacle_main": 15.6,
+    "gripper0_right_right_inner_finger <-> obstacle_main": 3.6
+  },
+  "colliding_points": 78,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

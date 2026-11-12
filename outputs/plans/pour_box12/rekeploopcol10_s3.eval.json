@@ -1,0 +1,47 @@
+{
+  "plan": "outputs/plans/pour_box12/rekeploopcol10_s3.npz",
+  "carrying": {
+    "max_tilt_deg": 4.3,
+    "tilt_at_quarters_deg": [
+      3.6,
+      40.5,
+      82.1
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 159.5,
+    "spout_wander_mm": 167.6,
+    "tilt_axis_off_level_deg": 87.9
+  },
+  "end": {
+    "lateral_mm": 0.1,
+    "height_mm": 50.0,
+    "tilt_deg": 92.4,
+    "spout_off_down_deg": 9.8,
+    "stream_off_mm": 8.5
+  },
+  "max_penetration_mm": {
+    "self": 83.2,
+    "table": 0.0,
+    "passive": 6.7,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 6.7,
+    "gripper0_right_left_outer_knuckle <-> robot0_forearm_link": 45.1,
+    "gripper0_right_robotiq_85_adapter_link <-> robot0_forearm_link": 83.2,
+    "robot0_forearm_link <-> robot0_wrist_3_link": 29.8,
+    "gripper0_right_left_inner_knuckle <-> robot0_forearm_link": 36.6,
+    "gripper0_right_right_inner_knuckle <-> robot0_forearm_link": 34.6,
+    "gripper0_right_right_outer_knuckle <-> robot0_forearm_link": 40.2
+  },
+  "colliding_points": 190,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": false
+  },
+  "goal_pass": true,
+  "path_pass": false
+}
