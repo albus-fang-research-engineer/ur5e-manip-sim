@@ -38,6 +38,10 @@ to a pose is mink's IK, which stands in for upstream's Fetch controller, so a
 pose out of reach leaves the arm short and the next solve starts from there.
   collisions  ReKep's cost is soft and skips most arm links, so plans are not
               rejected for collision: the report counts colliding waypoints.
+
+stage_constraints, when set, replaces a loop stage's constraints at its start
+(the program still gives keypoints, stages and the grasp), so the same solvers
+can plan under another method's constraints; see langfold.py.
 """
 
 from __future__ import annotations
@@ -126,6 +130,7 @@ class ReKepPlanner:
         self.held: str | None = None
         self.T_ee_body: np.ndarray | None = None
         self.program = load_program(program_dir, self._grasping_cost)
+        self.stage_constraints = None    # (stage index, held body pose) -> (subgoal, path)
         self.keypoints_body = [
             k.xyz if k.xyz is not None else self.symbols[k.object].points[k.point]
             for k in self.program.keypoints]
@@ -309,6 +314,10 @@ class ReKepPlanner:
     def _loop_stage(self, index: int, label: str, T_site, q) -> tuple[np.ndarray, np.ndarray, dict, int | None]:
         """-> (joint path including q, T_site at its end, report row, stage to backtrack to)."""
         c, stage = self.cfg, self.program.stages[index]
+        if self.stage_constraints is not None:
+            subgoal, path = self.stage_constraints(index, self._object_pose(self.held, T_site))
+            grasped = self.program.stages[0].grasp_keypoint
+            stage.subgoal, stage.path = subgoal, [lambda ee, kp: self._grasping_cost(grasped), *path]
         sdf = scene_sdf(self.kin, self.bounds_min, self.bounds_max, c.sdf_voxel_size, (self.held,))
         np.random.seed([c.seed, index, len(self.report["stages"])])
         t0, chain, first, self.tracking, self.targets = time.time(), [q], True, [], [T_site]

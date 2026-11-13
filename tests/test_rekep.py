@@ -17,10 +17,13 @@ try:
     import manip_sim.rekep.vendor  # noqa: F401
 except ImportError as e:
     pytest.skip(str(e), allow_module_level=True)
+from manip_sim.frames import load_symbols  # noqa: E402
 from manip_sim.planning import ArmKinematics  # noqa: E402
 from manip_sim.rekep.adapter import (T_RK_SITE, T_SITE_RK, IKResult, MinkTracker, ReKepIK, body_pose,  # noqa: E402
                                      farthest_point_sampling, hull_distance, hull_planes,
                                      rekep_to_site, scene_sdf, sdf_shape, site_to_rekep)
+from manip_sim.rekep.as_tsr import ReKepTSRs  # noqa: E402
+from manip_sim.rekep.langfold import PourConstraints, pose_from_points  # noqa: E402
 from manip_sim.rekep.planner import Config, ReKepPlanner, _ChainFailure, default_program_dir  # noqa: E402
 from manip_sim.rekep.program import load_program  # noqa: E402
 from manip_sim.scene import load_scene, make_env  # noqa: E402
@@ -169,6 +172,107 @@ def test_soft_ik_does_not_switch_elbow_branches_in_one_step():
     planner.track_ik = Tracker(wrist)
     assert np.allclose(planner._ik_step(np.eye(4), np.eye(4), q_a, 0)[-1], wrist)
     assert planner.track_ik.near == []
+
+
+def test_pose_from_points_recovers_a_rigid_pose():
+    rng = np.random.default_rng(0)
+    T = np.eye(4)
+    T[:3, :3] = R.random(random_state=1).as_matrix()
+    T[:3, 3] = [0.2, -0.1, 0.9]
+    body = rng.normal(size=(6, 3)) * 0.1
+    assert np.allclose(pose_from_points(body @ T[:3, :3].T + T[:3, 3], body), T)
+
+
+def test_langfold_constraints_are_the_tsr_distances():
+    scene = load_scene(ROOT / "scenes/pour_tea.json")
+    teapot, mug = (load_symbols(scene.asset_dirs[n]) for n in ("teapot", "mug"))
+    meta = json.loads((default_program_dir("pour_tea") / "metadata.json").read_text())
+    idx = [i for i, k in enumerate(meta["keypoints"]) if k["object"] == "teapot"]
+    body = np.array([meta["keypoints"][i]["xyz"] if "xyz" in meta["keypoints"][i]
+                     else teapot.points[meta["keypoints"][i]["point"]] for i in idx])
+    T0_teapot, T0_mug = np.eye(4), np.eye(4)
+    T0_teapot[:3, 3], T0_mug[:3, 3] = [0.0, -0.25, 0.85], [0.05, 0.25, 0.84]
+    cons = PourConstraints(teapot, mug, T0_teapot, T0_mug, idx, body)
+    rng = np.random.default_rng(0)
+
+    def keypoints(T):                    # scene keypoints plus the finger, as the solvers pass them
+        kp = np.zeros((len(meta["keypoints"]) + 1, 3))
+        kp[idx] = body @ T[:3, :3].T + T[:3, 3]
+        return kp
+
+    T_entry = cons.tsrs(1, T0_teapot).subgoal.sample(rng)
+    for index, T_held in ((1, T0_teapot), (2, T_entry)):
+        pair = cons.tsrs(index, T_held)
+        subgoal, path = cons(index, T_held)
+        assert len(subgoal) == len(path) == 1
+        inside = [pair.subgoal.sample(rng) for _ in range(20)]
+        outside = [T @ np.block([[R.random(random_state=k).as_matrix(), rng.normal(size=(3, 1)) * 0.05],
+                                 [np.zeros((1, 3)), np.ones((1, 1))]]) for k, T in enumerate(inside)]
+        for T in inside + outside:
+            kp = keypoints(T)
+            assert subgoal[0](kp[0], kp) == pytest.approx(pair.subgoal.distance(T), abs=1e-9)
+            assert path[0](kp[0], kp) == pytest.approx(pair.path.distance(T), abs=1e-9)
+        assert all(subgoal[0](None, keypoints(T)) < 1e-9 for T in inside)
+        assert sum(subgoal[0](None, keypoints(T)) > 1e-3 for T in outside) >= 15
+    assert not np.allclose(cons.tsrs(2, T_entry).subgoal.T0_w, cons.tsrs(2, T0_teapot).subgoal.T0_w)
+
+
+def test_rekep_tsrs_hold_exactly_where_the_programs_costs_are_zero():
+    scene = load_scene(ROOT / "scenes/pour_tea.json")
+    teapot, mug = (load_symbols(scene.asset_dirs[n]) for n in ("teapot", "mug"))
+    program = load_program(default_program_dir("pour_tea"), lambda i: 0.0)
+    meta = json.loads((default_program_dir("pour_tea") / "metadata.json").read_text())
+    body = np.array([k["xyz"] if "xyz" in k else teapot.points[k["point"]] for k in meta["keypoints"][:6]])
+    T0_teapot, T0_mug = np.eye(4), np.eye(4)
+    T0_teapot[:3, 3], T0_mug[:3, 3] = [0.0, -0.25, 0.85], [0.05, 0.25, 0.84]
+    opening = T0_mug[:3, :3] @ mug.points["opening_center"] + T0_mug[:3, 3]
+    tsrs = ReKepTSRs(teapot, mug, default_program_dir("pour_tea"))
+    rng = np.random.default_rng(0)
+
+    def cost(fns, T):                    # ReKep's verdict: the worst of a stage's costs
+        kp = np.zeros((8, 3))
+        kp[:6], kp[6] = body @ T[:3, :3].T + T[:3, 3], opening
+        return max(f(kp[7], kp) for f in fns)
+
+    def turned(T, rotvec, about):        # T rotated in world axes about a world point
+        Rm = R.from_rotvec(rotvec).as_matrix()
+        return np.block([[Rm @ T[:3, :3], (Rm @ (T[:3, 3] - about) + about)[:, None]], [np.zeros((1, 3)), np.ones((1, 1))]])
+
+    def spout_at(p, Rm):
+        return np.block([[Rm, (p - Rm @ teapot.points["spout_tip"])[:, None]], [np.zeros((1, 3)), np.ones((1, 1))]])
+
+    transport = tsrs.transport(T0_teapot, T0_mug)
+    T_entry = transport.subgoal.sample(rng)
+    pour = tsrs.pour(T_entry, T0_mug)
+    s2, s3 = program.stages[1], program.stages[2]
+    up = [spout_at(rng.normal(size=3) * 0.2 + opening, R.from_euler("z", rng.uniform(-np.pi, np.pi)).as_matrix())
+          for _ in range(20)]
+    over = [spout_at(opening + [0, 0, rng.uniform(-0.1, 0.3)], R.random(random_state=k).as_matrix()) for k in range(20)]
+    cases = [(transport.path, s2.path, up),
+             (transport.subgoal, s2.subgoal + s2.path, [transport.subgoal.sample(rng) for _ in range(20)]),
+             (pour.path, s3.path, over),
+             (pour.subgoal, s3.subgoal + s3.path, [pour.subgoal.sample(rng) for _ in range(20)])]
+    for tsr, fns, inside in cases:
+        poses = list(inside)
+        for T in inside:                 # off the region, from 0.1 mm / 0.006 deg to 10 cm / 6 deg
+            for scale in (1e-4, 1e-3, 1e-2, 1e-1):
+                d = rng.normal(size=6) * scale
+                poses.append(turned(T, d[3:], T[:3, 3]) + np.block([[np.zeros((3, 3)), d[:3, None]], [np.zeros((1, 4))]]))
+        held = [tsr.distance(T) <= 1e-9 for T in poses]
+        assert held == [cost(fns, T) <= 1e-9 for T in poses], tsr.name
+        assert all(held[:20]) and sum(held[20:]) < 60, tsr.name
+    # the cone, not its box: 9.5 deg off down is in, 10.5 deg and the box's corner are out
+    T = pour.subgoal.sample(rng)
+    a = T[:3, :3] @ tsrs.pour_axis
+    tip = T[:3, :3] @ teapot.points["spout_tip"] + T[:3, 3]
+    a0 = turned(T, R.align_vectors([[0, 0, -1]], [a])[0].as_rotvec(), tip)
+    for deg, held in ((9.5, True), (10.5, False)):
+        for k in range(8):
+            axis = R.from_euler("z", k * np.pi / 4).apply([1.0, 0.0, 0.0])
+            Tk = turned(a0, np.deg2rad(deg) * axis, tip)
+            assert (pour.subgoal.distance(Tk) <= 1e-9) == (cost(s3.subgoal, Tk) <= 1e-9) == held
+    corner = turned(a0, R.from_euler("xy", [9.0, 9.0], degrees=True).as_rotvec(), tip)
+    assert cost(s3.subgoal, corner) > 0 and pour.subgoal.distance(corner) > 0
 
 
 def test_ik_solve_takes_the_solvers_frame(sim):

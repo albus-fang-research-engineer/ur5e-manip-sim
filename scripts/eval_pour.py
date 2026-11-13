@@ -48,6 +48,9 @@ METHODS = {"ours": "Ours, 15° per axis", "ours10": "Ours, 10.5° per axis", "ou
            "rekep": "ReKep, strict","rekepfine": "ReKep, strict, finer path", "rekepsoft": "ReKep as upstream", "rekephigh": "ReKep, spout 10 cm above rim",
            "rekepcol10": "ReKep, collision x10", "rekepcol30": "ReKep, collision x30", "rekepcol100": "ReKep, collision x100",
            "rekepcol10up": "ReKep, collision x10, upright x0.25",
+           "lfrekep": "LangFold constraints, ReKep's loop",
+           "rekepcb": "ReKep constraints, LangFold's planner",
+           "rekepcb105": "ReKep constraints (transport 10.5 cm), LangFold's planner",
            "omni": "OmniManip", "omnirrt": "OmniManip + RRT-Connect"}
 
 

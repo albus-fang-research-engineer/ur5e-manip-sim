@@ -209,6 +209,12 @@ def main() -> None:
                          "the emitted schema instead of pour_stages.*; stage 1 "
                          "stays on handle_grasp_tsr (gripper nominal is not "
                          "in the emission vocabulary)")
+    ap.add_argument("--rekep-constraints", action="store_true",
+                    help="stages 2-3 TSR pairs are ReKep's pour_tea program as TSRs "
+                         "(manip_sim/rekep/as_tsr.py) instead of pour_stages.*")
+    ap.add_argument("--rekep-transport-height", type=float, default=None, metavar="M",
+                    help="with --rekep-constraints: the stage-2 spout height above the "
+                         "opening, in place of the program's 0.10")
     ap.add_argument("--spec", default=None, metavar="JSON",
                     help="task spec whose q_grasp the plan starts from, holding "
                          "the pot: no grasp stage, so the grip is not compared")
@@ -285,8 +291,17 @@ def main() -> None:
                         rim_margin=mug_sym.quantities.get("rim_radius", 0.04) * 0.5,
                         emissions=ems,
                         symbols={"teapot": teapot_sym, "mug": mug_sym})
-    transport_kw = {} if ems else {"z_corridor": (-0.02, 0.45),
-                                   "upright_tol": np.deg2rad(args.upright_deg)}
+    if args.rekep_constraints:
+        if ems:
+            raise SystemExit("[pour_tea] --rekep-constraints and --emissions both set stages 2-3")
+        from manip_sim.rekep.as_tsr import ReKepTSRs
+        from manip_sim.rekep.planner import default_program_dir
+        frames = ReKepTSRs(teapot_sym, mug_sym, default_program_dir("pour_tea"),
+                           transport_height=args.rekep_transport_height)
+        print("[pour_tea] stages 2-3 from ReKep's pour_tea program as TSRs, spout "
+              f"{100 * frames.transport_height:g} cm above the opening for transport")
+    transport_kw = {} if ems or args.rekep_constraints else {
+        "z_corridor": (-0.02, 0.45), "upright_tol": np.deg2rad(args.upright_deg)}
     tilt_target = np.deg2rad(args.tilt_deg)
 
     if objs:
@@ -526,7 +541,8 @@ def main() -> None:
     # band with survivors (hand arm only; the emitted arm's band is the
     # schema's clearance/slack enum)
     pair = frames.transport(T0_teapot, T0_mug,
-                            **({} if ems else dict(transport_kw, height=(0.04, 0.10))))
+                            **({} if ems or args.rekep_constraints
+                               else dict(transport_kw, height=(0.04, 0.10))))
     def _entries():
         """Transport goals to try, best first. With more than one round, an entry the
         pour cannot work from is skipped, and a fresh draw follows the last one."""
@@ -662,7 +678,7 @@ def main() -> None:
     d_end = ppair.subgoal.displacement(
         attached.body_pose(kin_att.fk(res3.path[-1])))
     tilt_achieved = d_end[3]
-    if args.emissions:
+    if args.emissions or args.rekep_constraints:
         print(f"[pour] subgoal displacement at end (x y z r p y): "
               f"{np.round(np.r_[d_end[:3], np.rad2deg(d_end[3:])], 3)}; "
               f"holding {args.dwell} dwell waypoints")
@@ -688,6 +704,8 @@ def main() -> None:
              q_grasp=q_grasp, T_ee_body=T_ee_body,
              T0_teapot_init=T0_teapot, T0_mug=T0_mug,
              tilt_target=np.deg2rad(args.tilt_deg),
+             **({"constraints": "rekep", "rekep_transport_height": frames.transport_height}
+                if args.rekep_constraints else {}),
              **stamp(arm, args.selections, args.emissions))
     print(f"\n[pour_tea] {len(path)} waypoints "
           f"(grasp {len(path1)} | transport {len(lift)}+{len(res2.path)} | "

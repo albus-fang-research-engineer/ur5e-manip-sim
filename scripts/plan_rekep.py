@@ -48,8 +48,12 @@ def main() -> None:
                     help="rad of rotation per path control point")
     ap.add_argument("--collision-scale", type=float, default=Config.collision_scale,
                     help="multiplies upstream's collision weights")
+    ap.add_argument("--langfold-constraints", action="store_true",
+                    help="stages 2-3 under LangFold's pour TSRs (manip_sim/rekep/langfold.py); needs --upstream-loop")
     add_scene_arg(ap)
     args = ap.parse_args()
+    if args.langfold_constraints and not args.upstream_loop:
+        ap.error("--langfold-constraints needs --upstream-loop")
 
     scene = load_scene(args.scene, args.grounding)
     program = args.program or default_program_dir(scene.name)
@@ -63,6 +67,14 @@ def main() -> None:
                                                      upstream_loop=args.upstream_loop,
                                                      constraint_tolerance=1e-4 if args.upstream_loop else Config.constraint_tolerance,
                                                      opt_rot_step_size=args.opt_rot_step, collision_scale=args.collision_scale))
+    if args.langfold_constraints:
+        from manip_sim.rekep.langfold import PourConstraints
+        held = planner.program.grasped_object
+        idx = [i for i, k in enumerate(planner.program.keypoints) if k.object == held]
+        planner.stage_constraints = PourConstraints(planner.symbols["teapot"], planner.symbols["mug"],
+                                                    planner.T0["teapot"], planner.T0["mug"],
+                                                    idx, [planner.keypoints_body[i] for i in idx])
+        planner.report["constraints"] = "langfold"
     t0 = time.time()
     try:
         plan = planner.plan(np.asarray(json.loads(Path(args.spec).read_text())["q_grasp"]) if args.spec else None)
