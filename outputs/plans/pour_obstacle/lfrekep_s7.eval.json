@@ -1,0 +1,41 @@
+{
+  "plan": "outputs/plans/pour_obstacle/lfrekep_s7.npz",
+  "carrying": {
+    "max_tilt_deg": 13.8,
+    "tilt_at_quarters_deg": [
+      2.3,
+      5.1,
+      15.8
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 33.9,
+    "spout_wander_mm": 15.5,
+    "tilt_axis_off_level_deg": 3.3
+  },
+  "end": {
+    "lateral_mm": 33.9,
+    "height_mm": 68.7,
+    "tilt_deg": 55.9,
+    "spout_off_down_deg": 34.3,
+    "stream_off_mm": 66.8
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 7.5,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {
+    "mug_main <-> teapot_main": 7.5
+  },
+  "colliding_points": 7,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": false,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": false,
+  "path_pass": true
+}

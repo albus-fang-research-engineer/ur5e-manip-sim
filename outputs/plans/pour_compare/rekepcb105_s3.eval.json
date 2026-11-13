@@ -1,0 +1,39 @@
+{
+  "plan": "outputs/plans/pour_compare/rekepcb105_s3.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.2,
+      40.6,
+      60.6
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 1.9,
+    "spout_wander_mm": 30.5,
+    "tilt_axis_off_level_deg": 7.2
+  },
+  "end": {
+    "lateral_mm": 0.1,
+    "height_mm": 50.0,
+    "tilt_deg": 85.0,
+    "spout_off_down_deg": 8.8,
+    "stream_off_mm": 7.8
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {},
+  "colliding_points": 0,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

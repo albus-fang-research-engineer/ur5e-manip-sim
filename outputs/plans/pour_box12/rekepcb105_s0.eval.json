@@ -1,0 +1,41 @@
+{
+  "plan": "outputs/plans/pour_box12/rekepcb105_s0.npz",
+  "carrying": {
+    "max_tilt_deg": 1.1,
+    "tilt_at_quarters_deg": [
+      0.1,
+      2.0,
+      56.9
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 1.8,
+    "spout_wander_mm": 66.5,
+    "tilt_axis_off_level_deg": 13.4
+  },
+  "end": {
+    "lateral_mm": 0.1,
+    "height_mm": 50.0,
+    "tilt_deg": 83.2,
+    "spout_off_down_deg": 8.5,
+    "stream_off_mm": 7.3
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.2
+  },
+  "pairs_max_depth_mm": {
+    "gripper0_right_left_inner_finger <-> obstacle_main": 0.2
+  },
+  "colliding_points": 1,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

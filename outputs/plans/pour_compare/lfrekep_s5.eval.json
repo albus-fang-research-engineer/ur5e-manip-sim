@@ -1,0 +1,39 @@
+{
+  "plan": "outputs/plans/pour_compare/lfrekep_s5.npz",
+  "carrying": {
+    "max_tilt_deg": 9.0,
+    "tilt_at_quarters_deg": [
+      6.0,
+      9.5,
+      69.9
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 43.1,
+    "spout_wander_mm": 20.8,
+    "tilt_axis_off_level_deg": 8.1
+  },
+  "end": {
+    "lateral_mm": 27.5,
+    "height_mm": 94.2,
+    "tilt_deg": 99.9,
+    "spout_off_down_deg": 11.1,
+    "stream_off_mm": 36.9
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {},
+  "colliding_points": 0,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}
