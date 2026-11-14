@@ -1,0 +1,38 @@
+{
+  "case": "c5_repair_v2",
+  "call": "#5 repair",
+  "builder": "build_repair_prompt_v2",
+  "variant": "repair v2, typed condition: the one-stage critic report, a planner failure record (empty goal set), one captioned view",
+  "prompt_deltas": [
+    "hinge-hold-2026-09-09",
+    "goal-first-2026-09-10"
+  ],
+  "system": "You repair a robot manipulation specification that the motion planner could not plan. Each stage of the task has a SUBGOAL region (where the moving object must end) and a PATH region (every pose it may pass through on the way). The planner looks for collision-free goals and a motion inside these regions, and it failed on this specification.\n\nInput:\n- The report: per stage the rows as text with their pointers, the compiled bounds (free rows say \"free\"), and the moving object's labeled points relative to the target point at the goal (horizontal distance and height).\n- After the report, what the planner reported about the failure.\n- Images, when given, with captions: the scene and the stages' goals.\n\nA stage starts where the previous stage's goal is, so a stage's goal must also be a start the next stage accepts.\n\nAnswer with typed edits that make the specification feasible while it still does the task. A failed plan means a region is too tight or in the wrong place, so you may loosen or shift it: relax a tolerance or widen a slack one step, free a row, widen a clearance one step, re-pick a point or a direction, or ask for a stage to be written again with your diagnosis. Change as little as needed, and do not loosen or free a row the task itself needs. Stages marked editable=false (the grasp) are context: do not edit them.\n\nEdit actions:\n  relax_tolerance: one step looser on a rotation row's tol or a centered term's tol. Token: the next level name. Target: a row pointer\n  free_dof: free a row (rotation or translation) entirely. Token: null. Target: a row pointer\n  widen_slack: one step wider band on an above/below/inside term's slack. Token: the next level name. Target: a row pointer\n  widen_clearance: one step more standoff on an above/below term's clearance (contact -> small -> medium -> large); the band keeps its height and moves away from the anchor, so it drops the nearest poses and adds as many farther away. Token: the next level name. Target: a row pointer\n  reselect_point: replace the stage's call #2 point on the active object with another grounded point of that object. Token: a point token \"<object>.<point>\" of the stage's active object. Target: the stage's point pointer\n  reselect_axis: replace a rotation row's constrained direction with another signed canonical direction of the active object. Token: a signed direction \"<object>.<+|-><front|left|up>\" of the stage's active object. Target: a row pointer\n  reemit_stage: ask call #3 to write the stage again, with your diagnosis appended (e.g. a path row the motion needs is missing). Token: null. Target: the stage name\n\nPointers: rows are \"<stage>.<path|subgoal>.<rot|trans>[i]\", the point choice is \"<stage>.point.<object>\", a stage is its name; use only the report's editable_pointers. At most one edit per pointer. Level tokens: name the next level, one step only. Tolerance on a rotation row: tight / moderate / loose; tolerance on a centered term and slack: snug / moderate / loose (tightest first); clearance: contact / small / medium / large (nearest first). Never give a number. All edits are applied together or not at all; the specification is then compiled and planned again.\n\nLicensed tokens per object:\n  mug: points mug.opening_center; directions mug.+up, mug.-up\n  teapot: points teapot.spout_tip, teapot.handle_center; directions teapot.+front, teapot.-front, teapot.+left, teapot.-left, teapot.+up, teapot.-up\n\nOutput schema: {\"edits\": [{\"target\": <pointer>, \"action\": str, \"token\": str|null}], \"diagnosis\": str}. At least one edit, and a diagnosis: what made the specification infeasible and how the edits fix it. Respond with a single JSON object and nothing else — no prose, no markdown fences.",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Specification report:\n{\n \"stages\": [\n  {\"stage\": \"transport\", \"role\": \"transport_active\", \"active\": \"teapot\", \"passive\": \"mug\", \"editable\": true, \"goal\": \"spout over the mug\", \"point_choice\": {\"pointer\": \"transport.point.teapot\", \"current\": \"teapot.handle_center\"}, \"path\": {\"rows\": [{\"pointer\": \"transport.path.rot[0]\", \"text\": \"teapot.up_axis parallel world.z, tol moderate\"}, {\"pointer\": \"transport.path.trans[0]\", \"text\": \"free\"}], \"bounds_in_w\": {\"x\": \"free\", \"y\": \"free\", \"z\": \"free\", \"roll\": \"-15 to +15 deg\", \"pitch\": \"-15 to +15 deg\", \"yaw\": \"free\"}}, \"subgoal\": {\"rows\": [{\"pointer\": \"transport.subgoal.trans[0]\", \"text\": \"above mug.opening_center, clearance small, slack moderate\"}], \"bounds_in_w\": {\"x\": \"-2.0 to +2.0 cm\", \"y\": \"-2.0 to +2.0 cm\", \"z\": \"+1.0 to +6.0 cm\", \"roll\": \"free\", \"pitch\": \"free\", \"yaw\": \"free\"}}, \"points_at_goal\": {\"relative_to\": \"w origin (mug's selected point), height along mug up\", \"at\": \"subgoal nominal\", \"points\": {\"handle_center\": {\"horizontal_cm\": 9.0, \"height_cm\": 11.0}, \"spout_tip\": {\"horizontal_cm\": 9.0, \"height_cm\": 8.0}}}}\n ],\n \"editable_pointers\": [\"transport\", \"transport.path.rot[0]\", \"transport.path.trans[0]\", \"transport.point.teapot\", \"transport.subgoal.trans[0]\"]\n}"
+        },
+        {
+          "type": "text",
+          "text": "Planner failure:\n{\n \"stage\": \"carry teapot above mug\",\n \"type\": \"empty_goal_set\",\n \"message\": \"no collision-free, contained goal configuration\",\n \"evidence\": {\n  \"n_sampled\": 120,\n  \"n_ik\": 96,\n  \"n_collision_free\": 0,\n  \"n_contained\": 0,\n  \"offenders\": {\n   \"teapot<->mug\": 96\n  }\n }\n}"
+        },
+        {
+          "type": "text",
+          "text": "state 2: transport goal (subgoal nominal)"
+        },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data_sha256": "55f4a2fe3e3ee6f25dc20f10afb726cafd314945fe358c62c05e6f3087293a33"
+          }
+        }
+      ]
+    }
+  ]
+}

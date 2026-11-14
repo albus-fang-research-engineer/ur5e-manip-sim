@@ -1444,6 +1444,32 @@ def build_critic_prompt(report: dict, view_paths: list[Path],
     return system, [{"role": "user", "content": content}]
 
 
+def _edit_action_table(actions: tuple[str, ...]) -> str:
+    """The edit-action lines of the v2 critic and repair prompts, generated
+    from critic.ACTION_TABLE so the prompt and the parser cannot drift."""
+    from .critic import ACTION_TABLE
+    return "\n".join(
+        f"  {a}: {ACTION_TABLE[a][2]}. Token: "
+        + {"level": "the next level name", "point": "a point token "
+           "\"<object>.<point>\" of the stage's active object",
+           "direction": "a signed direction \"<object>.<+|-><front|left|up>\""
+           " of the stage's active object", None: "null"}[ACTION_TABLE[a][0]]
+        + ". Target: " + {"row": "a row pointer", "point": "the stage's point "
+                          "pointer", "stage": "the stage name"}[ACTION_TABLE[a][1]]
+        for a in actions)
+
+
+def _licensed_tokens(vocab: Vocabulary) -> str:
+    """One line per object: its point tokens and signed directions."""
+    return "\n".join(
+        f"  {o}: points "
+        + (", ".join(f"{o}.{n}" for n in t["points"]) or "(none)")
+        + "; directions "
+        + (", ".join(f"{o}.{d}" for d in vocab.canonical_directions(o))
+           or "(none)")
+        for o, t in sorted(vocab.objects.items()))
+
+
 def build_critic_prompt_v2(report: dict, views: list[tuple[str, Path]],
                            vocab: Vocabulary) -> tuple[str, list]:
     """Call #4, critic v2 (opt-in; Client.critique_preview_v2). `report` is
@@ -1452,16 +1478,8 @@ def build_critic_prompt_v2(report: dict, views: list[tuple[str, Path]],
     then each stage's goal at its subgoal nominal) and path-boundary renders.
     The edit grammar, action table and pointer rules come from
     manip_sim.critic, so the prompt and the parser cannot drift."""
-    from .critic import ACTION_TABLE, CRITIC_ACTIONS, report_json
-    table = "\n".join(
-        f"  {a}: {ACTION_TABLE[a][2]}. Token: "
-        + {"level": "the next level name", "point": "a point token "
-           "\"<object>.<point>\" of the stage's active object",
-           "direction": "a signed direction \"<object>.<+|-><front|left|up>\""
-           " of the stage's active object", None: "null"}[ACTION_TABLE[a][0]]
-        + ". Target: " + {"row": "a row pointer", "point": "the stage's point "
-                          "pointer", "stage": "the stage name"}[ACTION_TABLE[a][1]]
-        for a in CRITIC_ACTIONS)
+    from .critic import CRITIC_ACTIONS, report_json
+    table = _edit_action_table(CRITIC_ACTIONS)
     system = (
         "You are the critic for a robot manipulation specification. Each "
         "stage of the task has a SUBGOAL region (where the moving object "
@@ -1513,13 +1531,7 @@ def build_critic_prompt_v2(report: dict, views: list[tuple[str, Path]],
         "Tolerance on a rotation row: " + " / ".join(ROT_TOLS) + "; "
         "tolerance on a centered term and slack: " + " / ".join(SLACKS)
         + " (tightest first). Never give a number.\n\n"
-        "Licensed tokens per object:\n" + "\n".join(
-            f"  {o}: points "
-            + (", ".join(f"{o}.{n}" for n in t["points"]) or "(none)")
-            + "; directions "
-            + (", ".join(f"{o}.{d}" for d in vocab.canonical_directions(o))
-               or "(none)")
-            for o, t in sorted(vocab.objects.items())) + "\n\n"
+        "Licensed tokens per object:\n" + _licensed_tokens(vocab) + "\n\n"
         "Output schema: {\"stages\": [{\"stage\": <name>, \"expected\": str, "
         "\"observed\": str}, ...], \"verdict\": \"accept\"|\"reject\", "
         "\"edits\": [{\"target\": <pointer>, \"action\": str, \"token\": "
@@ -1557,6 +1569,106 @@ def build_repair_prompt(failure_type: str, context: dict,
     return system, [{"role": "user", "content": [_text(
         f"Failure: {failure_type}\nContext:\n"
         + json.dumps(context, indent=2))]}]
+
+
+# The one sentence that replaces the failure record in the study's
+# "untyped" condition (reason_withheld): no stage, type, bodies or counts.
+# NEW PROMPT TEXT
+REPAIR_REASON_WITHHELD = "The specification failed to plan."
+
+
+def build_repair_prompt_v2(report: dict, failure: dict | None,
+                           vocab: Vocabulary,
+                           views: list[tuple[str, Path]] | None = None,
+                           reason_withheld: bool = False
+                           ) -> tuple[str, list]:
+    """Call #5, repair v2 (opt-in; Client.repair_v2). `report` is
+    critic.build_preview_report's output (rows with pointers, compiled
+    bounds, editable_pointers); `failure` is the planner's typed failure
+    record (repair_context.failure_from_report). `views` are optional
+    (caption, image) pairs, as for the critic.
+
+    Shares the critic v2's edit grammar, action table generator and token
+    lists (manip_sim.critic), with the repair action set: repair answers a
+    planner failure, where the specification is too tight, so it may
+    loosen. With `reason_withheld` (the study's "untyped" condition) the
+    failure record is replaced by REPAIR_REASON_WITHHELD; the system prompt
+    and everything else in the request are identical."""
+    from .critic import REPAIR_ACTIONS_V2, report_json
+    if not reason_withheld and not isinstance(failure, dict):
+        raise ValueError("build_repair_prompt_v2 needs the failure record "
+                         "(a dict) unless reason_withheld")
+    system = (
+        # NEW PROMPT TEXT (first sentence)
+        "You repair a robot manipulation specification that the motion "
+        "planner could not plan. "
+        # reused from build_critic_prompt_v2
+        "Each stage of the task has a SUBGOAL region (where the moving "
+        "object must end) and a PATH region (every pose it may pass through "
+        "on the way). "
+        # NEW PROMPT TEXT
+        "The planner looks for collision-free goals and a motion inside "
+        "these regions, and it failed on this specification.\n\n"
+        "Input:\n"
+        # reused from build_critic_prompt_v2
+        "- The report: per stage the rows as text with their pointers, the "
+        "compiled bounds (free rows say \"free\"), and the moving object's "
+        "labeled points relative to the target point at the goal "
+        "(horizontal distance and height).\n"
+        # NEW PROMPT TEXT
+        "- After the report, what the planner reported about the failure.\n"
+        "- Images, when given, with captions: the scene and the stages' "
+        "goals.\n\n"
+        # reused from build_critic_prompt_v2
+        "A stage starts where the previous stage's goal is"
+        # NEW PROMPT TEXT
+        ", so a stage's goal must also be a start the next stage "
+        "accepts.\n\n"
+        "Answer with typed edits that make the specification feasible "
+        "while it still does the task. A failed plan means a region is too "
+        "tight or in the wrong place, so you may loosen or shift it: relax "
+        "a tolerance or widen a slack one step, free a row, widen a "
+        "clearance one step, re-pick a point or a direction, or ask for a "
+        "stage to be written again with your diagnosis. Change as little "
+        "as needed, and do not loosen or free a row the task itself "
+        "needs. "
+        # reused from build_critic_prompt_v2
+        "Stages marked editable=false (the grasp) are context: do not edit "
+        "them.\n\n"
+        "Edit actions:\n" + _edit_action_table(REPAIR_ACTIONS_V2) + "\n\n"
+        "Pointers: rows are \"<stage>.<path|subgoal>.<rot|trans>[i]\", the "
+        "point choice is \"<stage>.point.<object>\", a stage is its name; "
+        "use only the report's editable_pointers. At most one edit per "
+        "pointer. Level tokens: name the next level, one step only. "
+        "Tolerance on a rotation row: " + " / ".join(ROT_TOLS) + "; "
+        "tolerance on a centered term and slack: " + " / ".join(SLACKS)
+        + " (tightest first); "
+        # NEW PROMPT TEXT (clearance ladder)
+        "clearance: " + " / ".join(CLEARANCES) + " (nearest first). "
+        # reused from build_critic_prompt_v2
+        "Never give a number. "
+        # NEW PROMPT TEXT
+        "All edits are applied together or not at all; the specification "
+        "is then compiled and planned again.\n\n"
+        # reused from build_critic_prompt_v2
+        "Licensed tokens per object:\n" + _licensed_tokens(vocab) + "\n\n"
+        # NEW PROMPT TEXT (repair schema)
+        "Output schema: {\"edits\": [{\"target\": <pointer>, \"action\": "
+        "str, \"token\": str|null}], \"diagnosis\": str}. At least one "
+        "edit, and a diagnosis: what made the specification infeasible and "
+        "how the edits fix it. " + _JSON_ONLY)
+    failure_text = (REPAIR_REASON_WITHHELD if reason_withheld
+                    # NEW PROMPT TEXT ("Planner failure:" header)
+                    else "Planner failure:\n"
+                    + json.dumps(failure, indent=1, ensure_ascii=False,
+                                 default=str))
+    # NEW PROMPT TEXT ("Specification report:" header)
+    content: list[dict] = [_text("Specification report:\n"
+                                 + report_json(report)),
+                           _text(failure_text)]
+    for caption, p in views or []:
+        content += [_text(caption), image_block(p)]
+    return system, [{"role": "user", "content": content}]
 
 
 # ---------------------------------------------------------------- client
@@ -1824,3 +1936,19 @@ class Client:
         system, messages = build_repair_prompt(failure_type, context, vocab)
         return self._ask("repair", system, messages,
                          lambda raw: parse_repair(raw, vocab))
+
+    def repair_v2(self, report: dict, failure: dict | None,
+                  vocab: Vocabulary, state, ledger=None,
+                  views: list[tuple[str, Path]] | None = None,
+                  reason_withheld: bool = False) -> "object":
+        """Opt-in repair v2: build_repair_prompt_v2 + critic.parse_repair_v2
+        (state: critic.SpecState; ledger: critic.LoopLedger, so a reversal
+        of the critic's edit is refused inside the parse-retry loop).
+        Returns a critic.Verdict (source "repair"). The v1 method above is
+        unchanged."""
+        from .critic import parse_repair_v2
+        system, messages = build_repair_prompt_v2(report, failure, vocab,
+                                                  views, reason_withheld)
+        return self._ask("repair_v2", system, messages,
+                         lambda raw: parse_repair_v2(raw, vocab, state, ledger),
+                         max_tokens=CRITIC_MAX_TOKENS)

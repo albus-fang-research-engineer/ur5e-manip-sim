@@ -360,6 +360,25 @@ def _case_c4_critic_v2(views, monkeypatch):
         VOCAB)
 
 
+_REPAIR_FAILURE = {"stage": "carry teapot above mug", "type": "empty_goal_set",
+                   "message": "no collision-free, contained goal configuration",
+                   "evidence": {"n_sampled": 120, "n_ik": 96, "n_collision_free": 0,
+                                "n_contained": 0, "offenders": {"teapot<->mug": 96}}}
+
+
+def _case_c5_repair_v2(views, monkeypatch):
+    from manip_sim.vlm import build_repair_prompt_v2
+    return build_repair_prompt_v2(_critic_report(), _REPAIR_FAILURE, VOCAB,
+                                  [("state 2: transport goal (subgoal nominal)", views["top"])])
+
+
+def _case_c5_repair_v2_withheld(views, monkeypatch):
+    from manip_sim.vlm import build_repair_prompt_v2
+    return build_repair_prompt_v2(_critic_report(), _REPAIR_FAILURE, VOCAB,
+                                  [("state 2: transport goal (subgoal nominal)", views["top"])],
+                                  reason_withheld=True)
+
+
 # name -> (call, builder, variant, build(views, monkeypatch))
 CASES = {
     # #1 plan_stages ---------------------------------------------------
@@ -447,6 +466,17 @@ CASES = {
         "tokens, a one-stage report built by critic.build_preview_report, "
         "two captioned views",
         _case_c4_critic_v2),
+    # #5 repair (v2, opt-in; repair study) -----------------------------
+    "c5_repair_v2": (
+        "#5 repair", "build_repair_prompt_v2",
+        "repair v2, typed condition: the one-stage critic report, a planner "
+        "failure record (empty goal set), one captioned view",
+        _case_c5_repair_v2),
+    "c5_repair_v2_withheld": (
+        "#5 repair", "build_repair_prompt_v2",
+        "repair v2, reason withheld (the study's untyped condition): the same "
+        "inputs, the failure record replaced by one sentence",
+        _case_c5_repair_v2_withheld),
     "c3_compile_rejection": (
         "#3 emit_constraints", "Client.emit_constraints",
         "text variant with one replayed compile-gate rejection",

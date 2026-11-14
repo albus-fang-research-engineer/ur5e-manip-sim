@@ -1,0 +1,192 @@
+{
+ "about": "Repair study (docs/deferred.md D9): one fault per case, injected by manip_sim/fault_injection.py into a starting specification that plans and passes the grader. Rows are found by `match`, so entries survive row reordering; an entry that does not apply to a starting specification raises FaultNotApplicable. A fault is kept only if qualification shows the faulty specification fails to plan. `expect` is our prediction of the typed failure, logged and never sent to a model. Point and axis names: pour tea uses the sim pools (assets/objects/*/candidates.json); insert marker uses the grounded pools of outputs/grounding/insert_marker_gt_opus1, as run_authoring_ablation.TASKS does.",
+ "faults": [
+  {
+   "id": "pour_clearance_contact",
+   "task": "pour_tea",
+   "category": "clearance",
+   "role": "transport_active",
+   "op": "set_field",
+   "ctx": "subgoal",
+   "table": "trans",
+   "match": {
+    "term": "above"
+   },
+   "field": "clearance",
+   "value": "contact",
+   "expect": "goal region in collision: no collision-free carry goal, teapot body against the mug"
+  },
+  {
+   "id": "pour_wrong_anchor",
+   "task": "pour_tea",
+   "category": "wrong_anchor",
+   "role": "transport_active",
+   "op": "set_point",
+   "point": "handle_center",
+   "expect": "carry goal in collision (handle over the mug), or the pour rejects the entry",
+   "unfixable_by": [
+    "render_check"
+   ],
+   "note": "the 11/05 hardware failure; regenerating call #3 keeps call #2's point"
+  },
+  {
+   "id": "pour_handoff_high",
+   "task": "pour_tea",
+   "category": "handoff_rejected",
+   "role": "transport_active",
+   "op": "set_field",
+   "ctx": "subgoal",
+   "table": "trans",
+   "match": {
+    "term": "above"
+   },
+   "field": "clearance",
+   "value": "large",
+   "expect": "pour stage CompileError: entry outside its path z band (beyond the start projection budget)",
+   "note": "clearance 'large' is the top of the ladder and no typed action narrows a clearance: the typed conditions can fix it only with reemit_stage (call #3 writes the carry again) or by loosening the pour's path band; a refused widen/relax on this row is the action set, not the feedback"
+  },
+  {
+   "id": "pour_contradictory_upright",
+   "task": "pour_tea",
+   "category": "contradictory_rows",
+   "role": "pour",
+   "op": "add_row",
+   "ctx": "subgoal",
+   "table": "rot",
+   "row": {
+    "axis": "teapot.up_axis",
+    "relation": "parallel",
+    "reference": "world.z",
+    "tol": "tight"
+   },
+   "expect": "empty goal set: upright contradicts the tilted pour row"
+  },
+  {
+   "id": "pour_centering_snug",
+   "task": "pour_tea",
+   "category": "tolerance_too_tight",
+   "role": "pour",
+   "op": "set_field",
+   "ctx": "path",
+   "table": "trans",
+   "match": {
+    "term": "centered"
+   },
+   "field": "tol",
+   "value": "snug",
+   "expect": "no path within the planner budget, or no IK at the pour goal",
+   "note": "candidate only: qualification decides whether it is infeasible"
+  },
+  {
+   "id": "insert_too_deep",
+   "task": "insert_marker",
+   "category": "clearance",
+   "role": "insert",
+   "op": "set_field",
+   "ctx": "subgoal",
+   "table": "trans",
+   "match": {
+    "term": "below"
+   },
+   "field": "clearance",
+   "value": "large",
+   "expect": "insert goal in collision: the lower end against the cup floor",
+   "note": "insert has no natural too-small clearance (the opening is free space); applies only to a starting spec whose insert depth is a 'below' term"
+  },
+  {
+   "id": "insert_wrong_anchor",
+   "task": "insert_marker",
+   "category": "wrong_anchor",
+   "role": "insert",
+   "op": "set_point",
+   "point": "body_center",
+   "expect": "insert goal in collision: the marker's middle at the insert depth puts its end through the cup floor",
+   "unfixable_by": [
+    "render_check"
+   ],
+   "note": "grounded marker points (outputs/grounding/insert_marker_gt_opus1): body_center, body_tip, tip_center; the starting spec inserts by body_tip"
+  },
+  {
+   "id": "insert_handoff_axis",
+   "task": "insert_marker",
+   "category": "handoff_rejected",
+   "role": "transport_active",
+   "op": "set_field",
+   "ctx": "subgoal",
+   "table": "rot",
+   "match": {
+    "relation": "parallel",
+    "reference": "cup.up_axis"
+   },
+   "field": "axis",
+   "value": "marker.lateral_axis",
+   "expect": "insert stage CompileError: entry attitude outside its path rotation band",
+   "note": "turns the transport goal's aligned axis 90 deg away; grounded marker axes are canonical (up/front/lateral)"
+  },
+  {
+   "id": "insert_contradictory_perpendicular",
+   "task": "insert_marker",
+   "category": "contradictory_rows",
+   "role": "insert",
+   "op": "add_row",
+   "ctx": "subgoal",
+   "table": "rot",
+   "row": {
+    "axis": "marker.front_axis",
+    "relation": "perpendicular",
+    "reference": "cup.up_axis",
+    "tol": "tight"
+   },
+   "expect": "empty goal set: shaft both parallel and perpendicular to the cup's up",
+   "note": "contradicts a starting insert subgoal row 'marker.front_axis parallel cup.up_axis' (gt_opus1); revisit against the qualified starting spec"
+  },
+  {
+   "id": "insert_path_tight",
+   "task": "insert_marker",
+   "category": "tolerance_too_tight",
+   "role": "insert",
+   "op": "set_field",
+   "ctx": "path",
+   "table": "trans",
+   "match": {
+    "term": "centered"
+   },
+   "field": "tol",
+   "value": "snug",
+   "expect": "no path within the planner budget",
+   "note": "candidate only: qualification decides whether it is infeasible"
+  },
+  {
+   "id": "insert_handoff_path_relation",
+   "task": "insert_marker",
+   "category": "handoff_rejected",
+   "role": "insert",
+   "op": "set_field",
+   "ctx": "path",
+   "table": "rot",
+   "match": {
+    "axis": "marker.lateral_axis"
+   },
+   "field": "relation",
+   "value": "parallel",
+   "expect": "insert stage rejects the entry the transport goal hands it: the upright marker's lateral axis is horizontal, the insert path now wants it along the cup's up",
+   "note": "replaces insert_handoff_axis, whose edit contradicted the transport stage's own path row (a within-stage contradiction, not a handoff)"
+  },
+  {
+   "id": "insert_path_rot_tight",
+   "task": "insert_marker",
+   "category": "tolerance_too_tight",
+   "role": "insert",
+   "op": "set_field",
+   "ctx": "path",
+   "table": "rot",
+   "match": {
+    "axis": "marker.lateral_axis"
+   },
+   "field": "tol",
+   "value": "tight",
+   "expect": "no path within the planner budget (insert path rotation held to +-5 deg)",
+   "note": "candidate only: qualification decides whether it is infeasible"
+  }
+ ]
+}
