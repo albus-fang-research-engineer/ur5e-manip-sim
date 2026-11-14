@@ -13,7 +13,7 @@ Writes <plan>.eval.json beside each plan:
     inserted    worst tilt and off-axis distance while the end is inside the rim
                 (below the rim plane AND within its radius, so an object lying on
                 the table does not count); path_pass applies the spec's
-                max_path_tilt_deg over these points
+                max_path_tilt_deg over these points (null: reported only)
     transport   the carried object's attitude on the way: world tilt of its resting
                 up axis over the travel, and how early its rotation is done
     collisions  per segment, named pairs with the deepest penetration, grouped as
@@ -187,7 +187,10 @@ def evaluate(plan_path, env, scene, spec) -> dict:
                     "depth_mm": round(state["depth_m"] * 1000, 1)},
            "checks": checks,
            "goal_pass": all(v for k, v in checks.items() if k not in REPORT_ONLY),
-           "path_pass": all(s["tilt_deg"] <= spec["max_path_tilt_deg"] for s in inserted),
+           # max_path_tilt_deg null: the task has no path constraint; the tilt while
+           # inserted is reported (inserted.max_tilt_deg), not graded
+           "path_pass": (spec["max_path_tilt_deg"] is None
+                         or all(s["tilt_deg"] <= spec["max_path_tilt_deg"] for s in inserted)),
            "inserted": {"n_points": len(inserted),
                         "max_tilt_deg": round(max((s["tilt_deg"] for s in inserted), default=float("nan")), 2),
                         "max_off_axis_mm": round(max((s["off_axis_m"] for s in inserted), default=float("nan")) * 1000, 1)},

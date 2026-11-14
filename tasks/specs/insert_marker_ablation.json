@@ -1,0 +1,14 @@
+{
+  "task": "insert_marker",
+  "active": "marker",
+  "passive": "cup",
+  "first_end": "tail_center",
+  "other_end": "tip",
+  "rest_up_axis": "up_axis",
+  "opening": "opening_center",
+  "rim_radius_m": 0.0423,
+  "max_tilt_deg": 30.0,
+  "max_path_tilt_deg": null,
+  "min_depth_m": 0.04,
+  "note": "authoring ablation (user, 2026-11-14): final tilt <= 30 deg; the tilt while inside the cup is reported, not graded (the task has no path constraint)"
+}

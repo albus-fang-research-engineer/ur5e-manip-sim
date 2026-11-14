@@ -44,8 +44,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.run_authoring_ablation import METHODS, TASKS  # noqa: E402
 
 INSERT_GRASP = "manip_sim/omnimanip/programs/insert_marker.json"
-SPECS = {"insert_marker": "tasks/specs/insert_marker.json",
-         "insert_marker_upright": "tasks/specs/insert_marker.json",
+SPECS = {"insert_marker": "tasks/specs/insert_marker_ablation.json",          # final tilt 30 deg,
+         "insert_marker_upright": "tasks/specs/insert_marker_ablation.json",  # path tilt reported
          "pour_tea": "tasks/specs/pour_tea.json"}
 GRADERS = {"insert_marker": "scripts/eval_plan.py", "insert_marker_upright": "scripts/eval_plan.py",
            "pour_tea": "scripts/eval_pour.py"}
@@ -228,7 +228,8 @@ def detail(task: str, ev: dict) -> dict:
     """The grader's own numbers that its pass/fail is decided on."""
     if task.startswith("insert_marker"):
         return {**ev["goal"], "inserted_max_tilt_deg": ev["inserted"].get("max_tilt_deg")}
-    return {"carry_max_tilt_deg": ev["carrying"]["max_tilt_deg"],
+    return {"carry_max_axis_tilt_deg": ev["carrying"].get("max_axis_tilt_deg"),   # graded
+            "carry_max_tilt_deg": ev["carrying"]["max_tilt_deg"],                  # total, reported
             "pour_max_off_axis_mm": ev["pouring"]["max_off_axis_mm"],
             "end_lateral_mm": ev["end"]["lateral_mm"], "end_tilt_deg": ev["end"]["tilt_deg"],
             "spout_off_down_deg": ev["end"]["spout_off_down_deg"]}

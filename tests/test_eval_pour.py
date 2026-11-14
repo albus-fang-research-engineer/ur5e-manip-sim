@@ -2,6 +2,8 @@
 
 import json
 import sys
+
+import numpy as np
 from pathlib import Path
 
 import pytest
@@ -13,9 +15,11 @@ from scripts.eval_pour import GOAL_CHECKS, PATH_CHECKS, angle_deg, checks, split
 SPEC = json.loads((ROOT / "tasks/specs/pour_tea.json").read_text())
 
 
-def row(lateral=10.0, height=70.0, down=5.0, stream=20.0, carry=5.0, off=30.0, wander=2.0):
+def row(lateral=10.0, height=70.0, down=5.0, stream=20.0, carry=5.0, off=30.0, wander=2.0,
+        carry_axis=None):
     return {"end": {"lateral_mm": lateral, "height_mm": height, "spout_off_down_deg": down, "stream_off_mm": stream},
-            "carrying": {"max_tilt_deg": carry},
+            "carrying": {"max_tilt_deg": carry,
+                         "max_axis_tilt_deg": carry if carry_axis is None else carry_axis},
             "pouring": {"max_off_axis_mm": off, "spout_wander_mm": wander}}
 
 
@@ -25,7 +29,7 @@ def test_a_plan_inside_every_limit_passes_all():
 
 @pytest.mark.parametrize("kw, failed", [
     (dict(lateral=50.0), "end_over_rim"),
-    (dict(down=16.0), "spout_down"),
+    (dict(down=SPEC["max_spout_off_down_deg"] + 1.0), "spout_down"),
     (dict(carry=15.5), "carry_tilt"), (dict(off=45.0), "spout_in_rim")])
 def test_each_limit_fails_alone(kw, failed):
     c = checks(row(**kw), SPEC)
@@ -101,7 +105,7 @@ def test_the_violation_table_has_only_the_constraints(tmp_path):
     e["checks"] = {"carry_tilt": True, "spout_in_rim": True}
     (tmp_path / "omni_s0.eval.json").write_text(json.dumps(e))
     rows = {r[0]: r[1] for r in violations(table(tmp_path, SPEC)[1], SPEC)}
-    assert set(rows) == {"", "Plans returned", "Tilt while carrying, worst (limit 15°)", "Tilt while carrying, plans over the limit",
+    assert set(rows) == {"", "Plans returned", "Tilt while carrying per axis, worst (limit 15°)", "Tilt while carrying, plans over the limit",
                          "Spout off the mug's axis while pouring, worst (rim 44.1 mm)", "Spout while pouring, plans outside the rim",
                          "Collision, deepest", "Collision, plans deeper than 1 mm"}
     assert rows["Plans returned"] == "1/2"
@@ -116,8 +120,27 @@ def test_the_summary_counts_no_plan_as_a_failure_and_takes_medians_over_plans():
                      {"eval": plan(20.0, 60.0, 0.5, path_pass=False)}, {"eval": None}]}
     rows = {r[0]: r[1] for r in summary(runs, SPEC)}
     assert rows["Success rate"] == "1/4"
-    assert rows["Tilt while carrying, median / max (limit 15°)"] == "3.0° / 20.0°"
+    assert rows["Tilt while carrying per axis, median / max (limit 15°)"] == "3.0° / 20.0°"
     assert rows["Path constraint violation rate"] == "1/3"
     assert rows["Spout off the mug's axis while pouring, median / max (rim 44.1 mm)"] == "20.0 mm / 60.0 mm"
     assert rows["Collision rate, deeper than 1 mm"] == "1/3"
     assert rows["Deepest collision, median / max"] == "0.5 mm / 5.0 mm"
+
+
+def test_the_carry_tilt_is_checked_per_axis_as_the_compiler_bounds_it():
+    """A rotation word bounds each axis (+-15 deg for moderate): 15 deg about both the
+    front and the lateral axis (about 21 deg in total) is inside it; 16 about one is not."""
+    assert checks(row(carry=21.2, carry_axis=15.0), SPEC)["carry_tilt"]
+    assert not checks(row(carry=16.0, carry_axis=16.0), SPEC)["carry_tilt"]
+
+
+def test_roll_pitch_matches_the_compiler_decomposition_at_the_box_corner():
+    """roll = pitch = 15 deg (the corner of a 'moderate' box, ~21 deg total) reads 15."""
+    from scipy.spatial.transform import Rotation as Rot
+    from scripts.eval_pour import roll_pitch_deg
+    up = np.array([0.0, 0.0, 1.0])
+    for yaw in (0.0, 40.0, -120.0):                  # yaw is free: it must not matter
+        Rm = Rot.from_euler("xyz", [15.0, 15.0, yaw], degrees=True).as_matrix()
+        assert abs(roll_pitch_deg(Rm, up) - 15.0) < 1e-6
+    Rm = Rot.from_euler("xyz", [0.0, 16.0, 0.0], degrees=True).as_matrix()
+    assert abs(roll_pitch_deg(Rm, up) - 16.0) < 1e-6

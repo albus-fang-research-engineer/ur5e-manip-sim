@@ -64,7 +64,8 @@ def violations(ev: dict, spec: dict) -> dict:
             "goal_depth_short_mm": round(max(0.0, spec["min_depth_m"] * 1000 - goal["depth_mm"]), 1),
             "goal_outside_rim": not ev["checks"]["inside_rim"],
             "goal_wrong_end": not ev["checks"]["first_end_lower"],
-            "inside_tilt_over_deg": round(max(0.0, (inserted["max_tilt_deg"] or 0.0) - spec["max_path_tilt_deg"]), 2)}
+            "inside_tilt_over_deg": (None if spec["max_path_tilt_deg"] is None else
+                                     round(max(0.0, (inserted["max_tilt_deg"] or 0.0) - spec["max_path_tilt_deg"]), 2))}
 
 
 def own_residual(method: str, report: dict) -> str | None:
@@ -147,8 +148,8 @@ def summary_rows(runs: list[dict]) -> list[tuple[str, ...]]:
         row("**Constraint violation:** goal tilt over limit",
             lambda g, e: count(sum(r["violations"]["goal_tilt_over_deg"] > 0 for r in e), len(e))),
         row("Worst tilt inside the rim", lambda g, e: span((r["eval"]["inserted"]["max_tilt_deg"] for r in e), 1, "°")),
-        row("Meets the path limit inside the rim",
-            lambda g, e: count(sum(r["violations"]["inside_tilt_over_deg"] == 0 for r in e), len(e))),
+        row("Meets the path limit inside the rim",       # the grader's own path_pass
+            lambda g, e: count(sum(bool(r["eval"]["path_pass"]) for r in e), len(e))),
         row("Plans with a collision (deepest)", collisions),
         row("**Transport:** tilt at 25% of travel", at("25%")),
         row("Tilt at 50%", at("50%")),

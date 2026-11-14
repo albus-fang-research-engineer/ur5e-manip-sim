@@ -388,7 +388,7 @@ execution commands during the approach, in sim AND on hardware.
 - **Pre-registered before the batch (user):**
   1. pilot2 is run 0 for A0, A3, A5 (the cap never bound); A4 gets 5 fresh runs per task.
   2. Pour spout limit 25 deg (above).
-  3. Insert path tilt limit stays 10 deg, counted as a failure (no change).
+  3. Insert path tilt limit stays 10 deg, counted as a failure (changed 2026-11-14: see below).
   4. **Entry attitude allowance 5 deg** at compile time (`START_PROJECTION_BUDGET_DEG`,
      `compile_tsr._check_path_containment`; it was 0 deg, translation already 3 cm). The
      planner's start projection has no rotation limit, as before. With it, the pilot2 A5
@@ -450,3 +450,23 @@ execution commands during the approach, in sim AND on hardware.
   A3, A4, A5 prompts unchanged. Why: in the exploratory test, insert moved from "tight" to
   "moderate" for the insert stage (1/6 success). Re-test: 3 pour + 2 insert, tag
   `a0-meanings-neutral`.
+- **A0 re-test with the neutral sentence** (tag `a0-meanings-neutral`, 3 pour + 2 insert, 19
+  calls, $1.01): insert 6/6 seeds (back to "tight" for the insert stage, tilt 3-6 deg); pour
+  planned 9/9, succeeded 2/9. Pour failures: carry tilt up to 21 deg vs the 15 deg limit, and
+  one run choosing "loose" for the pour attitude (spout 27-32 deg off down).
+- **Finding: compiler box vs grader cone.** A rotation word compiles to +-t on EACH rotation
+  axis, so the combined tilt can reach sqrt(2)*t (moderate: 21.2 deg); the pour grader's carry
+  tilt limit (15 deg) and the insert tilt checks measure total tilt. Plans inside what the
+  model asked for can fail the grader.
+- **Grading changes (user, 2026-11-14), all variants:**
+  - Insert (new `tasks/specs/insert_marker_ablation.json`, used by the scorer for both insert
+    tasks; the representation study's `insert_marker.json` is unchanged): final tilt limit
+    10 -> **30 deg**; the tilt while
+    the marker is inside the cup is **report-only** (`max_path_tilt_deg` null: the task has no
+    path constraint; collisions are checked separately). Success = inside the rim, depth >= 4
+    cm, final tilt <= 30 deg, no collisions.
+  - Pour (`scripts/eval_pour.py`): the carry tilt is checked **per axis** (about the teapot's
+    roll and pitch <= 15 deg each, in the compiler's own decomposition Rz(yaw) Ry(pitch) Rx(roll),
+    in the teapot's upright frame), as the compiler bounds a rotation word; the total tilt is
+    still reported. The compiler is unchanged. NOTE: `eval_pour.py` and `tasks/specs/pour_tea.json`
+    (25 deg spout) are shared with the representation study's pour grading.

@@ -29,6 +29,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 from manip_sim.execution import densify
 from manip_sim.frames import load_symbols
@@ -63,11 +64,33 @@ def split_motion(tilts: np.ndarray, off_axis: np.ndarray, rim: float, limit: flo
     return carrying, ~carrying & (tilts > limit)
 
 
+def upright_frame(up_body: np.ndarray, front_hint: np.ndarray) -> np.ndarray:
+    """Columns x (front), y = z cross x, z (up) of the object's upright frame, in body
+    coordinates; front = front_hint made perpendicular to up."""
+    z = up_body / np.linalg.norm(up_body)
+    x = front_hint - (front_hint @ z) * z
+    x /= np.linalg.norm(x)
+    return np.column_stack([x, np.cross(z, x), z])
+
+
+def roll_pitch_deg(R_frame_world: np.ndarray, up_world: np.ndarray) -> float:
+    """max(|roll|, |pitch|) of a frame relative to an upright frame (z = up_world),
+    in the compiler's decomposition Rz(yaw) Ry(pitch) Rx(roll); yaw is free and
+    does not change roll or pitch."""
+    z = up_world / np.linalg.norm(up_world)
+    x = np.cross([0.0, 1.0, 0.0], z) if abs(z[1]) < 0.9 else np.cross([1.0, 0.0, 0.0], z)
+    x /= np.linalg.norm(x)
+    W = np.column_stack([x, np.cross(z, x), z])
+    roll, pitch, _ = R.from_matrix(W.T @ R_frame_world).as_euler("xyz")
+    return float(np.degrees(max(abs(roll), abs(pitch))))
+
+
 def checks(row: dict, spec: dict) -> dict:
     rim = spec["rim_radius_m"] * 1000
     return {"end_over_rim": row["end"]["lateral_mm"] < rim,
             "spout_down": row["end"]["spout_off_down_deg"] <= spec["max_spout_off_down_deg"],
-            "carry_tilt": row["carrying"]["max_tilt_deg"] <= spec["max_carry_tilt_deg"],
+            # per axis, as the compiler bounds it; the total tilt is reported (max_tilt_deg)
+            "carry_tilt": row["carrying"]["max_axis_tilt_deg"] <= spec["max_carry_tilt_deg"],
             "spout_in_rim": row["pouring"]["max_off_axis_mm"] < rim}
 
 
@@ -98,12 +121,15 @@ def evaluate(plan_path, env, scene, spec) -> dict:
     up_world = T_p[:3, :3] @ sym_p.axes[spec["up_axis"]]
     tip_body, up_body = sym.points[spec["spout"]], sym.axes[spec["up_axis"]]
     pour_body, tilt_axis_body = sym.axes[spec["pour_axis"]], sym.axes[spec["tilt_axis"]]
+    # the carry check bounds roll and pitch as the compiler decomposes a rotation word
+    # (tsr.py: Rz(yaw) Ry(pitch) Rx(roll), yaw free), in the teapot's upright frame
+    C = upright_frame(up_body, pour_body)
     attached = AttachedObject(plan["T_ee_body"])
     kin = AttachedArmKinematics(env, attached, env.objects[active].joints[0], active)
     rim, limit = spec["rim_radius_m"], spec["max_carry_tilt_deg"]
 
     pairs, totals, hits = {}, {"self": 0.0, "table": 0.0, "passive": 0.0, "other": 0.0}, 0
-    tilts, off_axis, tips, levels = [], [], [], []
+    tilts, off_axis, tips, levels, axis_tilts = [], [], [], [], []
     carried = path[ids != min(ids.tolist())]
     motion = densify(np.vstack([path[ids == min(ids.tolist())][-1], carried]), TRACK_STEP_RAD)
     for q in motion:
@@ -113,6 +139,7 @@ def evaluate(plan_path, env, scene, spec) -> dict:
         tips.append(tip)
         off_axis.append(float(np.linalg.norm(d - (d @ up_world) * up_world)))
         tilts.append(angle_deg(T[:3, :3] @ up_body, up_world))
+        axis_tilts.append(roll_pitch_deg(T[:3, :3] @ C, up_world))
         levels.append(abs(90.0 - angle_deg(T[:3, :3] @ tilt_axis_body, up_world)))
         found = contacts(kin, active)
         hits += bool(found)
@@ -121,12 +148,14 @@ def evaluate(plan_path, env, scene, spec) -> dict:
             group = collision_group(a, b, passive)
             totals[group] = max(totals[group], depth)
     tilts, off_axis, tips = np.array(tilts), np.array(off_axis), np.array(tips)
+    axis_tilts = np.array(axis_tilts)
     carrying, pouring = split_motion(tilts, off_axis, rim, limit)
     T_end = attached.body_pose(kin.fk(motion[-1]))
     pour_dir = T_end[:3, :3] @ pour_body
     land = stream_landing(tips[-1], pour_dir, opening, up_world)
     row = {"plan": str(plan_path),
            "carrying": {"max_tilt_deg": round(float(tilts[carrying].max()) if carrying.any() else 0.0, 1),
+                        "max_axis_tilt_deg": round(float(axis_tilts[carrying].max()) if carrying.any() else 0.0, 3),
                         "tilt_at_quarters_deg": [round(float(tilts[int(f * (len(tilts) - 1))]), 1) for f in (0.25, 0.5, 0.75)]},
            "pouring": {"max_off_axis_mm": round(float(off_axis[pouring].max()) * 1000, 1) if pouring.any() else 0.0,
                        "spout_wander_mm": round(float(np.max(np.ptp(tips[pouring], axis=0))) / 2 * 1000, 1) if pouring.any() else 0.0,
@@ -187,7 +216,7 @@ def table(directory: Path, spec: dict, methods=None) -> tuple[list[tuple], dict]
             (f"Collision-free (at most {COLLISION_TOL_MM:.0f} mm)", *count(collision_free)),
             ("Goal reached", *count(lambda e: e["goal_pass"])),
             ("Path limits held", *count(lambda e: e["path_pass"])),
-            (f"Tilt while carrying (limit {limit:.0f}°)", *values(lambda e: e["carrying"]["max_tilt_deg"], 1, "°")),
+            (f"Tilt while carrying, per axis (limit {limit:.0f}°)", *values(lambda e: e["carrying"].get("max_axis_tilt_deg", e["carrying"]["max_tilt_deg"]), 1, "°")),
             ("Tilt at 25 / 50 / 75% of the motion, first run",
              *[" / ".join(f"{v:.0f}°" for v in next(r["eval"]["carrying"]["tilt_at_quarters_deg"] for r in rs if r["eval"]))
                if any(r["eval"] for r in rs) else "–" for rs in runs.values()]),
@@ -223,7 +252,7 @@ def violations(runs: dict, spec: dict) -> list[tuple]:
     limit, rim_mm = spec["max_carry_tilt_deg"], spec["rim_radius_m"] * 1000
     return [("", *(METHODS[m] for m in runs)),
             ("Plans returned", *[f"{sum(bool(r['eval']) for r in rs)}/{len(rs)}" for rs in runs.values()]),
-            (f"Tilt while carrying, worst (limit {limit:.0f}°)", *worst(lambda e: e["carrying"]["max_tilt_deg"], "°")),
+            (f"Tilt while carrying per axis, worst (limit {limit:.0f}°)", *worst(lambda e: e["carrying"].get("max_axis_tilt_deg", e["carrying"]["max_tilt_deg"]), "°")),
             ("Tilt while carrying, plans over the limit", *found(lambda e: not e["checks"]["carry_tilt"])),
             (f"Spout off the mug's axis while pouring, worst (rim {rim_mm:.1f} mm)", *worst(lambda e: e["pouring"]["max_off_axis_mm"], " mm")),
             ("Spout while pouring, plans outside the rim", *found(lambda e: not e["checks"]["spout_in_rim"])),
@@ -248,7 +277,7 @@ def summary(runs: dict, spec: dict) -> list[tuple]:
     limit, rim_mm = spec["max_carry_tilt_deg"], spec["rim_radius_m"] * 1000
     return [("", *(METHODS[m] for m in runs)),
             ("Success rate", *[f"{sum(success(r['eval']) for r in rs if r['eval'])}/{len(rs)}" for rs in runs.values()]),
-            (f"Tilt while carrying, median / max (limit {limit:.0f}°)", *spread(lambda e: e["carrying"]["max_tilt_deg"], "°")),
+            (f"Tilt while carrying per axis, median / max (limit {limit:.0f}°)", *spread(lambda e: e["carrying"].get("max_axis_tilt_deg", e["carrying"]["max_tilt_deg"]), "°")),
             ("Path constraint violation rate", *found(lambda e: not e["path_pass"])),
             (f"Spout off the mug's axis while pouring, median / max (rim {rim_mm:.1f} mm)",
              *spread(lambda e: e["pouring"]["max_off_axis_mm"], " mm")),
