@@ -35,8 +35,10 @@ rendered into the prompt and as the accept set the validator enforces.
 The prompt and the parser therefore cannot drift apart.
 
 Symbolic-only boundary: enum -> numeric tables (tight -> +-5 deg,
-clearance small -> mm, ...) deliberately do NOT live in this module.
-They belong to the grounding compiler (compile_tsr), which resolves a
+clearance small -> mm, ...) deliberately do NOT live in this module; the
+model still selects only tokens. Since 2026-11-14 the schema prompt SHOWS
+what the words mean (word_ranges_text, generated from those tables), but
+the tables themselves belong to the grounding compiler (compile_tsr), which resolves a
 validated StageEmission to numeric (T0_w, Tw_e, B^w). This file's typed
 outputs are the compiler's input contract; the CriticVerdict / Repair
 schemas below are likewise the contract preview_stage_goals.py and the
@@ -157,6 +159,7 @@ ROT_ROW_SYNTAX = "target"
 PROMPT_DELTAS: tuple[str, ...] = (
     "hinge-hold-2026-09-09",   # tilting axis is held where it is, never pointed
     "goal-first-2026-09-10",   # 'goal' sentence before any row; entry line states anchor side + height
+    "word-ranges-2026-11-14",  # each tolerance word's range shown (cm / deg), from compile_tsr's tables
 )
 # The canonical object frame every object carries (frames.py): caller-
 # supplied up/front, lateral = up x front. The compiler roots each stage's
@@ -1327,6 +1330,49 @@ def entry_line(active: str, T_body: np.ndarray, axes: dict,
     return line
 
 
+def word_ranges_text() -> str:
+    """What each word stands for, in cm / deg, for exactly the words the parser
+    accepts (ROT_TOLS, CLEARANCES, SLACKS). Tolerance-like words (rot tol, slack,
+    centered, inside) as ranges whose TOP is what the compiler uses; clearance,
+    which is where a band starts rather than an error, as single values. Values
+    come from compile_tsr's tables. Imported lazily: compile_tsr imports this
+    module."""
+    from .compile_tsr import (CENTERED_TOL_M, CLEARANCE_M, INSIDE_TOL_M,
+                              ROT_TOL_RAD, SLACK_BAND_M)
+
+    def bins(words, table, scale, unit):
+        out, lo = [], 0.0
+        for w in sorted(words, key=lambda w: table[w]):
+            hi = round(scale * table[w], 3)
+            out.append(f"{w} {lo:g}-{hi:g} {unit}" if hi > lo else f"{w} {hi:g} {unit}")
+            lo = hi
+        return ", ".join(out)
+
+    def points(words, table, scale, unit):
+        return ", ".join(f"{w} {round(scale * table[w], 3):g} {unit}" for w in words)
+
+    return (
+        "What the words mean. Each tolerance word allows error up to the top of "
+        "its range; pick the word whose top is the most error the task can "
+        "tolerate. Rot tol, how far the stated alignment may be off about each "
+        "rotation axis: "
+        f"{bins(ROT_TOLS, ROT_TOL_RAD, 180.0 / np.pi, 'deg')} (at least that; "
+        "wider where perception is uncertain, and a path row also covers the "
+        "turn from the entry attitude). "
+        "above/below(anchor, clearance, slack): the active object's selected point "
+        "lies in a height band above/below the anchor (in the subgoal: where it ends; "
+        "on the path: throughout the motion). "
+        "clearance, where the band starts, measured from the anchor: "
+        f"{points(CLEARANCES, CLEARANCE_M, 100.0, 'cm')}. "
+        "slack, how much height variation is acceptable (the band is exactly the "
+        "top of the range tall): "
+        f"{bins(SLACKS, SLACK_BAND_M, 100.0, 'cm')}. "
+        "centered(anchor, tol), how far off the anchor is acceptable along x and "
+        f"along y, each: {bins(SLACKS, CENTERED_TOL_M, 100.0, 'cm')}. "
+        "inside(anchor, slack), how far off the anchor is acceptable along each "
+        f"of x, y and z: {bins(SLACKS, INSIDE_TOL_M, 100.0, 'cm')}.")
+
+
 def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
                           selection: PointAxisSelection | None = None,
                           view_paths: list[Path] | None = None,
@@ -1381,6 +1427,7 @@ def build_emission_prompt(stage: StageSpec, vocab: Vocabulary,
         ") | centered(anchor, tol in " + str(list(SLACKS)) +
         ") | along(direction) | inside(anchor, slack) | expr(row in "
         + str(list(TRANS_ROWS)) + ", lo, hi as quantity arithmetic).\n\n"
+        + word_ranges_text() + "\n\n"
         "Output schema: {\"stage\": int, \"name\": str, \"active\": obj, "
         "\"passive\": obj|null, \"goal\": str, \"path_tsr\": {\"rot\": "
         "\"free\"|[rot row, ...], \"trans\": \"free\"|[trans term, ...]}, "

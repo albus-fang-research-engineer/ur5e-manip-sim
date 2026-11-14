@@ -912,3 +912,21 @@ def test_transport_read_timeout_is_a_vlm_error_and_not_retried(monkeypatch):
     with pytest.raises(VLMError) as e:
         _urllib_transport({"max_tokens": 2000})
     assert calls == [HTTP_TIMEOUT_S] and "not retried" in str(e.value)
+
+
+def test_a0_prompt_shows_each_word_as_the_range_the_compiler_uses(vocab):
+    """The schema prompt states every tolerance word's range, built from
+    compile_tsr's tables (the compiler uses the top of each range)."""
+    from manip_sim.vlm import PROMPT_DELTAS, build_emission_prompt, word_ranges_text
+    text = word_ranges_text()
+    assert "small 1 cm, medium 3 cm, large 8 cm" in text           # CLEARANCE_M: points
+    assert "snug 0-2 cm, moderate 2-5 cm, loose 5-12 cm" in text    # SLACK_BAND_M: ranges
+    assert "moderate 0.5-2 cm" in text and "tight 0-5 deg" in text  # CENTERED_TOL_M, ROT_TOL_RAD
+    assert "contact 0 cm" in text
+    assert "moderate 0.5-1.5 cm, loose 1.5-4 cm" in text                # INSIDE_TOL_M
+    from manip_sim import code_authoring as ca
+    with ca.numeric_tols(["deg:7"]):                                    # A3 adds keys at run time
+        assert "deg:" not in word_ranges_text()                         # only parser words
+    assert "word-ranges-2026-11-14" in PROMPT_DELTAS                 # recorded in artifacts
+    system, _ = build_emission_prompt(STAGE, vocab)
+    assert text in system

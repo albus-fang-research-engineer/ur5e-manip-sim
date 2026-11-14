@@ -37,6 +37,14 @@ def test_plan_failures_are_categorized_from_the_planners_own_words():
                             "contained goal configuration") == "no reachable goal"
     assert sc.plan_category("[transport] no feasible goal configs.") == "no reachable goal"
     assert sc.plan_category("Traceback ... KeyError") == "other planning failure"
+    assert sc.plan_category("[transport] planning failed on all 2 ranked goals: 2x 'no path: "
+                            "iteration budget exhausted (500)'") == "planner search limit"
+    assert sc.plan_category("[plan-task] FAILED [insert] planning: planning failed on all 2 ranked "
+                            "goals reasons: {'no path: iteration budget exhausted (500)': 2}"
+                            ) == "planner search limit"
+    assert sc.plan_category("[transport] planning failed on all 2 ranked goals: 1x 'no path in "
+                            "120.0s (timeout)', 1x 'no path: iteration budget exhausted (500)'"
+                            ) == "other planning failure"                 # mixed: not cached
 
 
 def test_success_uses_each_tasks_existing_definition():
