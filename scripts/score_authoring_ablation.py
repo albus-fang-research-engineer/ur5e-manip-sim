@@ -17,9 +17,9 @@ fewer jobs at once (--jobs, default 3) keeps load from deciding outcomes. Each
     <method>.<i>.s<seed>.plan.npz / .plan.out / .plan.eval.json / .eval.out / .score.json
 
 and the batch gets scores.json and scores.md (one table per task, that grader's
-columns). A finished (emission, seed) is reused only when its .score.json was made at
-the same known commit with no tracked changes and from the same emission and input
-files (hashed); anything else, or --force, is redone.
+columns). A finished (emission, seed) is reused only when its .score.json was made with
+the same code (a content key over CODE_PATHS, no uncommitted changes there) and from the
+same emission and input files (hashed); anything else, or --force, is redone.
 
 Outcomes beyond the grader's: an emission that failed the gate is not planned
 (A0's failures on its grasp stage, which no planner reads, are labeled as such);
@@ -57,26 +57,40 @@ START_OUTSIDE = ("entry pose lies outside", "entry attitude lies outside",
 NO_GOAL = ("empty_goal_set", "no feasible goal", "no collision-free")
 NO_HANDOFF = ("no_admitted_handoff",)
 SEARCH_LIMIT = ("iteration budget exhausted",)   # deterministic for a seed (B1): cached
+NO_GRASP = ("no candidate survived", "no reachable grasp", "classifier kept nothing")   # cached
+
+
+REPO = Path(__file__).resolve().parents[1]
+# what plans and grades: their CONTENT is the cache key, so a docs-only commit, a rebase or
+# an amend of identical code keeps every cached result
+CODE_PATHS = ("manip_sim", "scripts", "tasks", "scenes", "assets", "docker", "requirements.txt")
 
 
 def code_version() -> str:
-    """HEAD, marked dirty when tracked files differ: what planned and graded."""
+    """A content key over CODE_PATHS at HEAD (git's own tree / blob hashes), marked dirty
+    when tracked files there have uncommitted changes. Same code, same key, whatever
+    the commit."""
+    import hashlib
     def git(*a):
-        return subprocess.run(["git", "-c", "safe.directory=*", *a], capture_output=True,
-                              text=True).stdout.strip()
-    head = git("rev-parse", "HEAD") or "unknown"
-    return head + ("+dirty" if git("status", "--porcelain", "--untracked-files=no") else "")
+        return subprocess.run(["git", "-C", str(REPO), "-c", "safe.directory=*", *a],
+                              capture_output=True, text=True).stdout.strip()
+    objs = [f"{p}:{git('rev-parse', f'HEAD:{p}')}" for p in CODE_PATHS]
+    if not any(o.split(":", 1)[1] for o in objs):
+        return "unknown"
+    key = "code-" + hashlib.sha256("\n".join(objs).encode()).hexdigest()[:16]
+    dirty = git("status", "--porcelain", "--untracked-files=no", "--", *CODE_PATHS)
+    return key + ("+dirty" if dirty else "")
 
 
 def input_hash(task: str, emission: Path) -> str:
-    """sha256 over the emission and every input file the planner reads for
-    this task (scene, selections, stage plan, grounding tables): outputs/ is
-    untracked, so a changed input would not show in code_version()."""
+    """sha256 over the emission and every input file the planner reads for this
+    task (scene, selections, stage plan, the grounding dir's files, followed through
+    symlinks): outputs/ is not in code_version()'s key."""
     import hashlib
     t = TASKS[task]
     files = [emission] + [Path(t[k]) for k in ("scene", "selections", "stage_plan") if t[k]]
     if t["grounding"]:
-        files += sorted(f for f in Path(t["grounding"]).rglob("*.json") if f.is_file())
+        files += sorted(f for f in Path(t["grounding"]).rglob("*") if f.is_file())
     h = hashlib.sha256()
     for f in files:
         h.update(str(f).encode() + b"\0" + f.read_bytes())
@@ -117,9 +131,12 @@ def last_failure(out: Path) -> str:
 def plan_category(why: str) -> str:
     if any(k in why for k in NO_HANDOFF):
         return "no goal the next stage can start from"
-    reasons = re.findall(r"'([^']*)'", why)       # the per-goal reasons histogram
-    if reasons and all(any(k in r for k in SEARCH_LIMIT) for r in reasons):
+    reasons = re.findall(r"'([^']*)'", why)       # plan_task's per-goal reasons histogram
+    if (all(any(k in r for k in SEARCH_LIMIT) for r in reasons) if reasons
+            else any(k in why for k in SEARCH_LIMIT)):  # plan_pour_tea: one unquoted reason
         return "planner search limit"                # every goal ran out of iterations
+    if any(k in why for k in NO_GRASP):
+        return "no usable grasp"
     if any(k in why for k in START_OUTSIDE):
         return "start outside the next path"
     if any(k in why for k in NO_GOAL):

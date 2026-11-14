@@ -471,15 +471,35 @@ execution commands during the approach, in sim AND on hardware.
     still reported. The compiler is unchanged. NOTE: `eval_pour.py` and `tasks/specs/pour_tea.json`
     (25 deg spout) are shared with the representation study's pour grading.
 
-## Paused 2026-11-14: where things stand
-- Committed through `fecef1b` (pushed only through `d9e822e`; later commits are local).
-- Done: the 5-run batch (tag `pilot2`, all variants), rescored at fecef1b: insert A0 5/5,
-  A3 5/5, A4 4/5, A5 5/5; pour A0 0/5, A3 2/5, A4 1/5, A5 1/5 (runs succeeding in a majority
-  of seeds). A0 "vocabulary documented" with the neutral sentence complete at 5 per task (tag
-  `a0-meanings-neutral`, 38 calls, $2.00).
-- To resume (free, no model calls): finish rescoring at fecef1b; finished seeds are cached:
-  `scripts/authoring_docker.sh python scripts/score_authoring_ablation.py --tag a0-meanings-neutral --jobs 8`
-  (and `--tag a0-meanings`, the exploratory "pick the loosest word" test, low priority).
-  Then one table: A0 (undocumented), A0 (documented, neutral), A3, A4, A5, same grading.
-- Open: whether to scope the pour grader change and the 25 deg spout limit to the ablation
-  (both are shared with the representation study); push the local commits.
+## Paused 2026-11-14, resumed the same day
+Rescoring finished (all tags); results are in the interim section below. Commits through
+3f5c951 are pushed. The scorer's cache key is now the CONTENT of the code (CODE_PATHS), so
+docs-only commits, rebases and amends no longer force re-planning (the switch itself
+re-plans once).
+
+## INTERIM RESULTS, ONGOING WORK, NOT FINAL (2026-11-14)
+**Not for comparison or reporting yet. The pour tea column in particular is NOT ready for
+comparison:** its grading still has an open grader-side issue (below), and its failures
+are being diagnosed. Insert numbers are more settled but also interim.
+
+5 answers per variant per task, 3 planner seeds each, all graded with the same code (fecef1b;
+the A0 tags' files record 3f5c951, a docs-only commit later) (insert: final tilt
+<= 30 deg, tilt inside the cup reported; pour: carry tilt per axis <= 15 deg, spout <= 25 deg).
+"Answers" = succeeding in a majority of seeds.
+
+| Variant | Insert (upright), answers (seeds) | Pour tea, answers (seeds) **NOT READY** | Pour seeds planned |
+|---|---|---|---|
+| A0 framed-chained, words without meanings (tag `pilot2`) | 5/5 (15/15) | 0/5 (0/15) | 0/15 |
+| A0 framed-chained, words with ranges (tag `a0-meanings-neutral`) | 4/5 (12/15) | 0/5 (2/15) | 15/15 |
+| A3 constrained code (`pilot2`) | 5/5 (15/15) | 2/5 (5/15) | 9/15 |
+| A4 unconstrained code (`pilot2`) | 4/5 (12/15) | 1/5 (3/15) | 10/15 |
+| A5 direct bounds (`pilot2`) | 5/5 (15/15) | 1/5 (3/15) | 10/15 |
+
+Open on pour: (1) the per-axis carry check reads ~0.6 deg more than the planner's own bound
+at waypoints the planner put on the region's edge (15.6 vs 15.0): a grader-side frame
+difference, not a plan violation; it fails 5 A0 seeds. (2) the dominant failure is the spout
+not pointing down enough at the end (A4 7/15, A5 7/15, A0 8/15 seeds): authored pour attitudes
+looser than the 25 deg spout criterion, with goals sampled anywhere in the region. (3) planner
+failures on 5-6 seeds per code variant (search limit, no reachable goal, and a few
+grasp-stage "no candidate survived"; the scorer now files search-limit and grasp failures
+as their own cached categories).

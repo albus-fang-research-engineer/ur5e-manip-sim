@@ -45,6 +45,9 @@ def test_plan_failures_are_categorized_from_the_planners_own_words():
     assert sc.plan_category("[transport] planning failed on all 2 ranked goals: 1x 'no path in "
                             "120.0s (timeout)', 1x 'no path: iteration budget exhausted (500)'"
                             ) == "other planning failure"                 # mixed: not cached
+    assert sc.plan_category("[pour] planning failed: no path: iteration budget exhausted (500)"
+                            ) == "planner search limit"
+    assert sc.plan_category("[grasp] no candidate survived pre-grasp/approach/reach") == "no usable grasp"
 
 
 def test_success_uses_each_tasks_existing_definition():
