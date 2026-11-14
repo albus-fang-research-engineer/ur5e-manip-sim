@@ -210,7 +210,12 @@ class Case:
                 out.append({"touchpoint": l.touchpoint, "attempts": l.attempts,
                             "input_tokens": sum(u.get("input_tokens", 0) for u in use) or None,
                             "output_tokens": sum(u.get("output_tokens", 0) for u in use) or None,
-                            "rejections": list(l.rejections)})
+                            "rejections": list(l.rejections),
+                            # the API's stop_reason per attempt (end_turn, max_tokens,
+                            # refusal, ...): an empty answer is only diagnosable with it
+                            "stop_reasons": list(getattr(l, "stop_reasons", []) or []),
+                            "output_tokens_per_attempt": [
+                                (u or {}).get("output_tokens") for u in (l.usage or [])]})
         return out
 
     def marks(self) -> dict:

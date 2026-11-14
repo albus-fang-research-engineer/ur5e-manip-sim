@@ -23,11 +23,18 @@ What the paper gives, and what this port does with it:
     "fine-grained resampling around the            refine: call #3 writes the stage
       predicted interaction direction" (Sec. 3.3)  again with its previous answer
                                                    shown and no reason given
-    output schema, supp. Figs. 12-14:              {"Think Step By Step", "Reasonable"};
+    output schema, supp. Figs. 12-14:              {"Assessment", "Reasonable"};
       {"Think Step By Step", "Reasonable",         interaction_value dropped: our
        "interaction_value"}                        specification has no distance
                                                    slot and the model never writes
-                                                   numbers
+                                                   numbers. "Think Step By Step"
+                                                   renamed "Assessment": the API
+                                                   refuses a request for written-out
+                                                   step-by-step reasoning (stop_reason
+                                                   refusal, category
+                                                   reasoning_extraction; D9 pilot 1,
+                                                   2026-11-14). The field is logged,
+                                                   never fed back.
     "a small set of interaction examples as        the supplement's Fig. 14 (success)
       prompts" (Sec. 4.1)                          and Fig. 12 (refine) outputs as
                                                    examples, interaction_value removed
@@ -56,13 +63,13 @@ ACTIONS = {"success": "accept", "refine": "regenerate_near", "failure": "regener
 
 # The paper's own example outputs (supp. Figs. 14 and 12), interaction_value removed.
 _EXAMPLES = (
-    '{"Think Step By Step": "The image shows a cup positioned above a dish. The red '
+    '{"Assessment": "The image shows a cup positioned above a dish. The red '
     'arrow indicates a downward direction, suggesting the cup will be placed onto the '
     'dish. The base center of the cup aligns with the center of the dish, which is '
     'appropriate for the task of placing the cup on the dish. The interaction seems '
     'reasonable as the cup is positioned correctly to be placed on the dish.", '
     '"Reasonable": "success"}',
-    '{"Think Step By Step": "The image shows a laptop with its lid partially open. The '
+    '{"Assessment": "The image shows a laptop with its lid partially open. The '
     'red arrow is pointing horizontally towards the top edge of the laptop lid, '
     'indicating the direction to push the lid closed. The interaction part is the '
     'finger of the gripper, which should push the top edge of the laptop lid. The '
@@ -132,7 +139,7 @@ def build_check_prompt(task: str, view: StageView) -> tuple[str, list]:
         *_EXAMPLES,
         "",
         # [paper] output schema, supp. Figs. 12-14, minus interaction_value
-        "Output schema: {\"Think Step By Step\": str, \"Reasonable\": "
+        "Output schema: {\"Assessment\": str, \"Reasonable\": "
         "\"success\"|\"refine\"|\"failure\"}. " + _JSON_ONLY,
     ])
     # [paper] Alg. 1 inputs: task T, stage S_i, image I_i, constraint C_i^(k)
@@ -151,10 +158,10 @@ def parse_check(raw: str, stage: str) -> Check:
     doc = _load_json(raw)
     if not isinstance(doc, dict):
         raise ParseRejection("the check must be a JSON object")
-    reasoning = _need(doc, "Think Step By Step", str, "check")
+    reasoning = _need(doc, "Assessment", str, "check")
     label = _enum(_need(doc, "Reasonable", str, "check"), LABELS, "check.Reasonable")
     if not reasoning.strip():
-        raise ParseRejection("check.\"Think Step By Step\" must be non-empty")
+        raise ParseRejection("check.\"Assessment\" must be non-empty")
     return Check(stage, label, reasoning)
 
 

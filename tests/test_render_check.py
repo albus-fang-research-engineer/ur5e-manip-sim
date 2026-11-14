@@ -41,7 +41,7 @@ def test_prompt_carries_alg1_inputs_and_only_images(tmp_path):
 
 
 def test_parse_accepts_paper_schema_and_ignores_extra_keys():
-    raw = json.dumps({"Think Step By Step": "looks fine", "Reasonable": "refine",
+    raw = json.dumps({"Assessment": "looks fine", "Reasonable": "refine",
                       "interaction_value": 0})
     c = rc.parse_check(raw, "s")
     assert (c.stage, c.label, c.action) == ("s", "refine", "regenerate_near")
@@ -49,8 +49,8 @@ def test_parse_accepts_paper_schema_and_ignores_extra_keys():
 
 @pytest.mark.parametrize("doc", [
     {"Reasonable": "success"},
-    {"Think Step By Step": "x", "Reasonable": "maybe"},
-    {"Think Step By Step": "  ", "Reasonable": "failure"},
+    {"Assessment": "x", "Reasonable": "maybe"},
+    {"Assessment": "  ", "Reasonable": "failure"},
     ["success"],
 ])
 def test_parse_rejects(doc):
@@ -60,7 +60,7 @@ def test_parse_rejects(doc):
 
 def test_check_stage_retries_through_the_client(tmp_path):
     replies = iter(['{"Reasonable": "success"}',
-                    '{"Think Step By Step": "spout over the rim", "Reasonable": "failure"}'])
+                    '{"Assessment": "spout over the rim", "Reasonable": "failure"}'])
     cl = Client(transport=lambda payload: next(replies))
     c = rc.check_stage(cl, "pour tea", _view(tmp_path))
     assert c.label == "failure" and c.action == "regenerate"

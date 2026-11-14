@@ -165,12 +165,12 @@
    "ctx": "path",
    "table": "rot",
    "match": {
-    "axis": "marker.lateral_axis"
+    "axis": "marker.front_axis"
    },
    "field": "relation",
-   "value": "parallel",
-   "expect": "insert stage rejects the entry the transport goal hands it: the upright marker's lateral axis is horizontal, the insert path now wants it along the cup's up",
-   "note": "replaces insert_handoff_axis, whose edit contradicted the transport stage's own path row (a within-stage contradiction, not a handoff)"
+   "value": "perpendicular",
+   "expect": "insert stage rejects the entry the transport goal hands it: the marker arrives vertical, the insert path now wants its long axis perpendicular to the cup's up",
+   "note": "targets the corrected starting spec's insert path row (front_axis parallel cup.up); replaces insert_handoff_axis, whose edit contradicted the transport stage's own path row"
   },
   {
    "id": "insert_path_rot_tight",
