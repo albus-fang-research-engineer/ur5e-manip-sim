@@ -204,7 +204,7 @@
    "id": "pour_tilt_too_steep",
    "task": "pour_tea",
    "category": "tolerance_too_tight",
-   "kind": "magnitude",
+   "kind": "compile",
    "role": "pour",
    "op": "set_field",
    "ctx": "both",
@@ -215,7 +215,89 @@
    "field": "axis",
    "value": "teapot.up_axis",
    "expect": "the pour holds the teapot fully inverted over the mug (up antiparallel to the mug's up): no collision-free goal or no IK, the lid and body against the mug",
-   "note": "the OmniManip hardware write-up's Monster-can case: right direction, too far. Category is a placeholder (the attitude is over-rotated, not over-tight); qualification decides whether it is infeasible or only wrong"
+   "note": "the OmniManip hardware write-up's Monster-can case: right direction, too far. Category is a placeholder (the attitude is over-rotated, not over-tight); qualification decides whether it is infeasible or only wrong; qualified as compile-time (ambiguous half-turn)"
+  },
+  {
+   "task": "pour_tea",
+   "category": "clearance",
+   "kind": "plausible",
+   "role": "transport_active",
+   "op": "set_field",
+   "ctx": "subgoal",
+   "table": "trans",
+   "match": {
+    "term": "above"
+   },
+   "field": "clearance",
+   "also": [
+    {
+     "role": "pour",
+     "ctx": "both"
+    }
+   ],
+   "id": "pour_height_contact",
+   "value": "contact",
+   "expect": "carry goal and pour at the rim's height: no collision-free goal, the teapot body against the mug",
+   "note": "one fault on the three rows that share the pour height (carry goal, pour path, pour goal), so the hand-off stays consistent and the stages compile"
+  },
+  {
+   "task": "pour_tea",
+   "category": "clearance",
+   "kind": "plausible",
+   "role": "transport_active",
+   "op": "set_field",
+   "ctx": "subgoal",
+   "table": "trans",
+   "match": {
+    "term": "above"
+   },
+   "field": "clearance",
+   "also": [
+    {
+     "role": "pour",
+     "ctx": "both"
+    }
+   ],
+   "id": "pour_height_small",
+   "value": "small",
+   "expect": "carry goal and pour 1-3 cm above the opening: the body against the mug",
+   "note": "as pour_height_contact, one step less; qualification decides"
+  },
+  {
+   "id": "pour_tilt_sideways",
+   "task": "pour_tea",
+   "category": "contradictory_rows",
+   "kind": "compile",
+   "role": "pour",
+   "op": "set_field",
+   "ctx": "both",
+   "table": "rot",
+   "match": {
+    "axis": "teapot.front_axis"
+   },
+   "field": "axis",
+   "value": "teapot.lateral_axis",
+   "expect": "the pour tips the teapot sideways over the mug: body or handle against the mug, or no IK",
+   "note": "category is a placeholder (a wrong tilt direction); compiles as a roll corridor about the front axis; qualified as compile-time (path row asks ~90 deg from the entry)"
+  },
+  {
+   "id": "pour_wrong_anchor_both",
+   "task": "pour_tea",
+   "category": "wrong_anchor",
+   "kind": "plausible",
+   "role": "transport_active",
+   "op": "set_point",
+   "point": "handle_center",
+   "also": [
+    {
+     "role": "pour"
+    }
+   ],
+   "unfixable_by": [
+    "render_check"
+   ],
+   "expect": "carry and pour anchored on the handle (consistent hand-off): the handle over the mug, the body in the way, no collision-free goal",
+   "note": "the 11/05 hardware failure, on both stages so the pour's entry check passes"
   }
  ]
 }

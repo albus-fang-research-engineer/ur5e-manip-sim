@@ -84,6 +84,9 @@ class Fault:
     unfixable_by: tuple[str, ...] = ()  # conditions that cannot fix it by construction
     note: str = ""
     kind: str = ""                     # KINDS: how the fault shows itself (table grouping)
+    # the same edit on further stages, as one fault: [{"role": r, "ctx": c}, ...]
+    # (e.g. a pour height that the carry goal and the pour path must share)
+    also: tuple = ()
 
     def __post_init__(self):
         if self.category not in CATEGORIES:
@@ -158,7 +161,8 @@ def write_spec(spec: Spec, out_dir) -> tuple[Path, Path]:
 
 def load_catalog(path, task: str | None = None) -> list[Fault]:
     doc = json.loads(Path(path).read_text())
-    faults = [Fault(**{**f, "unfixable_by": tuple(f.get("unfixable_by", ()))})
+    faults = [Fault(**{**f, "unfixable_by": tuple(f.get("unfixable_by", ())),
+                       "also": tuple(f.get("also", ()))})
               for f in doc["faults"]]
     ids = [f.id for f in faults]
     if len(set(ids)) != len(ids):
@@ -203,6 +207,14 @@ def inject(spec: Spec, f: Fault, pools: dict[str, dict[int, dict]] | None = None
            ) -> tuple[Spec, FaultRecord]:
     """The faulty specification and its record. `pools`: object ->
     candidate pool (selection.load_pool), needed for set_point only."""
+    if f.also:
+        spec, rec = inject(spec, replace(f, also=()), pools)
+        ptrs = list(rec.pointers or (rec.pointer,))
+        for extra in f.also:
+            spec, r = inject(spec, replace(f, also=(), role=extra["role"],
+                                           ctx=extra.get("ctx", f.ctx)), pools)
+            ptrs += list(r.pointers or (r.pointer,))
+        return spec, replace(rec, pointers=tuple(ptrs))
     if f.role not in spec.emissions:
         raise FaultNotApplicable(f"{f.id}: no emission for role {f.role!r} "
                                  f"(roles: {list(spec.roles)})")
