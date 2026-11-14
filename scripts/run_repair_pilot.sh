@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # D9 pilot (PAID): insert marker, the qualified faults x 3 conditions x 1 repeat,
 # run_repair_case.py --mode live, 3 cases at a time in the sim image.
-# Hard bound: 10 requests per case (call cap 8 + up to 2 parse retries).
+# Hard bound: 8 requests per case (call cap 8; a call starts only if its retries fit).
 #   ANTHROPIC_API_KEY=... scripts/run_repair_pilot.sh OUT_DIR
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"

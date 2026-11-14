@@ -1,7 +1,7 @@
 {
  "task": "insert the marker into the cup",
  "arm": "framed-chained",
- "note": "D9 starting spec: gt_opus1 (Opus call #3) with three rows corrected: the transport stage's two rotation rows on marker.front_axis (the long axis) instead of marker.up_axis, and the insert path's rotation row holding the long axis to the cup's up (tight) instead of only bounding one tilt; and the transport stage's point re-picked to marker.body_tip (was body_center, which put the lower end inside the cup during transport)",
+ "note": "D9 starting spec: gt_opus1 (Opus call #3) with three rows corrected: the transport stage's two rotation rows on marker.front_axis (the long axis) instead of marker.up_axis, and the insert path's rotation row holding the long axis to the cup's up (tight) instead of only bounding one tilt; and the transport stage's point re-picked to marker.body_tip (was body_center, which put the lower end inside the cup during transport); and the transport goal's rotation row tightened to tight so the hand-off lies inside the insert path's band (control critic, pilot 2)",
  "roles": [
   "grasp",
   "transport_active",
@@ -146,7 +146,7 @@
       "axis": "marker.front_axis",
       "relation": "parallel",
       "reference": "cup.up_axis",
-      "tol": "moderate",
+      "tol": "tight",
       "row": null
      }
     ],

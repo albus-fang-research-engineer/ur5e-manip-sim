@@ -221,7 +221,12 @@ class Case:
     def marks(self) -> dict:
         return {k: len(c.logs) for k, c in self.clients.items()}
 
-    def room(self, need: int = 1) -> bool:
+    def room(self, need: int | None = None) -> bool:
+        """A call starts only if all of its attempts (1 + the parse retries)
+        fit under the cap, so --call-cap is a hard maximum on requests, the
+        same in every condition."""
+        from manip_sim.vlm import MAX_PARSE_RETRIES
+        need = 1 + MAX_PARSE_RETRIES if need is None else need
         return self.n_calls() + need <= self.a.call_cap
 
     def stage_names(self) -> dict:
@@ -569,7 +574,7 @@ def main(argv=None) -> int:
     if a.mode == "replay" and not a.responses:
         raise SystemExit("--mode replay needs --responses DIR")
     if a.mode == "live":
-        print(f"[case] LIVE (paid): at most {a.call_cap} VLM request(s), parse retries "
+        print(f"[case] LIVE (paid): at most {a.call_cap} VLM request(s) (hard cap), parse retries "
               f"included; model {_model()}, temperature {_temperature()}")
     Case(a).run()
     return 0
