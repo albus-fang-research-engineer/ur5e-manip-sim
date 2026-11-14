@@ -470,3 +470,16 @@ execution commands during the approach, in sim AND on hardware.
     in the teapot's upright frame), as the compiler bounds a rotation word; the total tilt is
     still reported. The compiler is unchanged. NOTE: `eval_pour.py` and `tasks/specs/pour_tea.json`
     (25 deg spout) are shared with the representation study's pour grading.
+
+## Paused 2026-11-14: where things stand
+- Committed through `fecef1b` (pushed only through `d9e822e`; later commits are local).
+- Done: the 5-run batch (tag `pilot2`, all variants), rescored at fecef1b: insert A0 5/5,
+  A3 5/5, A4 4/5, A5 5/5; pour A0 0/5, A3 2/5, A4 1/5, A5 1/5 (runs succeeding in a majority
+  of seeds). A0 "vocabulary documented" with the neutral sentence complete at 5 per task (tag
+  `a0-meanings-neutral`, 38 calls, $2.00).
+- To resume (free, no model calls): finish rescoring at fecef1b; finished seeds are cached:
+  `scripts/authoring_docker.sh python scripts/score_authoring_ablation.py --tag a0-meanings-neutral --jobs 8`
+  (and `--tag a0-meanings`, the exploratory "pick the loosest word" test, low priority).
+  Then one table: A0 (undocumented), A0 (documented, neutral), A3, A4, A5, same grading.
+- Open: whether to scope the pour grader change and the 25 deg spout limit to the ablation
+  (both are shared with the representation study); push the local commits.
