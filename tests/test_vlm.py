@@ -928,5 +928,8 @@ def test_a0_prompt_shows_each_word_as_the_range_the_compiler_uses(vocab):
     with ca.numeric_tols(["deg:7"]):                                    # A3 adds keys at run time
         assert "deg:" not in word_ranges_text()                         # only parser words
     assert "word-ranges-2026-11-14" in PROMPT_DELTAS                 # recorded in artifacts
+    assert "Each tolerance word allows error up to the top of its range." in text
+    assert "most error the task can tolerate" not in text                # the removed rule
+    assert "neutral-pick-2026-11-14" in PROMPT_DELTAS
     system, _ = build_emission_prompt(STAGE, vocab)
     assert text in system
