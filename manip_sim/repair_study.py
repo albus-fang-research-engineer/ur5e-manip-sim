@@ -126,7 +126,8 @@ def localized(rec: dict) -> tuple[bool | None, bool | None]:
 
 
 def collateral(rec: dict) -> int:
-    return sum(d["pointer"] != rec["fault"]["pointer"] for d in rec.get("diff", []))
+    own = set(rec["fault"].get("pointers") or ()) | {rec["fault"]["pointer"]}
+    return sum(d["pointer"] not in own for d in rec.get("diff", []))
 
 
 def oscillations(rec: dict) -> int:

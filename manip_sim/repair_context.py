@@ -58,6 +58,7 @@ _POUR_TEA_KINDS = (
 )
 _LINE_RE = re.compile(r"^\s*\[(?P<label>[^\]]+)\]\s*(?P<rest>.*)$", re.S)
 _TAG_RE = re.compile(r"^FAILED\s+(?P<kind>[a-z_]+):\s*(?P<msg>.*)$", re.S)
+_COMPILE_RE = re.compile(r"^(?:[\w.]+\.)?CompileError:\s*(?P<rest>.*)$", re.S)
 
 
 def _stage_name(label: str, stage_names: dict[str, str]) -> str:
@@ -120,6 +121,16 @@ def _from_line(line: str, stage_names: dict[str, str],
     str(TaskPlanError) with exit_line False) -> {stage, type, message}.
     An exit line's operator advice after " — " (CLI flags to try) is
     dropped."""
+    # plan_pour_tea does not catch a CompileError: its last line is the exception,
+    # "...CompileError: <stage name>.<path|subgoal>.<rot|trans>[i]: <reason>"
+    ce = _COMPILE_RE.match(line.strip())
+    if ce:
+        names = sorted(stage_names.values(), key=len, reverse=True)
+        slot = ce["rest"].split(": ", 1)[0]
+        stage = next((n for n in names if slot.startswith(n + ".")), None)
+        return {"stage": stage, "type": "compile",
+                "message": _name_roles(ce["rest"].strip(), stage_names),
+                "evidence": {"slot": slot}}
     m = _LINE_RE.match(line)
     label, rest = (m["label"], m["rest"]) if m else (None, line)
     t = _TAG_RE.match(rest)

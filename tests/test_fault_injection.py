@@ -84,6 +84,21 @@ def test_not_applicable_is_loud(kw, why):
         fi.inject(_spec(), _fault(**kw), POOLS)
 
 
+def test_ctx_both_edits_path_and_subgoal_as_one_fault():
+    f = _fault(op="set_field", category="clearance", role="pour", ctx="both", table="rot",
+               match={"axis": "teapot.up_axis"}, field="tol", value="loose")
+    spec = _spec()
+    em = spec.emissions["pour"]
+    # give the fixture's pour the same row on both (up_axis on the subgoal too)
+    em = fi.replace(em, subgoal_tsr=fi.replace(em.subgoal_tsr, rot=em.path_tsr.rot))
+    spec = fi.replace(spec, emissions={**spec.emissions, "pour": em})
+    new, rec = fi.inject(spec, f)
+    assert new.emissions["pour"].path_tsr.rot[0].tol == "loose"
+    assert new.emissions["pour"].subgoal_tsr.rot[0].tol == "loose"
+    assert rec.pointers == (f"{POUR}.subgoal.rot[0]", f"{POUR}.path.rot[0]")
+    assert sorted(d["pointer"] for d in fi.spec_diff(spec, new)) == sorted(rec.pointers)
+
+
 def test_add_row_beside_a_free_rot_table_is_refused():
     f = _fault(op="add_row", category="contradictory_rows", role="grasp", ctx="path",
                table="rot", row={"axis": "teapot.up_axis", "relation": "parallel",

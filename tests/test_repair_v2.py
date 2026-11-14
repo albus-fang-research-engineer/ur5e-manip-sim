@@ -19,6 +19,18 @@ from tests.test_critic import (CARRY, GRASP, POUR, VOCAB, _parse,
 STAGE_NAMES = {r: e.name for r, e in _state().emissions.items()}
 
 
+def test_uncaught_compile_error_line_is_typed_with_its_stage():
+    """plan_pour_tea's exit on a CompileError is the exception line itself."""
+    line = ("manip_sim.compile_tsr.CompileError: tilt teapot to pour.path.trans[0]: the "
+            "entry pose lies outside the path's y band [-0.020, +0.020] by 0.193 m")
+    rec = failure_from_report({"status": "failed", "failure": line},
+                              {"transport_active": "carry teapot above mug",
+                               "pour": "tilt teapot to pour"})
+    assert rec["type"] == "compile" and rec["stage"] == "tilt teapot to pour"
+    assert rec["evidence"]["slot"] == "tilt teapot to pour.path.trans[0]"
+    assert "entry pose lies outside" in rec["message"]
+
+
 def test_grasp_lookahead_is_labeled_by_stage():
     """A grasp failure's per-candidate lookahead fractions name the mover
     stage no grasp can reach (the insert stage of a wrong-anchor fault)."""

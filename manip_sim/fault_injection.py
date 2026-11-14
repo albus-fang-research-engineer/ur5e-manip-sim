@@ -46,6 +46,11 @@ from .vlm import (CLEARANCES, ROT_TOLS, SLACKS, PointAxisSelection, RotRow,
 CATEGORIES = ("clearance", "wrong_anchor", "handoff_rejected",
               "contradictory_rows", "tolerance_too_tight")
 CONDITIONS = ("typed", "render_check", "untyped")
+# how a fault shows itself; the repair-study table groups by it (pilot 2: compile-time
+# faults fix equally in every condition, the other two separate them)
+KINDS = ("compile",     # the faulty stage does not compile: every condition sees which
+         "magnitude",   # right direction, wrong amount (OmniManip's refine has no direction)
+         "plausible")   # compiles and renders plausibly, but no goal / path can be planned
 OPS = ("set_field", "set_point", "add_row")
 
 # fields a set_field may change, and the values each may take
@@ -67,7 +72,7 @@ class Fault:
     category: str
     role: str
     op: str
-    ctx: str | None = None             # "path" | "subgoal"
+    ctx: str | None = None             # "path" | "subgoal" | "both" (set_field only)
     table: str | None = None           # "rot" | "trans"
     index: int | None = None
     match: dict | None = None
@@ -78,10 +83,13 @@ class Fault:
     expect: str = ""                   # the typed failure we expect; logged, never sent
     unfixable_by: tuple[str, ...] = ()  # conditions that cannot fix it by construction
     note: str = ""
+    kind: str = ""                     # KINDS: how the fault shows itself (table grouping)
 
     def __post_init__(self):
         if self.category not in CATEGORIES:
             raise ValueError(f"fault {self.id}: category {self.category!r} not in {CATEGORIES}")
+        if self.kind and self.kind not in KINDS:
+            raise ValueError(f"fault {self.id}: kind {self.kind!r} not in {KINDS}")
         if self.op not in OPS:
             raise ValueError(f"fault {self.id}: op {self.op!r} not in {OPS}")
         bad = [c for c in self.unfixable_by if c not in CONDITIONS]
@@ -102,6 +110,8 @@ class FaultRecord:
     after: str
     expect: str
     unfixable_by: tuple[str, ...]
+    pointers: tuple[str, ...] = ()   # every row the fault changed (ctx "both": two)
+    kind: str = ""
 
 
 @dataclass(frozen=True)
@@ -221,11 +231,17 @@ def inject(spec: Spec, f: Fault, pools: dict[str, dict[int, dict]] | None = None
             old, candidate_id=cid, rationale=f"fault {f.id}: {obj}.{f.point}")}
         rec = FaultRecord(f.id, f.task, f.category, f.role, em.name,
                           f"{em.name}.point.{obj}", before, f"{obj}.{f.point}",
-                          f.expect, f.unfixable_by)
+                          f.expect, f.unfixable_by, kind=f.kind)
         return replace(spec, selections=sels), rec
 
+    if f.ctx == "both" and f.op == "set_field":
+        # the same row edit on the subgoal and the path (e.g. a pour attitude both
+        # hold): one fault, both rows its own pointers, so neither is collateral
+        spec1, r1 = inject(spec, replace(f, ctx="subgoal"), pools)
+        spec2, r2 = inject(spec1, replace(f, ctx="path"), pools)
+        return spec2, replace(r1, pointers=(r1.pointer, r2.pointer))
     if f.ctx not in ("path", "subgoal") or f.table not in ("rot", "trans"):
-        raise ValueError(f"fault {f.id}: {f.op} needs ctx path|subgoal and table rot|trans")
+        raise ValueError(f"fault {f.id}: {f.op} needs ctx path|subgoal|both and table rot|trans")
     _, rows = _rows(em, f.ctx, f.table)
 
     if f.op == "add_row":
@@ -260,7 +276,7 @@ def inject(spec: Spec, f: Fault, pools: dict[str, dict[int, dict]] | None = None
     em2 = _with_rows(em, f.ctx, f.table, rows)
     rec = FaultRecord(f.id, f.task, f.category, f.role, em.name,
                       f"{em.name}.{f.ctx}.{f.table}[{idx}]", before, after,
-                      f.expect, f.unfixable_by)
+                      f.expect, f.unfixable_by, kind=f.kind)
     return replace(spec, emissions={**spec.emissions, f.role: em2}), rec
 
 

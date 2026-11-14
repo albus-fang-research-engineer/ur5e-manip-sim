@@ -14,7 +14,8 @@
    },
    "field": "clearance",
    "value": "contact",
-   "expect": "goal region in collision: no collision-free carry goal, teapot body against the mug"
+   "expect": "goal region in collision: no collision-free carry goal, teapot body against the mug",
+   "kind": "plausible"
   },
   {
    "id": "pour_wrong_anchor",
@@ -27,7 +28,8 @@
    "unfixable_by": [
     "render_check"
    ],
-   "note": "the 11/05 hardware failure; regenerating call #3 keeps call #2's point"
+   "note": "the 11/05 hardware failure; regenerating call #3 keeps call #2's point",
+   "kind": "plausible"
   },
   {
    "id": "pour_handoff_high",
@@ -41,9 +43,10 @@
     "term": "above"
    },
    "field": "clearance",
-   "value": "large",
-   "expect": "pour stage CompileError: entry outside its path z band (beyond the start projection budget)",
-   "note": "clearance 'large' is the top of the ladder and no typed action narrows a clearance: the typed conditions can fix it only with reemit_stage (call #3 writes the carry again) or by loosening the pour's path band; a refused widen/relax on this row is the action set, not the feedback"
+   "value": "medium",
+   "expect": "pour stage CompileError: the carry ends 3-5 cm above the opening, the pour path band holds 8-10 cm",
+   "note": "against tasks/repair_study/start/pour_tea (carry clearance large); compile-time, so expected to fix equally in every condition",
+   "kind": "compile"
   },
   {
    "id": "pour_contradictory_upright",
@@ -59,7 +62,8 @@
     "reference": "world.z",
     "tol": "tight"
    },
-   "expect": "empty goal set: upright contradicts the tilted pour row"
+   "expect": "empty goal set: upright contradicts the tilted pour row",
+   "kind": "compile"
   },
   {
    "id": "pour_centering_snug",
@@ -75,7 +79,8 @@
    "field": "tol",
    "value": "snug",
    "expect": "no path within the planner budget, or no IK at the pour goal",
-   "note": "candidate only: qualification decides whether it is infeasible"
+   "note": "candidate only: qualification decides whether it is infeasible",
+   "kind": "magnitude"
   },
   {
    "id": "insert_too_deep",
@@ -91,7 +96,8 @@
    "field": "clearance",
    "value": "large",
    "expect": "insert goal in collision: the lower end against the cup floor",
-   "note": "insert has no natural too-small clearance (the opening is free space); applies only to a starting spec whose insert depth is a 'below' term"
+   "note": "insert has no natural too-small clearance (the opening is free space); applies only to a starting spec whose insert depth is a 'below' term",
+   "kind": "plausible"
   },
   {
    "id": "insert_wrong_anchor",
@@ -104,7 +110,8 @@
    "unfixable_by": [
     "render_check"
    ],
-   "note": "grounded marker points (outputs/grounding/insert_marker_gt_opus1): body_center, body_tip, tip_center; the starting spec inserts by body_tip"
+   "note": "grounded marker points (outputs/grounding/insert_marker_gt_opus1): body_center, body_tip, tip_center; the starting spec inserts by body_tip",
+   "kind": "plausible"
   },
   {
    "id": "insert_handoff_axis",
@@ -121,7 +128,8 @@
    "field": "axis",
    "value": "marker.lateral_axis",
    "expect": "insert stage CompileError: entry attitude outside its path rotation band",
-   "note": "turns the transport goal's aligned axis 90 deg away; grounded marker axes are canonical (up/front/lateral)"
+   "note": "turns the transport goal's aligned axis 90 deg away; grounded marker axes are canonical (up/front/lateral)",
+   "kind": "compile"
   },
   {
    "id": "insert_contradictory_perpendicular",
@@ -138,7 +146,8 @@
     "tol": "tight"
    },
    "expect": "empty goal set: shaft both parallel and perpendicular to the cup's up",
-   "note": "contradicts a starting insert subgoal row 'marker.front_axis parallel cup.up_axis' (gt_opus1); revisit against the qualified starting spec"
+   "note": "contradicts a starting insert subgoal row 'marker.front_axis parallel cup.up_axis' (gt_opus1); revisit against the qualified starting spec",
+   "kind": "compile"
   },
   {
    "id": "insert_path_tight",
@@ -154,7 +163,8 @@
    "field": "tol",
    "value": "snug",
    "expect": "no path within the planner budget",
-   "note": "candidate only: qualification decides whether it is infeasible"
+   "note": "candidate only: qualification decides whether it is infeasible",
+   "kind": "magnitude"
   },
   {
    "id": "insert_handoff_path_relation",
@@ -170,7 +180,8 @@
    "field": "relation",
    "value": "perpendicular",
    "expect": "insert stage rejects the entry the transport goal hands it: the marker arrives vertical, the insert path now wants its long axis perpendicular to the cup's up",
-   "note": "targets the corrected starting spec's insert path row (front_axis parallel cup.up); replaces insert_handoff_axis, whose edit contradicted the transport stage's own path row"
+   "note": "targets the corrected starting spec's insert path row (front_axis parallel cup.up); replaces insert_handoff_axis, whose edit contradicted the transport stage's own path row",
+   "kind": "compile"
   },
   {
    "id": "insert_path_rot_tight",
@@ -186,7 +197,25 @@
    "field": "tol",
    "value": "tight",
    "expect": "no path within the planner budget (insert path rotation held to +-5 deg)",
-   "note": "candidate only: qualification decides whether it is infeasible"
+   "note": "candidate only: qualification decides whether it is infeasible",
+   "kind": "magnitude"
+  },
+  {
+   "id": "pour_tilt_too_steep",
+   "task": "pour_tea",
+   "category": "tolerance_too_tight",
+   "kind": "magnitude",
+   "role": "pour",
+   "op": "set_field",
+   "ctx": "both",
+   "table": "rot",
+   "match": {
+    "axis": "teapot.front_axis"
+   },
+   "field": "axis",
+   "value": "teapot.up_axis",
+   "expect": "the pour holds the teapot fully inverted over the mug (up antiparallel to the mug's up): no collision-free goal or no IK, the lid and body against the mug",
+   "note": "the OmniManip hardware write-up's Monster-can case: right direction, too far. Category is a placeholder (the attitude is over-rotated, not over-tight); qualification decides whether it is infeasible or only wrong"
   }
  ]
 }
