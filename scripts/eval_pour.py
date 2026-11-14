@@ -13,6 +13,7 @@ transport and a pour), so nothing here reads their stages. Every limit is on the
 after the grip, with the same tilt limit deciding when the pot counts as carried or pouring:
 
     carrying    until the spout tip first enters the rim's column: the worst tilt
+                (the ablation's spec grades it per axis, with a frame tolerance: see carry_value)
     pouring     from then on, once tilted past the limit: the spout tip stays inside the rim's
                 column. So a tilted spout outside the rim breaks exactly one of the two. How
                 far it wanders is reported only
@@ -64,6 +65,29 @@ def split_motion(tilts: np.ndarray, off_axis: np.ndarray, rim: float, limit: flo
     return carrying, ~carrying & (tilts > limit)
 
 
+def carry_value(row: dict, spec: dict) -> float:
+    """The carry tilt the spec grades: the total tilt (default), or, with
+    "carry_tilt_check": "per_axis" (the authoring ablation's spec), max |roll|, |pitch| in
+    the compiler's decomposition, as the compiler bounds a rotation word."""
+    c = row["carrying"]
+    return c["max_axis_tilt_deg"] if spec.get("carry_tilt_check") == "per_axis" else c["max_tilt_deg"]
+
+
+def carry_limit(spec: dict) -> float:
+    """max_carry_tilt_deg plus the spec's carry_frame_tol_deg (default 0): a tolerance for
+    the small yaw difference between this grader's upright frame and the compiler's e
+    frame (the ablation's planner waypoints on the region's edge read ~15.6 deg against
+    a 15 deg bound)."""
+    return spec["max_carry_tilt_deg"] + spec.get("carry_frame_tol_deg", 0.0)
+
+
+def carry_label(spec: dict) -> str:
+    per_axis = spec.get("carry_tilt_check") == "per_axis"
+    tol = spec.get("carry_frame_tol_deg", 0.0)
+    return (f"{'per axis, ' if per_axis else ''}limit {spec['max_carry_tilt_deg']:.0f}°"
+            + (f" + {tol:g}° frame tolerance" if tol else ""))
+
+
 def upright_frame(up_body: np.ndarray, front_hint: np.ndarray) -> np.ndarray:
     """Columns x (front), y = z cross x, z (up) of the object's upright frame, in body
     coordinates; front = front_hint made perpendicular to up."""
@@ -89,8 +113,7 @@ def checks(row: dict, spec: dict) -> dict:
     rim = spec["rim_radius_m"] * 1000
     return {"end_over_rim": row["end"]["lateral_mm"] < rim,
             "spout_down": row["end"]["spout_off_down_deg"] <= spec["max_spout_off_down_deg"],
-            # per axis, as the compiler bounds it; the total tilt is reported (max_tilt_deg)
-            "carry_tilt": row["carrying"]["max_axis_tilt_deg"] <= spec["max_carry_tilt_deg"],
+            "carry_tilt": carry_value(row, spec) <= carry_limit(spec),
             "spout_in_rim": row["pouring"]["max_off_axis_mm"] < rim}
 
 
@@ -216,7 +239,7 @@ def table(directory: Path, spec: dict, methods=None) -> tuple[list[tuple], dict]
             (f"Collision-free (at most {COLLISION_TOL_MM:.0f} mm)", *count(collision_free)),
             ("Goal reached", *count(lambda e: e["goal_pass"])),
             ("Path limits held", *count(lambda e: e["path_pass"])),
-            (f"Tilt while carrying, per axis (limit {limit:.0f}°)", *values(lambda e: e["carrying"].get("max_axis_tilt_deg", e["carrying"]["max_tilt_deg"]), 1, "°")),
+            (f"Tilt while carrying ({carry_label(spec)})", *values(lambda e: carry_value(e, spec) if "max_axis_tilt_deg" in e["carrying"] else e["carrying"]["max_tilt_deg"], 1, "°")),
             ("Tilt at 25 / 50 / 75% of the motion, first run",
              *[" / ".join(f"{v:.0f}°" for v in next(r["eval"]["carrying"]["tilt_at_quarters_deg"] for r in rs if r["eval"]))
                if any(r["eval"] for r in rs) else "–" for rs in runs.values()]),
@@ -252,7 +275,7 @@ def violations(runs: dict, spec: dict) -> list[tuple]:
     limit, rim_mm = spec["max_carry_tilt_deg"], spec["rim_radius_m"] * 1000
     return [("", *(METHODS[m] for m in runs)),
             ("Plans returned", *[f"{sum(bool(r['eval']) for r in rs)}/{len(rs)}" for rs in runs.values()]),
-            (f"Tilt while carrying per axis, worst (limit {limit:.0f}°)", *worst(lambda e: e["carrying"].get("max_axis_tilt_deg", e["carrying"]["max_tilt_deg"]), "°")),
+            (f"Tilt while carrying, worst ({carry_label(spec)})", *worst(lambda e: carry_value(e, spec) if "max_axis_tilt_deg" in e["carrying"] else e["carrying"]["max_tilt_deg"], "°")),
             ("Tilt while carrying, plans over the limit", *found(lambda e: not e["checks"]["carry_tilt"])),
             (f"Spout off the mug's axis while pouring, worst (rim {rim_mm:.1f} mm)", *worst(lambda e: e["pouring"]["max_off_axis_mm"], " mm")),
             ("Spout while pouring, plans outside the rim", *found(lambda e: not e["checks"]["spout_in_rim"])),
@@ -277,7 +300,7 @@ def summary(runs: dict, spec: dict) -> list[tuple]:
     limit, rim_mm = spec["max_carry_tilt_deg"], spec["rim_radius_m"] * 1000
     return [("", *(METHODS[m] for m in runs)),
             ("Success rate", *[f"{sum(success(r['eval']) for r in rs if r['eval'])}/{len(rs)}" for rs in runs.values()]),
-            (f"Tilt while carrying per axis, median / max (limit {limit:.0f}°)", *spread(lambda e: e["carrying"].get("max_axis_tilt_deg", e["carrying"]["max_tilt_deg"]), "°")),
+            (f"Tilt while carrying, median / max ({carry_label(spec)})", *spread(lambda e: carry_value(e, spec) if "max_axis_tilt_deg" in e["carrying"] else e["carrying"]["max_tilt_deg"], "°")),
             ("Path constraint violation rate", *found(lambda e: not e["path_pass"])),
             (f"Spout off the mug's axis while pouring, median / max (rim {rim_mm:.1f} mm)",
              *spread(lambda e: e["pouring"]["max_off_axis_mm"], " mm")),

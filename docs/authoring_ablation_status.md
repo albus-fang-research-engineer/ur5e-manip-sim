@@ -468,8 +468,12 @@ execution commands during the approach, in sim AND on hardware.
   - Pour (`scripts/eval_pour.py`): the carry tilt is checked **per axis** (about the teapot's
     roll and pitch <= 15 deg each, in the compiler's own decomposition Rz(yaw) Ry(pitch) Rx(roll),
     in the teapot's upright frame), as the compiler bounds a rotation word; the total tilt is
-    still reported. The compiler is unchanged. NOTE: `eval_pour.py` and `tasks/specs/pour_tea.json`
-    (25 deg spout) are shared with the representation study's pour grading.
+    still reported. The compiler is unchanged. Scoped to the ablation: the rule and a 1 deg
+    frame tolerance (user, 2026-11-14; the grader's upright frame and the compiler's e frame
+    differ by a small yaw, so waypoints on the region's edge read ~15.6 deg) live in the new
+    `tasks/specs/pour_tea_ablation.json` (`carry_tilt_check: per_axis`,
+    `carry_frame_tol_deg: 1`). The shared `pour_tea.json` grades the total tilt as before,
+    so the representation study's baselines are unchanged; its 25 deg spout limit is shared.
 
 ## Paused 2026-11-14, resumed the same day
 Rescoring finished (all tags); results are in the interim section below. Commits through

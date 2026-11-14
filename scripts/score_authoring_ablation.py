@@ -46,7 +46,7 @@ from scripts.run_authoring_ablation import METHODS, TASKS  # noqa: E402
 INSERT_GRASP = "manip_sim/omnimanip/programs/insert_marker.json"
 SPECS = {"insert_marker": "tasks/specs/insert_marker_ablation.json",          # final tilt 30 deg,
          "insert_marker_upright": "tasks/specs/insert_marker_ablation.json",  # path tilt reported
-         "pour_tea": "tasks/specs/pour_tea.json"}
+         "pour_tea": "tasks/specs/pour_tea_ablation.json"}          # carry tilt per axis + 1 deg
 GRADERS = {"insert_marker": "scripts/eval_plan.py", "insert_marker_upright": "scripts/eval_plan.py",
            "pour_tea": "scripts/eval_pour.py"}
 NAMES = {"A0": "A0 framed-chained (default)", "A3": "A3 constrained code",
