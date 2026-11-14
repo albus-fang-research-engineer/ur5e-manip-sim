@@ -1,0 +1,240 @@
+{
+  "scene": "scenes/insert_marker_upright.json",
+  "grounding": "outputs/grounding/insert_marker_gt_opus1",
+  "stage_plan": "outputs/runs/gt_opus1/stage_plan.json",
+  "selections": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/pilot2/cases/insert_wrong_anchor/render_check/round_1_spec/selections.json",
+  "emissions": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/pilot2/cases/insert_wrong_anchor/render_check/round_1_spec/emissions.json",
+  "seed": 0,
+  "constants": {
+    "SYNTH_START_CLEARANCE_M": 0.05,
+    "GRASP_ELEVATION_RAD (sim stand-in)": 1.5707963267948966,
+    "GRASP_PAD_BACKOFF_M (sim stand-in)": 0.005
+  },
+  "status": "failed",
+  "grasp": {
+    "source": "antipodal",
+    "grasp_seed": 0,
+    "funnel": {
+      "surface_samples": 1500,
+      "opposite_hit": 1447,
+      "in_friction_cone": 1206,
+      "clear_of_table": 26676,
+      "support_tested": 1017,
+      "pad_lands_off_contact": 243,
+      "scored": 774,
+      "collision_tested": 12,
+      "closed_fingers_hit_object": 0,
+      "clear_of_object": 12,
+      "returned": 12
+    },
+    "proposals": [
+      {
+        "score": 0.722,
+        "antipodality": 0.89,
+        "com": 0.988,
+        "pad_support": 0.429,
+        "width_mm": 17.4
+      },
+      {
+        "score": 0.632,
+        "antipodality": 0.99,
+        "com": 0.637,
+        "pad_support": 0.4,
+        "width_mm": 17.0
+      },
+      {
+        "score": 0.591,
+        "antipodality": 0.955,
+        "com": 0.946,
+        "pad_support": 0.229,
+        "width_mm": 17.4
+      },
+      {
+        "score": 0.512,
+        "antipodality": 0.959,
+        "com": 0.982,
+        "pad_support": 0.143,
+        "width_mm": 17.3
+      },
+      {
+        "score": 0.509,
+        "antipodality": 0.926,
+        "com": 0.624,
+        "pad_support": 0.229,
+        "width_mm": 17.0
+      },
+      {
+        "score": 0.489,
+        "antipodality": 0.985,
+        "com": 0.519,
+        "pad_support": 0.229,
+        "width_mm": 17.9
+      },
+      {
+        "score": 0.449,
+        "antipodality": 0.931,
+        "com": 0.68,
+        "pad_support": 0.143,
+        "width_mm": 17.7
+      },
+      {
+        "score": 0.431,
+        "antipodality": 0.918,
+        "com": 0.304,
+        "pad_support": 0.286,
+        "width_mm": 16.9
+      },
+      {
+        "score": 0.416,
+        "antipodality": 0.99,
+        "com": 0.637,
+        "pad_support": 0.114,
+        "width_mm": 17.0
+      },
+      {
+        "score": 0.388,
+        "antipodality": 0.879,
+        "com": 0.258,
+        "pad_support": 0.257,
+        "width_mm": 17.1
+      },
+      {
+        "score": 0.327,
+        "antipodality": 0.982,
+        "com": 0.311,
+        "pad_support": 0.114,
+        "width_mm": 18.2
+      },
+      {
+        "score": 0.319,
+        "antipodality": 0.879,
+        "com": 0.258,
+        "pad_support": 0.143,
+        "width_mm": 17.1
+      }
+    ],
+    "ik_tried": 22,
+    "ik_feasible": 11,
+    "collision_free": 6,
+    "offenders": {
+      "robot0_upper_arm_link <-> table": 3,
+      "robot0_forearm_link <-> table": 1,
+      "fixed_mount0_pedestal <-> robot0_upper_arm_link": 1
+    },
+    "reachable": 6,
+    "lookahead": [
+      {
+        "score": 0.0,
+        "fractions": [
+          0.25,
+          0.0
+        ],
+        "slide_offset_mm": null
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.25,
+          0.0
+        ],
+        "slide_offset_mm": null
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          1.0,
+          0.0
+        ],
+        "slide_offset_mm": null
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.875,
+          0.0
+        ],
+        "slide_offset_mm": null
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.375,
+          0.0
+        ],
+        "slide_offset_mm": null
+      },
+      {
+        "score": 0.0,
+        "fractions": [
+          0.625,
+          0.0
+        ],
+        "slide_offset_mm": null
+      }
+    ]
+  },
+  "stages": [],
+  "emit_model": null,
+  "emit_arm": "framed-chained",
+  "emit_method": null,
+  "emit_medium": null,
+  "failure": {
+    "kind": "grasp",
+    "stage": "grasp",
+    "message": "[grasp] grasp: no candidate with a positive lookahead score survived approach + reach",
+    "detail": {
+      "skips": [],
+      "lookahead": [
+        {
+          "score": 0.0,
+          "fractions": [
+            0.25,
+            0.0
+          ],
+          "slide_offset_mm": null
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            0.25,
+            0.0
+          ],
+          "slide_offset_mm": null
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            1.0,
+            0.0
+          ],
+          "slide_offset_mm": null
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            0.875,
+            0.0
+          ],
+          "slide_offset_mm": null
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            0.375,
+            0.0
+          ],
+          "slide_offset_mm": null
+        },
+        {
+          "score": 0.0,
+          "fractions": [
+            0.625,
+            0.0
+          ],
+          "slide_offset_mm": null
+        }
+      ]
+    }
+  },
+  "seconds": 77.5
+}

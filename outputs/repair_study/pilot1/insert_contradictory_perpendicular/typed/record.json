@@ -1,0 +1,197 @@
+{
+ "fault": {
+  "fault_id": "insert_contradictory_perpendicular",
+  "task": "insert_marker",
+  "category": "contradictory_rows",
+  "role": "insert",
+  "stage": "insert marker into cup",
+  "pointer": "insert marker into cup.subgoal.rot[1]",
+  "before": "(no row)",
+  "after": "marker.front_axis perpendicular cup.up_axis, tol tight",
+  "expect": "empty goal set: shaft both parallel and perpendicular to the cup's up",
+  "unfixable_by": []
+ },
+ "condition": "typed",
+ "repeat": 0,
+ "mode": "live",
+ "model": "claude-opus-5",
+ "temperature": null,
+ "call_cap": 8,
+ "round_budget": 2,
+ "start": {
+  "selections": "outputs/runs/gt_opus1/selections.json",
+  "emissions": "outputs/runs/gt_opus1/emissions_call3_opus.json"
+ },
+ "start_sha": "8d83e1124d94e434",
+ "rounds": [
+  {
+   "round": 1,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/pilot1/insert_contradictory_perpendicular/typed/round_1",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 10410,
+     "output_tokens": 3436,
+     "rejections": []
+    },
+    {
+     "touchpoint": "emit_constraints",
+     "attempts": 1,
+     "input_tokens": 7475,
+     "output_tokens": 463,
+     "rejections": []
+    }
+   ],
+   "stage_sha": {
+    "grasp the marker": "923e1527a198",
+    "align marker above cup opening": "d6b9175091aa",
+    "insert marker into cup": "cc617f525a8a"
+   },
+   "verdict": "reject",
+   "diagnosis": "Stage 2 aligns the wrong marker direction: constraining marker.up_axis (a lateral axis) to cup.up_axis leaves the pen lying horizontally across the cup mouth (all three labelled points at the same 3.5 cm height, ends 3.6/4.9 cm out over the rim), so the insertion stage would have to swing the pen 90 deg right at the opening. The aligning direction should be the pen's long axis, marker.+front parallel to cup.+up, so the body_tip end already points down over the opening. Stage 3 does not compile: subgoal.rot[0] and subgoal.rot[1] place marker.front_axis both parallel and perpendicular to cup.up_axis \u2014 contradictory rows outside the rule table, leaving no goal region. Re-emit the insert stage with a single attitude row (marker.+front parallel cup.+up, tight) plus the inside-cup translation row, and add a path rotation row that holds the long axis vertical (not merely a lateral-axis perpendicularity) throughout the descent.",
+   "edits": [
+    {
+     "target": "align marker above cup opening.subgoal.rot[0]",
+     "action": "reselect_axis",
+     "token": "marker.+front",
+     "before": "marker.up_axis parallel cup.up_axis, tol moderate",
+     "after": "marker.front_axis parallel cup.up_axis, tol moderate",
+     "direction": 0
+    },
+    {
+     "target": "insert marker into cup",
+     "action": "reemit_stage",
+     "token": null,
+     "before": "emitted",
+     "after": "re-emit",
+     "direction": 0
+    }
+   ],
+   "compiled": {
+    "align marker above cup opening": true,
+    "insert marker into cup": "compile rejected: insert marker into cup.subgoal.rot[1]: 2 relation rows (['parallel', 'perpendicular']) are outside the rule table: one row of any relation, or two parallel/antiparallel rows with independent axes (which fully determine the attitude); a perpendicular row beside an aligning row is kept only when the aligning row already implies it. Drop the extra row or split the stage"
+   },
+   "reemit": [
+    {
+     "stage": "insert marker into cup",
+     "attempts": [
+      {
+       "raw": "{\"stage\": 2, \"name\": \"insert marker into cup\", \"active\": \"marker\", \"passive\": \"cup\", \"goal\": \"The marker ends vertical with marker.+front pointing the way cup.+up points and marker.body_tip lowered inside the cup near cup.interior_center.\", \"path_tsr\": {\"rot\": [{\"axis\": \"marker.+front\", \"points\": \"cup.+up\", \"tol\": \"tight\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"cup.opening_center\", \"tol\": \"moderate\"}]}, \"subgoal_tsr\": {\"rot\": [{\"axis\": \"marker.+front\", \"points\": \"cup.+up\", \"tol\": \"tight\"}], \"trans\": [{\"term\": \"inside\", \"anchor\": \"cup.interior_center\", \"slack\": \"moderate\"}]}, \"verify\": \"marker.+front stays aligned with cup.+up (pen long axis vertical, body_tip down) for the whole descent, and at the subgoal marker.body_tip lies inside the cup interior near cup.interior_center.\"}",
+       "compiled": true
+      }
+     ],
+     "feedback": [
+      "The compiler rejected that emission: compile rejected: insert marker into cup.subgoal.rot[1]: 2 relation rows (['parallel', 'perpendicular']) are outside the rule table: one row of any relation, or two parallel/antiparallel rows with independent axes (which fully determine the attitude); a perpendicular row beside an aligning row is kept only when the aligning row already implies it. Drop the extra row or split the stage. A preview critic also reviewed the stage before planning: Stage 2 aligns the wrong marker direction: constraining marker.up_axis (a lateral axis) to cup.up_axis leaves the pen lying horizontally across the cup mouth (all three labelled points at the same 3.5 cm height, ends 3.6/4.9 cm out over the rim), so the insertion stage would have to swing the pen 90 deg right at the opening. The aligning direction should be the pen's long axis, marker.+front parallel to cup.+up, so the body_tip end already points down over the opening. Stage 3 does not compile: subgoal.rot[0] and subgoal.rot[1] place marker.front_axis both parallel and perpendicular to cup.up_axis \u2014 contradictory rows outside the rule table, leaving no goal region. Re-emit the insert stage with a single attitude row (marker.+front parallel cup.+up, tight) plus the inside-cup translation row, and add a path rotation row that holds the long axis vertical (not merely a lateral-axis perpendicularity) throughout the descent.. Re-emit the corrected JSON object only, changing as little as needed."
+     ],
+     "role": "insert",
+     "calls": [
+      {
+       "touchpoint": "emit_constraints",
+       "attempts": 1,
+       "input_tokens": 7475,
+       "output_tokens": 463,
+       "rejections": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "round": 2,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/pilot1/insert_contradictory_perpendicular/typed/round_2",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 16128,
+     "output_tokens": 5587,
+     "rejections": []
+    }
+   ],
+   "stage_sha": {
+    "grasp the marker": "923e1527a198",
+    "align marker above cup opening": "c009ec903492",
+    "insert marker into cup": "d993b129aa7b"
+   },
+   "verdict": "reject",
+   "diagnosis": "Stage-to-stage continuity fails on orientation: the transport subgoal allows the pen to be tilted up to +/-15 deg from the cup axis, while the insert stage's path region only admits +/-5 deg, so a legal exit pose of the transport stage can lie outside the region in which the insert motion is allowed to move (and a 15 deg lean over the rim is a poor pre-insertion pose anyway). Tighten the transport subgoal rotation row to tight so the handoff pose is always inside the insert path region.",
+   "edits": [
+    {
+     "target": "align marker above cup opening.subgoal.rot[0]",
+     "action": "tighten_tolerance",
+     "token": "tight",
+     "before": "marker.front_axis parallel cup.up_axis, tol moderate",
+     "after": "marker.front_axis parallel cup.up_axis, tol tight",
+     "direction": 1
+    }
+   ],
+   "compiled": {
+    "align marker above cup opening": true,
+    "insert marker into cup": true
+   }
+  },
+  {
+   "round": 3,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/pilot1/insert_contradictory_perpendicular/typed/round_3",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 16127,
+     "output_tokens": 5281,
+     "rejections": []
+    }
+   ],
+   "stage_sha": {
+    "grasp the marker": "923e1527a198",
+    "align marker above cup opening": "ad6f108c8fac",
+    "insert marker into cup": "d993b129aa7b"
+   },
+   "verdict": "reject",
+   "diagnosis": "In the transport stage the path rotation row constrains marker.up_axis (the marker's lateral axis) to cup.up_axis, which nominally demands a horizontal marker and is inconsistent with both the upright entry pose and the upright subgoal (which uses marker.front_axis). The resulting compiled band (roll -30 to +120 deg) admits poses with the marker lying flat or leaning far over the rim, so nothing keeps the long axis near vertical during the approach. Re-pick the path rotation row's constrained direction to marker.+front so the path matches the entry, the goal, and the following insert stage.",
+   "edits": [
+    {
+     "target": "align marker above cup opening.path.rot[0]",
+     "action": "reselect_axis",
+     "token": "marker.+front",
+     "before": "marker.up_axis parallel cup.up_axis, tol loose",
+     "after": "marker.front_axis parallel cup.up_axis, tol loose",
+     "direction": 0
+    }
+   ],
+   "compiled": {
+    "align marker above cup opening": true,
+    "insert marker into cup": true
+   }
+  }
+ ],
+ "final": {
+  "accepted": false,
+  "planned_in_loop": false,
+  "grades": [],
+  "error": null,
+  "stopped": "round budget spent (critic)"
+ },
+ "diff": [
+  {
+   "pointer": "align marker above cup opening.subgoal.rot[0]",
+   "before": "marker.up_axis parallel cup.up_axis, tol moderate",
+   "after": "marker.front_axis parallel cup.up_axis, tol tight"
+  },
+  {
+   "pointer": "insert marker into cup.path.rot[0]",
+   "before": "marker.lateral_axis perpendicular cup.up_axis, tol moderate",
+   "after": "marker.front_axis parallel cup.up_axis, tol tight"
+  },
+  {
+   "pointer": "insert marker into cup.path.trans[0]",
+   "before": "free",
+   "after": "centered on cup.opening_center, tol moderate"
+  }
+ ],
+ "n_calls": 4
+}

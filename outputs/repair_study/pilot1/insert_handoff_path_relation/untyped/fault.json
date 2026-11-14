@@ -1,0 +1,12 @@
+{
+ "fault_id": "insert_handoff_path_relation",
+ "task": "insert_marker",
+ "category": "handoff_rejected",
+ "role": "insert",
+ "stage": "insert marker into cup",
+ "pointer": "insert marker into cup.path.rot[0]",
+ "before": "marker.lateral_axis perpendicular cup.up_axis, tol moderate",
+ "after": "marker.lateral_axis parallel cup.up_axis, tol moderate",
+ "expect": "insert stage rejects the entry the transport goal hands it: the upright marker's lateral axis is horizontal, the insert path now wants it along the cup's up",
+ "unfixable_by": []
+}

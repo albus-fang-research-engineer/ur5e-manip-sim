@@ -1,0 +1,174 @@
+{
+ "stages": [
+  {
+   "stage": "grasp the marker",
+   "role": "grasp",
+   "active": "marker",
+   "editable": false,
+   "goal": "The gripper closes on the marker at marker.body_center, holding the marker's body with the marker still at its spawn pose.",
+   "point_choice": {
+    "pointer": "grasp the marker.point.marker",
+    "current": "marker.body_center"
+   }
+  },
+  {
+   "stage": "align marker above cup opening",
+   "role": "transport_active",
+   "active": "marker",
+   "passive": "cup",
+   "editable": true,
+   "goal": "marker.body_center ends up hovering a short clearance above cup.opening_center, centered over the opening, with marker.+up still pointing the way cup.+up points",
+   "point_choice": {
+    "pointer": "align marker above cup opening.point.marker",
+    "current": "marker.body_tip"
+   },
+   "path": {
+    "rows": [
+     {
+      "pointer": "align marker above cup opening.path.rot[0]",
+      "text": "marker.up_axis parallel cup.up_axis, tol loose"
+     },
+     {
+      "pointer": "align marker above cup opening.path.trans[0]",
+      "text": "free"
+     }
+    ],
+    "bounds_in_w": {
+     "x": "free",
+     "y": "free",
+     "z": "free",
+     "roll": "-30 to +120 deg",
+     "pitch": "-30 to +30 deg",
+     "yaw": "free"
+    }
+   },
+   "subgoal": {
+    "rows": [
+     {
+      "pointer": "align marker above cup opening.subgoal.rot[0]",
+      "text": "marker.front_axis parallel cup.up_axis, tol moderate"
+     },
+     {
+      "pointer": "align marker above cup opening.subgoal.trans[0]",
+      "text": "centered on cup.opening_center, tol snug"
+     },
+     {
+      "pointer": "align marker above cup opening.subgoal.trans[1]",
+      "text": "above cup.opening_center, clearance small, slack moderate"
+     }
+    ],
+    "bounds_in_w": {
+     "x": "-0.5 to +0.5 cm",
+     "y": "-0.5 to +0.5 cm",
+     "z": "+1.0 to +6.0 cm",
+     "roll": "-15 to +15 deg",
+     "pitch": "-15 to +15 deg",
+     "yaw": "free"
+    }
+   },
+   "points_at_goal": {
+    "relative_to": "w origin (cup's selected point), height along cup up",
+    "at": "subgoal nominal",
+    "points": {
+     "body_center": {
+      "horizontal_cm": 0.1,
+      "height_cm": 7.1
+     },
+     "body_tip": {
+      "horizontal_cm": 0.0,
+      "height_cm": 3.5
+     },
+     "tip_center": {
+      "horizontal_cm": 0.2,
+      "height_cm": 12.0
+     }
+    }
+   }
+  },
+  {
+   "stage": "insert marker into cup",
+   "role": "insert",
+   "active": "marker",
+   "passive": "cup",
+   "editable": true,
+   "goal": "The marker ends vertical with marker.+front pointing the way cup.+up points and marker.body_tip lowered inside the cup near cup.interior_center.",
+   "point_choice": {
+    "pointer": "insert marker into cup.point.marker",
+    "current": "marker.body_center"
+   },
+   "path": {
+    "rows": [
+     {
+      "pointer": "insert marker into cup.path.rot[0]",
+      "text": "marker.front_axis parallel cup.up_axis, tol moderate"
+     },
+     {
+      "pointer": "insert marker into cup.path.trans[0]",
+      "text": "centered on cup.opening_center, tol moderate"
+     }
+    ],
+    "bounds_in_w": {
+     "x": "-2.0 to +2.0 cm",
+     "y": "-2.0 to +2.0 cm",
+     "z": "free",
+     "roll": "-15 to +15 deg",
+     "pitch": "-15 to +15 deg",
+     "yaw": "free"
+    }
+   },
+   "subgoal": {
+    "rows": [
+     {
+      "pointer": "insert marker into cup.subgoal.rot[0]",
+      "text": "marker.front_axis parallel cup.up_axis, tol tight"
+     },
+     {
+      "pointer": "insert marker into cup.subgoal.trans[0]",
+      "text": "inside cup.interior_center, slack moderate"
+     }
+    ],
+    "bounds_in_w": {
+     "x": "-1.5 to +1.5 cm",
+     "y": "-1.5 to +1.5 cm",
+     "z": "-5.4 to -2.4 cm",
+     "roll": "-5 to +5 deg",
+     "pitch": "-5 to +5 deg",
+     "yaw": "free"
+    }
+   },
+   "points_at_goal": {
+    "relative_to": "w origin (cup's selected point), height along cup up",
+    "at": "subgoal nominal",
+    "points": {
+     "body_center": {
+      "horizontal_cm": 0.0,
+      "height_cm": -3.9
+     },
+     "body_tip": {
+      "horizontal_cm": 0.1,
+      "height_cm": -7.5
+     },
+     "tip_center": {
+      "horizontal_cm": 0.1,
+      "height_cm": 1.0
+     }
+    }
+   }
+  }
+ ],
+ "editable_pointers": [
+  "align marker above cup opening",
+  "align marker above cup opening.path.rot[0]",
+  "align marker above cup opening.path.trans[0]",
+  "align marker above cup opening.point.marker",
+  "align marker above cup opening.subgoal.rot[0]",
+  "align marker above cup opening.subgoal.trans[0]",
+  "align marker above cup opening.subgoal.trans[1]",
+  "insert marker into cup",
+  "insert marker into cup.path.rot[0]",
+  "insert marker into cup.path.trans[0]",
+  "insert marker into cup.point.marker",
+  "insert marker into cup.subgoal.rot[0]",
+  "insert marker into cup.subgoal.trans[0]"
+ ]
+}

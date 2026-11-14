@@ -1,0 +1,12 @@
+{
+ "fault_id": "insert_contradictory_perpendicular",
+ "task": "insert_marker",
+ "category": "contradictory_rows",
+ "role": "insert",
+ "stage": "insert marker into cup",
+ "pointer": "insert marker into cup.subgoal.rot[1]",
+ "before": "(no row)",
+ "after": "marker.front_axis perpendicular cup.up_axis, tol tight",
+ "expect": "empty goal set: shaft both parallel and perpendicular to the cup's up",
+ "unfixable_by": []
+}

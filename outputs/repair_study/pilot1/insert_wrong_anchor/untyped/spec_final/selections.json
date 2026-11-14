@@ -1,0 +1,34 @@
+{
+ "grasp": {
+  "object": "marker",
+  "candidate_id": 0,
+  "axis": null,
+  "sign": "+",
+  "secondary": null,
+  "rationale": "For grasping the marker, the interaction point should be at the center of the body, which provides the best grip location. Candidate 0 is the constructed body_center, located at the middle of the marker body - the optimal point for a stable grasp of the entire object."
+ },
+ "transport_active": {
+  "object": "marker",
+  "candidate_id": 1,
+  "axis": null,
+  "sign": "+",
+  "secondary": null,
+  "rationale": "re-picked marker.body_tip by edit on align marker above cup opening.point.marker"
+ },
+ "insert": {
+  "object": "marker",
+  "candidate_id": 0,
+  "axis": null,
+  "sign": "+",
+  "secondary": null,
+  "rationale": "fault insert_wrong_anchor: marker.body_center"
+ },
+ "transport_passive": {
+  "object": "cup",
+  "candidate_id": 1,
+  "axis": null,
+  "sign": "+",
+  "secondary": null,
+  "rationale": "Candidate 1 is the constructed opening_center point located at the rim/opening of the cup. The stage requires aligning a marker above the cup opening, so the interaction point should be the center of the cup's opening. Candidate 1 consistently appears at the top-center of the cup opening across all views, making it the ideal anchor point for this alignment stage."
+ }
+}

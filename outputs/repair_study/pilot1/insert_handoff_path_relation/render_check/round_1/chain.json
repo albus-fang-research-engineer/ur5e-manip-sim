@@ -1,0 +1,20 @@
+[
+ {
+  "role": "grasp",
+  "stage": "grasp the marker",
+  "compiled": false,
+  "error": null
+ },
+ {
+  "role": "transport_active",
+  "stage": "align marker above cup opening",
+  "compiled": true,
+  "error": null
+ },
+ {
+  "role": "insert",
+  "stage": "insert marker into cup",
+  "compiled": false,
+  "error": "compile rejected: insert marker into cup.path.rot[0]: this path row asks for a 90 deg rotation from the entry attitude (axis in w [0.0, 1.0, -0.0]) that is about w.y (pitch), which the path box does not hold as a corridor; the path box cannot hold it. Restate the row as a hold \u2014 'perpendicular_to' or 'points' with the relation already true at entry \u2014 or leave the path rotation free"
+ }
+]

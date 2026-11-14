@@ -1,0 +1,20 @@
+[
+ {
+  "role": "grasp",
+  "stage": "grasp the marker",
+  "compiled": false,
+  "error": null
+ },
+ {
+  "role": "transport_active",
+  "stage": "align marker above cup opening",
+  "compiled": true,
+  "error": null
+ },
+ {
+  "role": "insert",
+  "stage": "insert marker into cup",
+  "compiled": false,
+  "error": "compile rejected: insert marker into cup.path.rot[0]: axis is (anti)parallel to the reference at entry; the direction to tip it into the perpendicular plane is ambiguous \u2014 relate an axis that is already off the reference, or split the stage"
+ }
+]

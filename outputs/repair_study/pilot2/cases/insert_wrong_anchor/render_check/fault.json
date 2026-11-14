@@ -1,0 +1,14 @@
+{
+ "fault_id": "insert_wrong_anchor",
+ "task": "insert_marker",
+ "category": "wrong_anchor",
+ "role": "insert",
+ "stage": "insert marker into cup",
+ "pointer": "insert marker into cup.point.marker",
+ "before": "marker.body_tip",
+ "after": "marker.body_center",
+ "expect": "insert goal in collision: the marker's middle at the insert depth puts its end through the cup floor",
+ "unfixable_by": [
+  "render_check"
+ ]
+}

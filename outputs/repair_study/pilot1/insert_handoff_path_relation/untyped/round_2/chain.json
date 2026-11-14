@@ -1,0 +1,20 @@
+[
+ {
+  "role": "grasp",
+  "stage": "grasp the marker",
+  "compiled": false,
+  "error": null
+ },
+ {
+  "role": "transport_active",
+  "stage": "align marker above cup opening",
+  "compiled": false,
+  "error": "compile rejected: align marker above cup opening.subgoal.rot[0]: axis is within 1 deg of a half-turn from the reference at entry: the rotation axis is ambiguous (which way to flip). Relate an axis that is not already (anti)parallel to the reference, or split the stage"
+ },
+ {
+  "role": "insert",
+  "stage": "insert marker into cup",
+  "compiled": false,
+  "error": "not compiled: stage 'align marker above cup opening' did not compile, so this stage has no entry pose"
+ }
+]

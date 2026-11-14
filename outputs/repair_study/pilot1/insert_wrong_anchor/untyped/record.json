@@ -1,0 +1,209 @@
+{
+ "fault": {
+  "fault_id": "insert_wrong_anchor",
+  "task": "insert_marker",
+  "category": "wrong_anchor",
+  "role": "insert",
+  "stage": "insert marker into cup",
+  "pointer": "insert marker into cup.point.marker",
+  "before": "marker.body_tip",
+  "after": "marker.body_center",
+  "expect": "insert goal in collision: the marker's middle at the insert depth puts its end through the cup floor",
+  "unfixable_by": [
+   "render_check"
+  ]
+ },
+ "condition": "untyped",
+ "repeat": 0,
+ "mode": "live",
+ "model": "claude-opus-5",
+ "temperature": null,
+ "call_cap": 8,
+ "round_budget": 2,
+ "start": {
+  "selections": "outputs/runs/gt_opus1/selections.json",
+  "emissions": "outputs/runs/gt_opus1/emissions_call3_opus.json"
+ },
+ "start_sha": "8d83e1124d94e434",
+ "rounds": [
+  {
+   "round": 1,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/pilot1/insert_wrong_anchor/untyped/round_1",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 15490,
+     "output_tokens": 7011,
+     "rejections": []
+    }
+   ],
+   "stage_sha": {
+    "grasp the marker": "923e1527a198",
+    "align marker above cup opening": "d6b9175091aa",
+    "insert marker into cup": "2d5127f2512a"
+   },
+   "verdict": "reject",
+   "diagnosis": "The transport goal constrains the wrong marker axis: 'marker.up_axis parallel cup.up_axis' lays the marker flat across the cup mouth (all three marker points at the same height in points_at_goal), even though the marker spawns upright and the insert stage requires it upright again. This forces a 90 deg rotation out of vertical during transport and a second 90 deg flip back to vertical with only 1-6 cm of clearance over the opening. Constraining marker.+front to cup.+up instead keeps the marker's long axis vertical over the opening, matching both the spawn pose and the insert subgoal, so the insertion is a straight descent.",
+   "edits": [
+    {
+     "target": "align marker above cup opening.subgoal.rot[0]",
+     "action": "reselect_axis",
+     "token": "marker.+front",
+     "before": "marker.up_axis parallel cup.up_axis, tol moderate",
+     "after": "marker.front_axis parallel cup.up_axis, tol moderate",
+     "direction": 0
+    }
+   ],
+   "compiled": {
+    "align marker above cup opening": true,
+    "insert marker into cup": true
+   }
+  },
+  {
+   "round": 2,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/pilot1/insert_wrong_anchor/untyped/round_2",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 15490,
+     "output_tokens": 6606,
+     "rejections": []
+    },
+    {
+     "touchpoint": "emit_constraints",
+     "attempts": 1,
+     "input_tokens": 7169,
+     "output_tokens": 651,
+     "rejections": []
+    }
+   ],
+   "stage_sha": {
+    "grasp the marker": "923e1527a198",
+    "align marker above cup opening": "c009ec903492",
+    "insert marker into cup": "2d5127f2512a"
+   },
+   "verdict": "reject",
+   "diagnosis": "Insert stage: the only path rotation row constrains a lateral axis to be perpendicular to cup up, which fixes pitch but leaves roll free, so the marker's long axis may tilt to horizontal during the descent into the cup; the stage needs a path row holding marker.front (the long axis) parallel to cup.+up for the whole insertion. Align stage: the clearance is measured on marker.body_center, so at the subgoal the inserting end (body_tip) is already at or below the opening plane (down to ~2.6 cm inside at the lower bound of the band), defeating the intended hover-above-the-rim pose; measuring the centring and the small above-clearance on marker.body_tip keeps the marker clear of the rim until it is aligned.",
+   "edits": [
+    {
+     "target": "insert marker into cup",
+     "action": "reemit_stage",
+     "token": null,
+     "before": "emitted",
+     "after": "re-emit",
+     "direction": 0
+    },
+    {
+     "target": "align marker above cup opening.point.marker",
+     "action": "reselect_point",
+     "token": "marker.body_tip",
+     "before": "marker.body_center",
+     "after": "marker.body_tip",
+     "direction": 0
+    }
+   ],
+   "compiled": {
+    "align marker above cup opening": true,
+    "insert marker into cup": true
+   },
+   "reemit": [
+    {
+     "stage": "insert marker into cup",
+     "attempts": [
+      {
+       "raw": "{\"stage\": 2, \"name\": \"insert marker into cup\", \"active\": \"marker\", \"passive\": \"cup\", \"goal\": \"The marker ends vertical with marker.+front pointing the way cup.+up points and marker.body_tip lowered inside the cup near cup.interior_center.\", \"path_tsr\": {\"rot\": [{\"axis\": \"marker.+front\", \"points\": \"cup.+up\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"cup.opening_center\", \"tol\": \"moderate\"}]}, \"subgoal_tsr\": {\"rot\": [{\"axis\": \"marker.+front\", \"points\": \"cup.+up\", \"tol\": \"tight\"}], \"trans\": [{\"term\": \"inside\", \"anchor\": \"cup.interior_center\", \"slack\": \"moderate\"}]}, \"verify\": \"marker.+front stays aligned with cup.+up (marker vertical, long axis never tilts) for the whole descent, and at the subgoal marker.body_tip lies inside the cup interior near cup.interior_center.\"}",
+       "compiled": true
+      }
+     ],
+     "feedback": [
+      "A preview critic reviewed this stage before planning and rejected it: Insert stage: the only path rotation row constrains a lateral axis to be perpendicular to cup up, which fixes pitch but leaves roll free, so the marker's long axis may tilt to horizontal during the descent into the cup; the stage needs a path row holding marker.front (the long axis) parallel to cup.+up for the whole insertion. Align stage: the clearance is measured on marker.body_center, so at the subgoal the inserting end (body_tip) is already at or below the opening plane (down to ~2.6 cm inside at the lower bound of the band), defeating the intended hover-above-the-rim pose; measuring the centring and the small above-clearance on marker.body_tip keeps the marker clear of the rim until it is aligned.. Re-emit the corrected JSON object only, changing as little as needed."
+     ],
+     "role": "insert",
+     "calls": [
+      {
+       "touchpoint": "emit_constraints",
+       "attempts": 1,
+       "input_tokens": 7169,
+       "output_tokens": 651,
+       "rejections": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "round": 3,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/pilot1/insert_wrong_anchor/untyped/round_3",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 15553,
+     "output_tokens": 5166,
+     "rejections": []
+    }
+   ],
+   "stage_sha": {
+    "grasp the marker": "923e1527a198",
+    "align marker above cup opening": "730128874b65",
+    "insert marker into cup": "a2a686bf07ab"
+   },
+   "verdict": "reject",
+   "diagnosis": "In the transport stage the path rotation row constrains marker.up_axis (the marker's short axis) to cup.up_axis, which makes the nominal path attitude the marker lying flat and yields a roll band of -30 to +120 deg spanning horizontal to past vertical (image 5). The marker starts upright in the gripper and must arrive upright for the straight descent in the insert stage, so the direction that needs limiting is the marker's long axis. Re-pick the path rotation row's constrained direction to marker.+front so the loose tolerance keeps the marker near-upright throughout the transfer, consistent with the subgoal and with the insert path row.",
+   "edits": [
+    {
+     "target": "align marker above cup opening.path.rot[0]",
+     "action": "reselect_axis",
+     "token": "marker.+front",
+     "before": "marker.up_axis parallel cup.up_axis, tol loose",
+     "after": "marker.front_axis parallel cup.up_axis, tol loose",
+     "direction": 0
+    }
+   ],
+   "compiled": {
+    "align marker above cup opening": true,
+    "insert marker into cup": true
+   }
+  }
+ ],
+ "final": {
+  "accepted": false,
+  "planned_in_loop": false,
+  "grades": [],
+  "error": null,
+  "stopped": "round budget spent (critic)"
+ },
+ "diff": [
+  {
+   "pointer": "align marker above cup opening.point.marker",
+   "before": "mark 0",
+   "after": "mark 1"
+  },
+  {
+   "pointer": "align marker above cup opening.subgoal.rot[0]",
+   "before": "marker.up_axis parallel cup.up_axis, tol moderate",
+   "after": "marker.front_axis parallel cup.up_axis, tol moderate"
+  },
+  {
+   "pointer": "insert marker into cup.point.marker",
+   "before": "mark 1",
+   "after": "mark 0"
+  },
+  {
+   "pointer": "insert marker into cup.path.rot[0]",
+   "before": "marker.lateral_axis perpendicular cup.up_axis, tol moderate",
+   "after": "marker.front_axis parallel cup.up_axis, tol moderate"
+  },
+  {
+   "pointer": "insert marker into cup.path.trans[0]",
+   "before": "free",
+   "after": "centered on cup.opening_center, tol moderate"
+  }
+ ],
+ "n_calls": 4
+}
