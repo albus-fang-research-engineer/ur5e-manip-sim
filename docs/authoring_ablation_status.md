@@ -34,9 +34,9 @@ Rules the user set:
   fail on it (`scripts/eval_plan.py`, report-only).
 - Critic off for this ablation. The critic comparison vs OmniManip is recorded as D9 in
   `~/ur5e-manip-sim-critic/docs/deferred.md`.
-- Pour spout limit: **25 deg** (user, 2026-11-12; was 15). A 25 deg tolerance looked fine
-  in renders (`outputs/emissions/authoring-pilot-preview/pour_end_A3.png`, 22.5 deg).
-  `tasks/specs/pour_tea.json`, `max_spout_off_down_deg` = 25.
+- Pour spout limit: **25 deg** (was 15): an approximation of when the pour would spill,
+  found by trial and error in renders (`outputs/emissions/authoring-pilot-preview/pour_end_A3.png`).
+  `tasks/specs/pour_tea.json`, `max_spout_off_down_deg`.
 - **Approach before scaling:** a few runs per option, compare, then pick ONE setup
   before running ~10 per cell.
 
@@ -223,7 +223,7 @@ execution commands during the approach, in sim AND on hardware.
    optimistic; and 8 vs 24 samples per stage.
 6. Stage-to-stage rotation gate (reject an emission when no handoff is admitted): the
    user is thinking.
-7. The pour spec's 25 deg spout tolerance.
+7. (decided) Pour spout limit 25 deg.
 
 ## Next steps (agreed order)
 1. Review and merge B1 (its own chat review and `/code-review`). Fix the review findings
@@ -396,9 +396,42 @@ execution commands during the approach, in sim AND on hardware.
   5. **A4 repair feedback:** a wrong key in `scene.points_w` / `dirs_w` / `quantities` now
      lists the valid names, as A3's helpers do. **Prompt text unchanged**; the A4 repair
      feedback changed, so `PROMPT_VERSIONS["bounds-code"]` = `bounds-2026-11-13`. The A0,
-     A3 and A5 prompts did not change. pilot2's A4 artifacts are set aside, not reused.
+     A3 and A5 prompts did not change *for the batch* (A0's changed after it: see below).
+     pilot2's A4 artifacts are set aside, not reused.
 - **Batch:** 5 runs per variant per task at max_tokens 16000, rotation gate off (not built).
-- **Attribution so far:** A5 insert mostly our setup (pose gap, 0 deg allowance); pour A3/A4
-  our 15 deg limit; A4 insert mostly the model (stages that don't line up) plus one repair
-  try spent on a bare KeyError; pour A0 open (zero-call expressibility check pending).
+- **Attribution so far:** A5 insert mostly our setup (pose gap, 0 deg allowance); A4 insert
+  mostly the model (stages that don't line up) plus one repair try spent on a bare KeyError;
+  pour A0: see the expressibility check below.
 - Grasp renders (2F-85 + GT marker mesh): `outputs/emissions/authoring-grasp-renders/`.
+- **Batch (tag `pilot2`, 5 runs per variant per task, scored at 06b9991, 3 seeds; ~101 new
+  calls, all end_turn, longest reply 4097 output tokens, which 4000 would have cut):**
+
+  | Task | A0 framed-chained | A3 constrained code | A4 unconstrained code | A5 direct bounds |
+  |---|---|---|---|---|
+  | insert (upright), runs succeeding in a majority of seeds | 5/5 | 5/5 | 4/5 (1 gate fail) | 5/5 |
+  | pour, runs succeeding in a majority of seeds | 0/5 | 2/5 | 1/5 | 1/5 |
+  | pour, (run, seed) success | 0/15 | 5/15 | 3/15 | 3/15 |
+
+  Pour failure kinds: under-tilt (end tilt 51-65 deg, spout 27-39 deg off down), sideways
+  tilt (spout ~90 deg off: the tilt direction was left free), spout tip outside the rim,
+  and search-limit planning failures on some seeds.
+- **Pour A0 check (zero calls, `outputs/emissions/authoring-pour-a0-check/`):** all 5 A0
+  pour answers (and pilot 1's) write the transport goal as centered `snug` (+/-5 mm) with
+  `above` clearance `small` (1 cm), with the pour stage just as low. That is infeasible for
+  this teapot (the spout passes through the rim). Raising only the transport words is
+  rejected by A0's own pour stage. Raising both stages consistently (transport `medium` +
+  centered `moderate`, pour `medium`; the hand-authored transport's values) plans and passes
+  goal and path. So it is expressible in A0's vocabulary: a systematic word-choice /
+  word-calibration failure, not a vocabulary gap.
+- **PROMPT CHANGE, A0 framed-chained (default) only, 2026-11-14 (user), made AFTER seeing the
+  batch:** the schema prompt states each tolerance word's meaning in cm / degrees, generated
+  from compile_tsr's tables (`vlm.word_ranges_text`; PROMPT_DELTAS `word-ranges-2026-11-14`).
+  It also adds one selection rule: "each tolerance word allows error up to the top of its
+  range; pick the word whose top is the most error the task can tolerate". Clearance is shown
+  as single values (where a band starts), the other words as ranges. The model still selects
+  only tokens. It reaches every variant built on the schema prompt (A0 framed-chained, and the
+  unrun schema-only / framed variants). **A3, A4, A5 prompts unchanged.** Why: all A0 pour
+  answers picked small/snug without knowing what the words compile to; A3-A5 already see
+  grounded values. The batch's 10 A0 runs are the "vocabulary undocumented" condition; A0
+  with the meanings runs under tag `a0-meanings` ("vocabulary documented"). Never pool the two.
+  In sim the compiler's perception-sigma floor never widens a word (GT sigmas <= 0.01 deg).

@@ -56,6 +56,7 @@ START_OUTSIDE = ("entry pose lies outside", "entry attitude lies outside",
                  "must admit the entry")
 NO_GOAL = ("empty_goal_set", "no feasible goal", "no collision-free")
 NO_HANDOFF = ("no_admitted_handoff",)
+SEARCH_LIMIT = ("iteration budget exhausted",)   # deterministic for a seed (B1): cached
 
 
 def code_version() -> str:
@@ -104,15 +105,21 @@ def last_failure(out: Path) -> str:
     'no feasible' / Error line (detail lines printed after FAILED may contain 'Error')."""
     lines = [l.strip() for l in out.read_text(errors="replace").splitlines() if l.strip()]
     for keys in (("FAILED",), ("no feasible", "Error")):
-        hits = [l for l in lines if any(k in l for k in keys)]
+        hits = [i for i, l in enumerate(lines) if any(k in l for k in keys)]
         if hits:
-            return hits[-1][:300]
+            i = hits[-1]
+            # plan_task prints the reasons histogram on the line after FAILED
+            nxt = lines[i + 1] if i + 1 < len(lines) and lines[i + 1].startswith("reasons") else ""
+            return (lines[i] + (" " + nxt if nxt else ""))[:600]
     return (lines or ["(no output)"])[-1][:300]
 
 
 def plan_category(why: str) -> str:
     if any(k in why for k in NO_HANDOFF):
         return "no goal the next stage can start from"
+    reasons = re.findall(r"'([^']*)'", why)       # the per-goal reasons histogram
+    if reasons and all(any(k in r for k in SEARCH_LIMIT) for r in reasons):
+        return "planner search limit"                # every goal ran out of iterations
     if any(k in why for k in START_OUTSIDE):
         return "start outside the next path"
     if any(k in why for k in NO_GOAL):
