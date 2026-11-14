@@ -835,3 +835,22 @@ def test_stage_accounting_transport_has_no_sweep_and_grasp_only_x_source():
     g = compile_stage(emission(grasp), SYMBOLS, POSES,
                       w_point=SYMBOLS["teapot"].points["handle_center"])
     assert stage_accounting(g, emission(grasp), SYMBOLS, POSES) == {"x_source": g.x_source}
+
+
+def test_an_entry_attitude_within_the_start_budget_is_a_note_beyond_it_an_error():
+    """The start projection may turn the object into the path's rotation bounds by
+    up to START_PROJECTION_BUDGET_DEG (5 deg), as it may move it by up to
+    START_PROJECTION_BUDGET_M; beyond that the entry attitude is an error."""
+    from scipy.spatial.transform import Rotation as R
+    from manip_sim.compile_tsr import _Box, _check_path_containment
+    from manip_sim.tsr import TSR
+    Bw = np.array([[-0.1, 0.1]] * 3 + [[-np.pi, np.pi], [0.0, 0.0], [-np.pi, np.pi]])
+    path = TSR(T0_w=np.eye(4), Tw_e=np.eye(4), Bw=Bw)
+    for deg, ok in ((2.0, True), (10.0, False)):
+        T_entry = np.eye(4)
+        T_entry[:3, :3] = R.from_euler("y", deg, degrees=True).as_matrix()
+        notes = []
+        errs = _check_path_containment("s", path, path, _Box(), T_entry, notes)
+        attitude = [e for e in errs if "entry attitude" in str(e)]
+        assert (not attitude) == ok, (deg, [str(e) for e in errs])
+        assert any("start-projection budget (5 deg)" in n for n in notes) == ok, notes

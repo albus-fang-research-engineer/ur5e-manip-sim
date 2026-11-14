@@ -136,7 +136,8 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 from .frames import Frame, Symbols
-from .tsr import FREE_ROT, FREE_TRANS, START_PROJECTION_BUDGET_M, TSR, make_pose
+from .tsr import (FREE_ROT, FREE_TRANS, START_PROJECTION_BUDGET_DEG,
+                  START_PROJECTION_BUDGET_M, TSR, make_pose)
 from .vlm import FRAME_AXES, StageEmission, TSRSpec
 
 # ------------------------------------------------- the frozen enum tables
@@ -499,7 +500,7 @@ def _check_path_containment(name: str, path: TSR, subgoal: TSR, pbox: _Box,
     """The path TSR holds along the whole motion, so it must admit both
     ends. (a) Entry: translation excess beyond START_PROJECTION_BUDGET_M
     is an error (the planner refuses the same nudge), within it a note;
-    any rotation excess is an error. (b) Subgoal: translation rows meet
+    rotation excess beyond START_PROJECTION_BUDGET_DEG likewise. (b) Subgoal: translation rows meet
     exactly (same T0_w; the displacement's translation is the feature
     point's position in w regardless of Tw_e); rotation rows meet exactly
     when both Tw_e share the goal attitude, else by seeded sampling of the
@@ -529,12 +530,20 @@ def _check_path_containment(name: str, path: TSR, subgoal: TSR, pbox: _Box,
                 notes.append(f"{name}.path: {msg}; within the start-"
                              f"projection budget ({START_PROJECTION_BUDGET_M} m)")
         for i in range(3, 6):
-            if abs(ex[i]) > 1e-9:
+            if abs(ex[i]) <= 1e-9:
+                continue
+            deg = float(np.degrees(abs(ex[i])))
+            if deg > START_PROJECTION_BUDGET_DEG:
                 errs.append(CompileError(blame(i, ex[i]), (
                     f"the entry attitude lies outside the path's {_AXIS[i]} "
-                    f"bound by {np.degrees(abs(ex[i])):.0f} deg; a path row "
-                    "must admit the entry attitude — leave that rotation free "
-                    "on the path or split the stage")))
+                    f"bound by {deg:.1f} deg, more than the "
+                    f"{START_PROJECTION_BUDGET_DEG:.0f} deg allowed for the start; "
+                    "a path row must admit the entry attitude — "
+                    "leave that rotation free on the path or split the stage")))
+            else:
+                notes.append(f"{name}.path: the entry attitude lies outside the path's "
+                             f"{_AXIS[i]} bound by {deg:.1f} deg; within the start-"
+                             f"projection budget ({START_PROJECTION_BUDGET_DEG:.0f} deg)")
     for i in range(3):
         lo, hi = max(p[i, 0], sg[i, 0]), min(p[i, 1], sg[i, 1])
         # the planner SAMPLES the intersection: a touching pair (hi == lo)

@@ -58,6 +58,14 @@ FREE_TRANS: tuple[float, float] = (-np.inf, np.inf)
 # construction (hand-authored transport lifts 0.02 m at start; a VLM
 # path term of above(large) at 0.08+ m must fail at both).
 START_PROJECTION_BUDGET_M: float = 0.03
+# The compiler's matching allowance for attitude: an entry attitude up to this far
+# outside a path's rotation bounds is a note, beyond it an error (it was 0 deg).
+# 5 deg (user, 2026-11-13): a real start pose is never exactly the nominal one (the
+# sim marker settles 1.24 deg off upright; hardware perception is degree-level),
+# and at 0 deg a zero-width rotation row could never admit its own start. The
+# planner's start projection itself has no rotation limit (replan.py relies on it
+# righting a slipped pot); this only relaxes the compile-time check.
+START_PROJECTION_BUDGET_DEG: float = 5.0
 
 _TWO_PI = 2.0 * np.pi
 

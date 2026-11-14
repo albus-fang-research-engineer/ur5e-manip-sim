@@ -79,7 +79,9 @@ CODE_MEDIA = ("constrained-code", "free-code", "bounds-code")   # Python replies
 BOUND_MEDIA = ("bounds-code", "bounds-json")                    # given frames, Bw only
 PROMPT_VERSION = "code-authoring-2026-11-07"   # A3 / A4-pilot; bump on any prompt text change
 PROMPT_VERSIONS = {"constrained-code": PROMPT_VERSION, "free-code": PROMPT_VERSION,
-                   "bounds-code": "bounds-2026-11-10", "bounds-json": "bounds-2026-11-10"}
+                   # bounds-code 11-13: same prompt text; a wrong scene key's repair
+                   # feedback now lists the valid names (A3's helpers already did)
+                   "bounds-code": "bounds-2026-11-13", "bounds-json": "bounds-2026-11-10"}
 MAX_TOKENS = int(os.environ.get("MANIP_VLM_MAX_TOKENS", "4000"))   # a cap, not a target;
                            # the ablation runner sets one value for every method
 MAX_SOURCE_CHARS = 20000
@@ -735,12 +737,20 @@ if medium == "constrained-code":
 elif medium == "bounds-code":
     class _Scene:
         pass
+    class _Named(dict):
+        # a miss names the valid keys, as A3's helpers do (_lookup), so a wrong
+        # key costs the model one informative repair, not a bare KeyError
+        def __init__(self, what, items):
+            super().__init__(items)
+            self.what = what
+        def __missing__(self, name):
+            return _lookup(self, name, self.what)      # raises: name is missing
     s = _Scene()
-    s.points_w = {k: np.array(v, float) for k, v in F["points_in_w"].items()}
-    s.dirs_w = {k: np.array(v, float) for k, v in F["dirs_w"].items()
-                if k.startswith(F["active"] + ".") or k.startswith("world.")}
+    s.points_w = _Named("point", {k: np.array(v, float) for k, v in F["points_in_w"].items()})
+    s.dirs_w = _Named("direction", {k: np.array(v, float) for k, v in F["dirs_w"].items()
+                                    if k.startswith(F["active"] + ".") or k.startswith("world.")})
     s.entry = [float(x) for x in F["entry_d"]]
-    s.quantities = dict(F["quantities"])
+    s.quantities = _Named("quantity", dict(F["quantities"]))
     args = (s,)
 else:
     from scipy.spatial.transform import Rotation

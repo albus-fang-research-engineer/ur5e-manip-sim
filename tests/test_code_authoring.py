@@ -683,3 +683,17 @@ def test_bounds_media_survive_a_missing_e_point_and_others_a_missing_up_axis():
 def test_the_values_table_lists_world_z_in_w_as_a4s_scene_does():
     facts = ca.stage_facts("teapot", "mug", SYMBOLS, POSES, OPENING, TIP)
     assert "world.z = " in ca.describe_facts(facts, "bounds-json")
+
+
+def test_a4_scene_lookups_name_the_valid_keys_on_a_miss():
+    """A wrong key in scene.points_w / dirs_w / quantities raises a KeyError that
+    lists the valid names, as A3's helpers do, so the repair feedback is the same."""
+    src = '''# goal: g
+def author(scene):
+    p = scene.points_w["mug"]["opening_center"]
+    return {"path": [[None, None]] * 6, "subgoal": [[None, None]] * 6}
+'''
+    with pytest.raises(Exception) as e:
+        _compile(_code("bounds-code", src))
+    msg = str(e.value)
+    assert "unknown point 'mug'" in msg and "mug.opening_center" in msg, msg

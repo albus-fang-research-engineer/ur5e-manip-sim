@@ -34,8 +34,9 @@ Rules the user set:
   fail on it (`scripts/eval_plan.py`, report-only).
 - Critic off for this ablation. The critic comparison vs OmniManip is recorded as D9 in
   `~/ur5e-manip-sim-critic/docs/deferred.md`.
-- Pour spout limit: a 25 deg tolerance looked fine in renders. The spec
-  (`tasks/specs/pour_tea.json`, `max_spout_off_down_deg` = 15) is not changed yet.
+- Pour spout limit: **25 deg** (user, 2026-11-12; was 15). A 25 deg tolerance looked fine
+  in renders (`outputs/emissions/authoring-pilot-preview/pour_end_A3.png`, 22.5 deg).
+  `tasks/specs/pour_tea.json`, `max_spout_off_down_deg` = 25.
 - **Approach before scaling:** a few runs per option, compare, then pick ONE setup
   before running ~10 per cell.
 
@@ -371,3 +372,33 @@ execution commands during the approach, in sim AND on hardware.
   Also note: the chord check (default on) applies to every `plan_constrained` caller,
   including `replan.py`, `omnimanip/planner.py` (the OmniManip baseline) and
   `plan_transport.py`. These have wall-clock budgets only, so their searches run slower.
+
+## Update, 2026-11-12/13: pilot2 and the batch setup
+- **pilot2** (tag `pilot2`, 1 run per variant per task, upright insert + pour; 25 calls,
+  max_tokens 4000, no truncation; longest reply 3514 output tokens, mostly hidden thinking).
+  Insert: A0 3/3, A3 3/3, A4 gate failed (its insert corridor was 1-2 mm narrower than its
+  align goal), A5 plan failed 3/3 (zero-width pitch vs the 1.24 deg gap below). Pour, graded at
+  25 deg: A3 2/3, A4 2/3, A5 2/3 (each third seed hit the iteration budget), A0 0/3 (its
+  transport goal puts the teapot inside the mug, as in pilot 1).
+- **Nominal vs settled pose (finding):** call #3 and its gate use the scene file's nominal
+  pose (`_spawn_poses` -> `fixed_poses()`); the planners use the pose after the sim settles
+  the objects. The upright marker settles 1.24 deg off upright. A5 was told pitch exactly
+  -90 and wrote exactly -90. Not fixed (fixing it changes call #3's inputs for every variant);
+  the 5 deg allowance below absorbs it.
+- **Pre-registered before the batch (user):**
+  1. pilot2 is run 0 for A0, A3, A5 (the cap never bound); A4 gets 5 fresh runs per task.
+  2. Pour spout limit 25 deg (above).
+  3. Insert path tilt limit stays 10 deg, counted as a failure (no change).
+  4. **Entry attitude allowance 5 deg** at compile time (`START_PROJECTION_BUDGET_DEG`,
+     `compile_tsr._check_path_containment`; it was 0 deg, translation already 3 cm). The
+     planner's start projection has no rotation limit, as before. With it, the pilot2 A5
+     insert answer plans and succeeds (seed 0: tilt 4.0 deg, 6.6 mm off-axis).
+  5. **A4 repair feedback:** a wrong key in `scene.points_w` / `dirs_w` / `quantities` now
+     lists the valid names, as A3's helpers do. **Prompt text unchanged**; the A4 repair
+     feedback changed, so `PROMPT_VERSIONS["bounds-code"]` = `bounds-2026-11-13`. The A0,
+     A3 and A5 prompts did not change. pilot2's A4 artifacts are set aside, not reused.
+- **Batch:** 5 runs per variant per task at max_tokens 16000, rotation gate off (not built).
+- **Attribution so far:** A5 insert mostly our setup (pose gap, 0 deg allowance); pour A3/A4
+  our 15 deg limit; A4 insert mostly the model (stages that don't line up) plus one repair
+  try spent on a bare KeyError; pour A0 open (zero-call expressibility check pending).
+- Grasp renders (2F-85 + GT marker mesh): `outputs/emissions/authoring-grasp-renders/`.
