@@ -426,8 +426,8 @@ execution commands during the approach, in sim AND on hardware.
 - **PROMPT CHANGE, A0 framed-chained (default) only, 2026-11-14 (user), made AFTER seeing the
   batch:** the schema prompt states each tolerance word's meaning in cm / degrees, generated
   from compile_tsr's tables (`vlm.word_ranges_text`; PROMPT_DELTAS `word-ranges-2026-11-14`).
-  It also adds one selection rule: "each tolerance word allows error up to the top of its
-  range; pick the word whose top is the most error the task can tolerate". Clearance is shown
+  It also added one selection rule, "pick the word whose top is the most error the task can
+  tolerate" (removed later the same day: see the second PROMPT CHANGE below). Clearance is shown
   as single values (where a band starts), the other words as ranges. The model still selects
   only tokens. It reaches every variant built on the schema prompt (A0 framed-chained, and the
   unrun schema-only / framed variants). **A3, A4, A5 prompts unchanged.** Why: all A0 pour
@@ -435,3 +435,18 @@ execution commands during the approach, in sim AND on hardware.
   grounded values. The batch's 10 A0 runs are the "vocabulary undocumented" condition; A0
   with the meanings runs under tag `a0-meanings` ("vocabulary documented"). Never pool the two.
   In sim the compiler's perception-sigma floor never widens a word (GT sigmas <= 0.01 deg).
+- **Budget check (free):** the 11 batch pour plans that hit the 500-iteration search limit,
+  re-planned at 5000 (time cap 600 s, never reached): 10 still fail, 1 plans (A5 run 1, s1).
+  500 stays; search-limit failures are scored as their own category.
+- **A0 with word ranges, exploratory test** (tag `a0-meanings`, 3 pour + 2 insert, 19 calls,
+  $0.99): pour now plans 9/9 (A0 picks centered moderate, not snug) but fails the 25 deg spout
+  limit 9/9 (27-29 deg; it picks "loose" for the pour attitude, as before). Insert fell to 1/6:
+  A0 switched from "tight" to "moderate" for the insert stage, following the selection rule
+  ("pick the word whose top is the most error the task can tolerate"). Not reported numbers.
+- **PROMPT CHANGE 2, schema prompt only, 2026-11-14 (user):** the selection rule "pick the word
+  whose top is the most error the task can tolerate" is deleted; the paragraph's first rule is
+  now "Each tolerance word allows error up to the top of its range." (PROMPT_DELTAS
+  `neutral-pick-2026-11-14`). Same scope as the first change: every schema-prompt variant;
+  A3, A4, A5 prompts unchanged. Why: in the exploratory test, insert moved from "tight" to
+  "moderate" for the insert stage (1/6 success). Re-test: 3 pour + 2 insert, tag
+  `a0-meanings-neutral`.

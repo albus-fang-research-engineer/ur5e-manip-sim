@@ -152,6 +152,7 @@ PROMPT_DELTAS: tuple[str, ...] = (
     "hinge-hold-2026-09-09",   # tilting axis is held where it is, never pointed
     "goal-first-2026-09-10",   # 'goal' sentence before any row; entry line states anchor side + height
     "word-ranges-2026-11-14",  # each tolerance word's range shown (cm / deg), from compile_tsr's tables
+    "neutral-pick-2026-11-14",  # removed "pick the word whose top is the most error the task can tolerate"
 )
 # The canonical object frame every object carries (frames.py): caller-
 # supplied up/front, lateral = up x front. The compiler roots each stage's
@@ -1332,9 +1333,9 @@ def word_ranges_text() -> str:
         return ", ".join(f"{w} {round(scale * table[w], 3):g} {unit}" for w in words)
 
     return (
-        "What the words mean. Each tolerance word allows error up to the top of "
-        "its range; pick the word whose top is the most error the task can "
-        "tolerate. Rot tol, how far the stated alignment may be off about each "
+        "What the words mean. Each tolerance word allows error up to the top of its "
+        "range. "
+        "Rot tol, how far the stated alignment may be off about each "
         "rotation axis: "
         f"{bins(ROT_TOLS, ROT_TOL_RAD, 180.0 / np.pi, 'deg')} (at least that; "
         "wider where perception is uncertain, and a path row also covers the "
