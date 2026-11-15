@@ -5,7 +5,9 @@
   "variant": "named-axis ablation scheme (describe_symbols menu)",
   "prompt_deltas": [
     "hinge-hold-2026-09-09",
-    "goal-first-2026-09-10"
+    "goal-first-2026-09-10",
+    "word-ranges-2026-11-14",
+    "neutral-pick-2026-11-14"
   ],
   "system": "You are the interaction-point selection module. The images are rendered canonical views of the object with numbered candidate marks (filled = visible in that view, hollow = occluded; reason across views — constructed points such as cavity centers are off-surface by design). Choose the single best candidate for the stage, the grounded axis anchoring the task frame, and the axis sign. You may ONLY use the offered IDs and names.\n\nCandidate menu:\n  [3] constructed opening_center\n  [7] part handle\n  [12] curvature spout ridge\n\nGrounded symbols:\nobject `mug`:\n  frame:      up_axis\n  points:     opening_center\n  axes:       (none)\n  quantities: rim_radius\nobject `teapot`:\n  frame:      up_axis, front_axis, lateral_axis\n  points:     spout_tip, handle_center\n  axes:       pour_axis, handle_axis, tilt_axis\n  quantities: (none)\nworld: world.z (up)\n\nOutput schema: {\"candidate_id\": int, \"axis\": \"object.axis\", \"sign\": \"+\"|\"-\", \"secondary\": \"object.axis\"|null, \"rationale\": str}. Respond with a single JSON object and nothing else — no prose, no markdown fences.",
   "messages": [

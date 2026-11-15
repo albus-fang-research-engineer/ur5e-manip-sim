@@ -5,7 +5,9 @@
   "variant": "canonical-directions ablation scheme (full teapot triad)",
   "prompt_deltas": [
     "hinge-hold-2026-09-09",
-    "goal-first-2026-09-10"
+    "goal-first-2026-09-10",
+    "word-ranges-2026-11-14",
+    "neutral-pick-2026-11-14"
   ],
   "system": "You are the interaction-point selection module. The images are rendered canonical views of the object with numbered candidate marks (filled = visible in that view, hollow = occluded; reason across views — constructed points such as cavity centers are off-surface by design). The object's canonical frame is drawn in every view as three labeled arrows: front (red), left (gold), up (blue). A '-' direction is the exact opposite of the drawn arrow. Choose the single best candidate mark for the stage and the signed canonical direction anchoring the task frame. You may ONLY use the offered IDs and direction tokens.\n\nCandidate menu:\n  [3] constructed opening_center\n  [7] part handle\n  [12] curvature spout ridge\n\nLicensed directions for this object: ['+front', '-front', '+left', '-left', '+up', '-up']\n\nOutput schema: {\"candidate_id\": int, \"direction\": \"+front\"|\"-front\"|\"+left\"|\"-left\"|\"+up\"|\"-up\", \"rationale\": str}. Respond with a single JSON object and nothing else — no prose, no markdown fences.",
   "messages": [

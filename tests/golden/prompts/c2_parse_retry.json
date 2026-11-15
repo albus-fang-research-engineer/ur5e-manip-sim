@@ -5,7 +5,9 @@
   "variant": "point-only, second request after one off-menu parse rejection",
   "prompt_deltas": [
     "hinge-hold-2026-09-09",
-    "goal-first-2026-09-10"
+    "goal-first-2026-09-10",
+    "word-ranges-2026-11-14",
+    "neutral-pick-2026-11-14"
   ],
   "system": "You are the interaction-point selection module. The images are rendered canonical views of the object with numbered candidate marks (filled = visible in that view, hollow = occluded; reason across views — constructed points such as cavity centers are off-surface by design). Choose the single best candidate mark for the stage: the point on or in the object where the stage's interaction is anchored. You may ONLY use the offered IDs.\n\nCandidate menu:\n  [3] constructed opening_center\n  [7] part handle\n  [12] curvature spout ridge\n\nOutput schema: {\"candidate_id\": int, \"rationale\": str}. Respond with a single JSON object and nothing else — no prose, no markdown fences.",
   "messages": [
