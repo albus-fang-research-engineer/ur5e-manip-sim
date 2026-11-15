@@ -1,0 +1,272 @@
+{
+ "task": "pour tea",
+ "arm": "framed-chained",
+ "note": "D9 starting spec for pour tea, written in tokens to mirror manip_sim/pour_stages.py: the carry holds teapot.up_axis to world.z (tight) with translation free (the path holds from the lifted entry, so no band there); the carry goal puts the spout tip centered (moderate) over the opening at clearance large / slack snug, the same band as the pour path, so the hand-off lies inside the pour's path; the pour tips teapot.front_axis to mug.-up (tight), a sweep about the teapot's lateral axis, with the spout tip held over the opening",
+ "roles": [
+  "grasp",
+  "transport_active",
+  "pour"
+ ],
+ "emissions": [
+  {
+   "stage": 0,
+   "name": "grasp the teapot by its handle",
+   "active": "teapot",
+   "passive": null,
+   "path_tsr": {
+    "rot": [
+     {
+      "axis": null,
+      "relation": "free",
+      "reference": null,
+      "tol": null,
+      "row": "roll"
+     },
+     {
+      "axis": null,
+      "relation": "free",
+      "reference": null,
+      "tol": null,
+      "row": "pitch"
+     },
+     {
+      "axis": null,
+      "relation": "free",
+      "reference": null,
+      "tol": null,
+      "row": "yaw"
+     }
+    ],
+    "trans": [
+     {
+      "term": "free",
+      "anchor": null,
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": null,
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     }
+    ]
+   },
+   "subgoal_tsr": {
+    "rot": [
+     {
+      "axis": null,
+      "relation": "free",
+      "reference": null,
+      "tol": null,
+      "row": "roll"
+     },
+     {
+      "axis": null,
+      "relation": "free",
+      "reference": null,
+      "tol": null,
+      "row": "pitch"
+     },
+     {
+      "axis": null,
+      "relation": "free",
+      "reference": null,
+      "tol": null,
+      "row": "yaw"
+     }
+    ],
+    "trans": [
+     {
+      "term": "inside",
+      "anchor": "teapot.handle_center",
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": "snug",
+      "tol": null,
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     }
+    ]
+   },
+   "verify": "The gripper is closed on the handle with the grasp point at teapot.handle_center; the teapot is still upright at its spawn pose.",
+   "goal": "The gripper closes on the teapot's handle at teapot.handle_center, with the teapot still upright at its spawn pose."
+  },
+  {
+   "stage": 2,
+   "name": "transport teapot over mug",
+   "active": "teapot",
+   "passive": "mug",
+   "path_tsr": {
+    "rot": [
+     {
+      "axis": "teapot.up_axis",
+      "relation": "parallel",
+      "reference": "world.z",
+      "tol": "moderate",
+      "row": null
+     }
+    ],
+    "trans": [
+     {
+      "term": "free",
+      "anchor": null,
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": null,
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     }
+    ]
+   },
+   "subgoal_tsr": {
+    "rot": [
+     {
+      "axis": "teapot.up_axis",
+      "relation": "parallel",
+      "reference": "world.z",
+      "tol": "tight",
+      "row": null
+     }
+    ],
+    "trans": [
+     {
+      "term": "centered",
+      "anchor": "mug.opening_center",
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": "moderate",
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     },
+     {
+      "term": "above",
+      "anchor": "mug.opening_center",
+      "axis": null,
+      "sign": null,
+      "clearance": "small",
+      "slack": "moderate",
+      "tol": null,
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     }
+    ]
+   },
+   "verify": "teapot.+up remains within tolerance of world.z throughout; at the subgoal teapot.spout_tip lies within a few cm laterally of mug.opening_center and 1-6 cm above it.",
+   "goal": "teapot.spout_tip ends up directly over mug.opening_center, a short distance above the rim, with teapot.+up still pointing up."
+  },
+  {
+   "stage": 3,
+   "name": "pour",
+   "active": "teapot",
+   "passive": "mug",
+   "path_tsr": {
+    "rot": [
+     {
+      "axis": "teapot.lateral_axis",
+      "relation": "perpendicular",
+      "reference": "mug.up_axis",
+      "tol": "moderate",
+      "row": null
+     }
+    ],
+    "trans": [
+     {
+      "term": "above",
+      "anchor": "mug.opening_center",
+      "axis": null,
+      "sign": null,
+      "clearance": "small",
+      "slack": "loose",
+      "tol": null,
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     },
+     {
+      "term": "centered",
+      "anchor": "mug.opening_center",
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": "loose",
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     }
+    ]
+   },
+   "subgoal_tsr": {
+    "rot": [
+     {
+      "axis": "teapot.front_axis",
+      "relation": "antiparallel",
+      "reference": "mug.up_axis",
+      "tol": "loose",
+      "row": null
+     }
+    ],
+    "trans": [
+     {
+      "term": "above",
+      "anchor": "mug.opening_center",
+      "axis": null,
+      "sign": null,
+      "clearance": "small",
+      "slack": "moderate",
+      "tol": null,
+      "row": null,
+      "expr_lo": null,
+      "expr_hi": null,
+      "flags": []
+     },
+     {
+      "term": "expr",
+      "anchor": null,
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": null,
+      "row": "x",
+      "expr_lo": "-mug.rim_radius",
+      "expr_hi": "mug.rim_radius",
+      "flags": []
+     },
+     {
+      "term": "expr",
+      "anchor": null,
+      "axis": null,
+      "sign": null,
+      "clearance": null,
+      "slack": null,
+      "tol": null,
+      "row": "y",
+      "expr_lo": "-mug.rim_radius",
+      "expr_hi": "mug.rim_radius",
+      "flags": []
+     }
+    ]
+   },
+   "verify": "At the subgoal teapot.+front points along mug.-up (within 30 deg), teapot.+left stayed level throughout, and teapot.spout_tip sits 1-5 cm above mug.opening_center within mug.rim_radius in x and y.",
+   "goal": "Tilt the teapot about its level +left axis until teapot.spout_tip is just above mug.opening_center, inside the rim, with teapot.+front pointing down into the mug."
+  }
+ ]
+}

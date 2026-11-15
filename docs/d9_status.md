@@ -49,6 +49,26 @@ is written up). Branch `worktree-d9-omnimanip` (worktree
 
 ## Results
 
+### Scale-up set 1 (2026-11-15): current loop for every condition
+
+5 shared pour faults x 3 conditions x 1 run; upstream-first rule and the new call #3
+prompt; outputs/repair_study/scale/set1; logged cost $7.99.
+
+| Fault | Langfold fixed | Langfold calls | Withheld fixed | Withheld calls | OmniManip-style fixed | OmniManip-style calls |
+|---|---|---|---|---|---|---|
+| wrong anchor, both stages | 1/1 | 2 | 1/1 | 2 | 0/1 | 6 |
+| wrong anchor, carry only | 1/1 | 2 | 1/1 | 2 | 0/1 | 5 |
+| height contact | 0/1 | 5 | 0/1 | 5 | 0/1 | 6 |
+| height small | 1/1 | 5 | 0/1 | 5 | 0/1 | 6 |
+| clearance contact | 1/1 | 3 | 0/1 | 4 | 0/1 | 7 |
+| **Shared total** | **4/5** | **3.4** | **2/5** | **3.6** | **0/5** | **6.0** |
+
+Langfold's height-contact loss: the fault spans the carry and the pour (one height
+for both), so both stages needed rewriting, one per round; call #3's pour rewrite
+came out looser and the last round went to tightening it (round budget 2).
+
+### Earlier results (mixed versions)
+
 Pour tea, final results so far (pilot 3 + the upstream-first runs; mostly single
 runs, temperature 1.0: signals, not rates). Fixed = runs fixed / runs; calls = VLM
 calls per run, on average. "Shared" = a mistake either pipeline can make (OmniManip

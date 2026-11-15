@@ -1,0 +1,20 @@
+[
+ {
+  "role": "grasp",
+  "stage": "grasp the teapot by its handle",
+  "compiled": false,
+  "error": null
+ },
+ {
+  "role": "transport_active",
+  "stage": "carry the teapot upright over the mug",
+  "compiled": true,
+  "error": null
+ },
+ {
+  "role": "pour",
+  "stage": "tilt the teapot to pour into the mug",
+  "compiled": false,
+  "error": "compile rejected: tilt the teapot to pour into the mug.path.trans[1]: the entry pose lies outside the path's z band [+0.080, +0.100] by 0.070 m \u2014 more than the 0.03 m the planner's start projection closes. Path terms hold from entry to subgoal: leave z free on the path, or split the stage (lift, then traverse)"
+ }
+]
