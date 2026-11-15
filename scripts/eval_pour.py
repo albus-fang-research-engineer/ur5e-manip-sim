@@ -186,7 +186,7 @@ def evaluate(plan_path, env, scene, spec) -> dict:
            "end": {"lateral_mm": round(float(off_axis[-1]) * 1000, 1),
                    "height_mm": round(float((tips[-1] - opening) @ up_world) * 1000, 1),
                    "tilt_deg": round(float(tilts[-1]), 1),
-                   "spout_off_down_deg": round(angle_deg(pour_dir, -up_world), 1),
+                   "spout_off_down_deg": round(angle_deg(pour_dir, -up_world), 3),   # graded raw
                    "stream_off_mm": None if land is None else round(float(np.linalg.norm(land - opening)) * 1000, 1)},
            "max_penetration_mm": {k: round(v * 1000, 1) for k, v in totals.items()},
            "pairs_max_depth_mm": {k: round(v * 1000, 1) for k, v in pairs.items()},

@@ -148,3 +148,10 @@ def test_roll_pitch_matches_the_compiler_decomposition_at_the_box_corner():
         assert abs(roll_pitch_deg(Rm, up) - 15.0) < 1e-6
     Rm = Rot.from_euler("xyz", [0.0, 16.0, 0.0], degrees=True).as_matrix()
     assert abs(roll_pitch_deg(Rm, up) - 16.0) < 1e-6
+
+
+def test_the_ablation_spec_allows_30_deg_off_down_on_the_raw_angle():
+    abl = json.loads((ROOT / "tasks/specs/pour_tea_ablation.json").read_text())
+    assert checks(row(down=30.0), abl)["spout_down"]
+    assert not checks(row(down=30.04), abl)["spout_down"]                # not rounded to 30.0
+    assert not checks(row(down=26.0), SPEC)["spout_down"]               # the shared spec: 25

@@ -13,7 +13,7 @@
     0.04,
     0.1
   ],
-  "max_spout_off_down_deg": 25.0,
+  "max_spout_off_down_deg": 30.0,
   "max_pivot_m": 0.005,
   "path_tol_m": 0.002,
   "q_grasp": [
@@ -26,5 +26,5 @@
   ],
   "carry_tilt_check": "per_axis",
   "carry_frame_tol_deg": 1.0,
-  "note": "authoring ablation (user, 2026-11-14): the carry tilt is graded per axis (as the compiler bounds a rotation word) with a 1 deg tolerance for the grader/compiler frame difference; the shared pour_tea.json grades the total tilt, as before"
+  "note": "authoring ablation (user, 2026-11-14): the carry tilt is graded per axis (as the compiler bounds a rotation word) with a 1 deg tolerance for the grader/compiler frame difference; the shared pour_tea.json grades the total tilt, as before; spout limit 30 deg (user, 2026-11-14, from end-pose renders: up to ~30 deg visibly pours into the mug)"
 }

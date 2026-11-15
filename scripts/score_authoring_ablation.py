@@ -3,7 +3,10 @@ planner, grader and spec. Makes no model calls; run_authoring_ablation.py stays 
 script that does.
 
     insert_marker   plan_task.py (fixed grasp program)   eval_plan.py   tasks/specs/insert_marker.json
-    pour_tea        plan_pour_tea.py                     eval_pour.py   tasks/specs/pour_tea.json
+    pour_tea        plan_pour_tea.py                     eval_pour.py   tasks/specs/pour_tea_ablation.json
+    (the ablation's specs: pour carry tilt per axis + 1 deg, spout <= 30 deg; insert final
+    tilt <= 30 deg, tilt inside the cup reported. The representation study's
+    tasks/specs/{pour_tea,insert_marker}.json are unchanged)
 
 Nothing here judges a plan: the graders do. Success is each task's existing definition:
 eval_pour.success for pour tea; goal, path and no penetration for insert marker (as in
