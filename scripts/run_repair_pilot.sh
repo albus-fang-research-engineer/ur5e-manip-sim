@@ -11,7 +11,7 @@ here="$(cd "$(dirname "$0")/.." && pwd)"
 out="$(realpath -m "${1:?usage: run_repair_pilot.sh OUT_DIR}")"
 : "${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY}"
 read -r -a FAULTS <<< "${PILOT_FAULTS:-insert_wrong_anchor insert_contradictory_perpendicular insert_handoff_path_relation}"
-CONDITIONS=(typed render_check untyped)
+read -r -a CONDITIONS <<< "${PILOT_CONDITIONS:-typed render_check untyped}"
 TASK=${PILOT_TASK:-insert_marker_upright}
 SEL=${PILOT_SEL:-tasks/repair_study/start/insert_marker/selections.json}
 EM=${PILOT_EM:-tasks/repair_study/start/insert_marker/emissions.json}

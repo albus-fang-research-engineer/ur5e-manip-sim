@@ -56,6 +56,21 @@ def test_uncompiled_stage_is_spliced_into_the_report():
     assert rec["subgoal"]["rows"][0]["pointer"] == f"{CARRY}.subgoal.rot[0]"
 
 
+def test_upstream_first_skips_only_a_downstream_symptom():
+    roles = ("grasp", "transport_active", "pour")
+    # pour failed to compile, the carry was rewritten, and pour now compiles: skip
+    assert rl.downstream_symptom("pour", roles, {"pour"}, {"transport_active"}, True)
+    # still does not compile after the carry fix: re-emit it
+    assert not rl.downstream_symptom("pour", roles, {"pour"}, {"transport_active"}, False)
+    # pour compiled before (asked for a semantic reason): always re-emit
+    assert not rl.downstream_symptom("pour", roles, set(), {"transport_active"}, True)
+    # no earlier stage changed: the pour's own fault, re-emit
+    assert not rl.downstream_symptom("pour", roles, {"pour"}, set(), True)
+    # the first mover has nothing upstream
+    assert not rl.downstream_symptom("transport_active", roles, {"transport_active"},
+                                     {"grasp"} - {"grasp"}, True)
+
+
 def test_world_axis_tokens_keep_their_axis():
     assert rl._dir_token("world.z") == "world.z"
     assert rl._dir_token("world.z", "-") == "world.-z"

@@ -371,10 +371,22 @@ class Case:
         self.state = res.state
         self.changes += 1
         reemits = []
+        # upstream-first: a stage the critic asks to re-emit only because it did not
+        # compile this round is re-emitted only if it still does not compile once the
+        # earlier stages' edits and re-emits are in (a symptom of an upstream fault
+        # keeps its original rows)
+        failed_before = {c.role for c in chain
+                         if c.emission.passive is not None and c.compiled is None}
+        changed: set[str] = set(res.changed_roles) - set(res.reemit)
         for role in [r for r in self.spec.roles if r in res.reemit]:
             chain = rl.compile_chain(self.state, self.spec.roles, self.poses, self.symbols,
                                      self.asset_dirs, self.role_index, self.synth)
             c = next((x for x in chain if x.role == role), None)
+            if c is not None and rl.downstream_symptom(role, self.spec.roles, failed_before,
+                                                       changed, c.compiled is not None):
+                reemits.append({"role": role, "skipped": "compiles once the earlier stage "
+                                "is fixed; its original rows are kept (upstream-first)"})
+                continue
             if c is None or c.no_entry or not self.room():
                 reemits.append({"role": role, "error": "no entry or call cap; not re-emitted"})
                 continue
@@ -385,6 +397,7 @@ class Case:
             r = self.rewrite(role, chain, [(rl.emission_raw(c.emission), text)], rd)
             r["calls"] = self.calls_since(m)
             reemits.append(r)
+            changed.add(role)
         if reemits:
             rec["reemit"] = reemits
             for r in reemits:

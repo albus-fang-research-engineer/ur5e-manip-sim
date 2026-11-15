@@ -1,0 +1,14 @@
+{
+ "fault_id": "pour_handoff_high",
+ "task": "pour_tea",
+ "category": "handoff_rejected",
+ "role": "transport_active",
+ "stage": "carry the teapot upright over the mug",
+ "pointer": "carry the teapot upright over the mug.subgoal.trans[1]",
+ "before": "above mug.opening_center, clearance large, slack snug",
+ "after": "above mug.opening_center, clearance medium, slack snug",
+ "expect": "pour stage CompileError: the carry ends 3-5 cm above the opening, the pour path band holds 8-10 cm",
+ "unfixable_by": [],
+ "pointers": [],
+ "kind": "compile"
+}
