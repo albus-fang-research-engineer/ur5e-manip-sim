@@ -47,20 +47,32 @@ is written up). Branch `worktree-d9-omnimanip` (worktree
 - Paid runs need the user's approval with a call count and a USD estimate
   (~$0.10 per request, ~$0.35-0.45 per pour case at claude-opus-5 list price).
 
-## Results (1 run per cell; old loop and old call #3 prompt unless noted)
+## Results
 
-Pour tea, pilot 3 (outputs/repair_study/pilot3), typed clearance/handoff cells
-replaced by the upstream-first runs (pilot3_upstream, rule_check):
+Pour tea, final results so far (pilot 3 + the upstream-first runs; mostly single
+runs, temperature 1.0: signals, not rates). Fixed = runs fixed / runs; calls = VLM
+calls per run, on average. "Shared" = a mistake either pipeline can make (OmniManip
+also picks a point and predicts a distance); "Langfold-only" = exists only because
+Langfold's specifications are richer (path regions, several rows).
 
-| Kind | Fault | typed | untyped | render_check |
-|---|---|---|---|---|
-| plausible | height contact | fixed (5) | not (6) | not (6) |
-| plausible | height small | fixed (5) | not (6) | not (6) |
-| plausible | wrong anchor, both stages | fixed (2) | fixed (2) | not (5), cannot by construction |
-| cause upstream | wrong anchor, carry only | fixed 3/3 (2 each) | fixed (3) | not (5), cannot by construction |
-| cause upstream | clearance contact | 2/3 with rule (0/1 without) | fixed (4) | not (7) |
-| cause upstream | handoff | 2/3 with rule (0/1 without) | not (5) | not (7) |
-| control | contradictory rows | fixed (4) | fixed (3) | not (6) |
+| Fault | Type | Langfold fixed | Langfold calls | Withheld fixed | Withheld calls | OmniManip-style fixed | OmniManip-style calls |
+|---|---|---|---|---|---|---|---|
+| wrong anchor, both stages | shared | 1/1 | 2 | 1/1 | 2 | 0/1 | 5 |
+| wrong anchor, carry only | shared | 3/3 | 2 | 1/1 | 3 | 0/1 | 5 |
+| height contact | shared | 1/1 | 5 | 0/1 | 6 | 0/1 | 6 |
+| height small | shared | 1/1 | 5 | 0/1 | 6 | 0/1 | 6 |
+| clearance contact | shared | 2/3 | 4.3 | 1/1 | 4 | 0/1 | 7 |
+| **Shared total** | | **8/9** | **3.6** | **3/5** | **4.2** | **0/5** | **5.8** |
+| handoff | Langfold-only | 2/3 | 4.7 | 0/1 | 5 | 0/1 | 7 |
+| contradictory rows | Langfold-only | 1/1 | 4 | 1/1 | 3 | 0/1 | 6 |
+| **All faults** | | **11/13** | **3.8** | **4/7** | **4.1** | **0/7** | **6.0** |
+
+Calls per fixed case: Langfold ~4.5, withheld ~7.3, OmniManip-style none fixed.
+Langfold cells use the loop with the upstream-first rule; withheld and
+OmniManip-style ran on the earlier loop (the rule cannot affect OmniManip-style; it
+could help withheld on clearance contact and handoff). All of these used the old
+call #3 prompt (before the word-ranges cherry-pick). Records: outputs/repair_study/
+pilot3, pilot3_upstream, rule_check.
 
 Insert marker, pilot 2 (outputs/repair_study/pilot2): wrong anchor typed fixed (2),
 untyped fixed (3), render_check not (6, cannot by construction); contradictory rows
@@ -84,7 +96,8 @@ pilot 3 $11.25, rule reruns $5.43, etc.).
 
 1. Grader step: pour spout limit 25 deg (and the compiler's 5 deg allowance?) into D9,
    then re-qualify the starting specs and faults.
-2. Scale-up (3 repeats of the qualified pour faults x 3 conditions) on hold until the
-   user decides; it would use the current loop (upstream-first + new call #3 prompt).
+2. Scale-up bit by bit on the current loop (upstream-first + new call #3 prompt), so
+   every condition runs on one version. Set 1 (approved 2026-11-15): the 5 shared pour
+   faults x 3 conditions x 1 run -> outputs/repair_study/scale/set1.
 3. docs/deferred.md D9 entry to update with the decisions above.
 4. Paper (extended abstract): H5 as a hypothesis only; not edited (user on hold).
