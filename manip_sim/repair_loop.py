@@ -642,6 +642,20 @@ def plan_and_grade(task: str, spec_dir: Path, seed: int, stage_names: dict,
     return res
 
 
+def downstream_symptom(role: str, roles, failed_before: set, changed: set,
+                       compiles_now: bool) -> bool:
+    """Upstream-first rule: True when a re-emit of `role` should be skipped.
+    The stage failed to compile before this round's edits, an earlier stage
+    was changed this round, and with that change in place the stage now
+    compiles: its failure was a symptom of the earlier stage (e.g. its entry
+    lay outside its path band), so its original rows are kept. A stage that
+    compiled before (re-emitted for what its rows say) is always re-emitted."""
+    if role not in failed_before or not compiles_now:
+        return False
+    earlier = set(roles[:list(roles).index(role)])
+    return bool(earlier & changed)
+
+
 def stage_images(manifest: dict, image_dir: Path, role: str) -> tuple[Path, ...]:
     """The images of one stage (its goal state and its path images), no
     captions: what the render_check condition shows its checker."""
