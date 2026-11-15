@@ -518,3 +518,6 @@ as their own cached categories).
   (8682d88) re-planned every insert seed once; pour was re-graded except 7 seeds whose plans
   an interrupted run had deleted. Still uncached on every run: the robot-free handoff
   diagnostic (slow for A4, one subprocess per sample).
+- **Stream landing not graded (user, 2026-11-15):** `stream_off_mm` stays reported only.
+  ReKep and OmniManip use no such check, and a straight-line stream is only a rough model of
+  where tea goes (it depends on tilt, flow and spout shape).
