@@ -19,6 +19,57 @@ from tests.test_critic import (CARRY, GRASP, POUR, VOCAB, _parse,
 STAGE_NAMES = {r: e.name for r, e in _state().emissions.items()}
 
 
+POUR_LOG = """[transport] goal funnel: 120 sampled -> 62 IK-feasible -> 0 collision-free -> 0 contained  (119.1s)
+[transport] collision offenders: table <-> teapot_main x55, robot0_upper_arm_link <-> table x6
+[transport] goal funnel: 240 sampled -> 127 IK-feasible -> 0 collision-free -> 0 contained  (233.2s)
+[transport] collision offenders: table <-> teapot_main x108, robot0_upper_arm_link <-> table x14
+[transport] no feasible goal configs."""
+
+
+def test_pour_one_line_failure_gets_the_stage_funnel_from_the_log():
+    from manip_sim.repair_context import signature
+    names = {"transport_active": "carry teapot above mug", "pour": "tilt teapot to pour"}
+    rec = failure_from_report({"status": "failed",
+                               "failure": "[transport] no feasible goal configs."},
+                              names, log_text=POUR_LOG)
+    assert rec["stage"] == "carry teapot above mug" and rec["type"] == "empty_goal_set"
+    ev = rec["evidence"]
+    assert (ev["n_sampled"], ev["n_ik"], ev["n_collision_free"]) == (240, 127, 0)
+    assert ev["offenders"] == {"table <-> teapot_main": 108, "robot0_upper_arm_link <-> table": 14}
+    assert "signature" not in rec                       # the model never sees it
+    assert signature(rec) == "collision"
+    assert signature({**rec, "evidence": {**ev, "n_ik": 0}}) == "unreachable"
+    assert signature({"type": "no_admitted_handoff"}) == "handoff"
+    assert signature({"type": "compile"}) == "compile"
+
+
+def test_dropped_connection_is_retried(monkeypatch):
+    import http.client
+    import json as _json
+
+    from manip_sim import vlm
+    calls = {"n": 0}
+
+    class Resp:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self):
+            return _json.dumps({"content": [{"type": "text", "text": "ok"}],
+                                "stop_reason": "end_turn"}).encode()
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise http.client.RemoteDisconnected("Remote end closed connection without response")
+        return Resp()
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    monkeypatch.setattr(vlm.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(vlm, "HTTP_BACKOFF_S", 0.0)
+    assert vlm._urllib_transport({"model": "m", "max_tokens": 1, "messages": []}) == "ok"
+    assert calls["n"] == 2
+
+
 def test_uncaught_compile_error_line_is_typed_with_its_stage():
     """plan_pour_tea's exit on a CompileError is the exception line itself."""
     line = ("manip_sim.compile_tsr.CompileError: tilt teapot to pour.path.trans[0]: the "

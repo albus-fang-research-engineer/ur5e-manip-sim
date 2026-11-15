@@ -172,7 +172,8 @@ def _label_lookahead(rec: dict, mover_roles, stage_names: dict[str, str]) -> Non
 
 def failure_from_report(report_json: dict,
                         stage_names: dict[str, str],
-                        mover_roles: list[str] | None = None) -> dict | None:
+                        mover_roles: list[str] | None = None,
+                        log_text: str | None = None) -> dict | None:
     """A planner .report.json -> the failure record call #5 is shown:
 
         {"stage": <stage name>, "type": <failure kind>, "message": str,
@@ -181,7 +182,10 @@ def failure_from_report(report_json: dict,
     None when the report says the plan succeeded. `stage_names` maps
     role -> the emission's stage name. `mover_roles` (the stages with a
     passive object, in plan order) labels a grasp failure's lookahead
-    fractions by stage (_label_lookahead). A report with no outcome (status
+    fractions by stage (_label_lookahead). `log_text` (the planner's log) adds
+    the failing stage's goal funnel and collision offenders to a one-line
+    failure (plan_pour_tea prints them on their own lines). The run record (not
+    this record, which the model sees) carries signature(). A report with no outcome (status
     "running": the planner crashed) raises ValueError."""
     status = report_json.get("status")
     fail = report_json.get("failure")
@@ -191,7 +195,12 @@ def failure_from_report(report_json: dict,
         raise ValueError(f"planner report has no failure record "
                          f"(status {status!r})")
     if isinstance(fail, str):
-        return _from_line(fail, stage_names)
+        rec = _from_line(fail, stage_names)
+        if log_text and rec.get("stage"):
+            ev = _funnel_from_log(log_text, rec["stage"], stage_names)
+            if ev:
+                rec["evidence"] = {**rec.get("evidence", {}), **ev}
+        return rec
     if not isinstance(fail, dict):
         raise ValueError(f"planner report failure must be a dict or a "
                          f"line, not {type(fail).__name__}")
@@ -210,3 +219,57 @@ def failure_from_report(report_json: dict,
         rec["evidence"] = ev
         _label_lookahead(rec, mover_roles, stage_names)
     return rec
+
+
+# plan_pour_tea prints a stage's goal funnel on its own lines and exits with a
+# one-line failure; the funnel is the evidence plan_task puts in its report
+_FUNNEL_RE = re.compile(r"^\[(?P<label>[^\]]+)\] goal funnel: (?P<n>\d+) sampled -> (?P<ik>\d+) "
+                        r"IK-feasible -> (?P<free>\d+) collision-free -> (?P<cont>\d+) contained")
+_OFFENDERS_RE = re.compile(r"^\[(?P<label>[^\]]+)\] collision offenders: (?P<list>.*)$")
+_PAIR_RE = re.compile(r"(?P<pair>[\w.]+ <-> [\w.]+) x(?P<n>\d+)")
+
+
+def _funnel_from_log(log_text: str, stage: str, stage_names: dict[str, str]) -> dict:
+    """The failing stage's last goal funnel and collision offenders from a
+    planner log (plan_pour_tea), in plan_task's evidence keys."""
+    out: dict = {}
+    for line in log_text.splitlines():
+        m = _FUNNEL_RE.match(line.strip())
+        if m and _stage_name(m["label"], stage_names) == stage:
+            out.update(n_sampled=int(m["n"]), n_ik=int(m["ik"]),
+                       n_collision_free=int(m["free"]), n_contained=int(m["cont"]))
+            out.pop("offenders", None)           # offenders belong to this funnel
+        m = _OFFENDERS_RE.match(line.strip())
+        if m and _stage_name(m["label"], stage_names) == stage:
+            out["offenders"] = {p["pair"]: int(p["n"]) for p in _PAIR_RE.finditer(m["list"])}
+    return out
+
+
+# which step a failure collapsed at (pilot-3 discussion, 2026-11-14): the study keeps
+# collision / handoff / compile; unreachable and no_path are reported, not repaired
+SIGNATURES = ("compile", "collision", "unreachable", "handoff", "no_path", "grasp", "other")
+
+
+def signature(rec: dict) -> str:
+    """The failure's signature from its type and goal-funnel evidence:
+    collision (IK-feasible goals exist, none collision-free), unreachable
+    (no IK-feasible goal), handoff (goals exist, none a start the next stage
+    accepts), compile, no_path (goals found, the search found no path), grasp
+    (no grasp survived; see the labeled lookahead), other."""
+    t = rec.get("type")
+    ev = rec.get("evidence") or {}
+    if t == "compile":
+        return "compile"
+    if t == "no_admitted_handoff":
+        return "handoff"
+    if t in ("empty_goal_set", "synthesized_start_unreachable"):
+        if ev.get("n_ik") == 0:
+            return "unreachable"
+        if ev.get("n_ik") and not ev.get("n_collision_free"):
+            return "collision"
+        return "collision" if ev.get("offenders") else "other"
+    if t == "planning":
+        return "no_path"
+    if t == "grasp":
+        return "grasp"
+    return "other"

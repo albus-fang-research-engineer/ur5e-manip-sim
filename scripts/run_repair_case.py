@@ -326,7 +326,8 @@ class Case:
                                  edits=[self._edit(e) for e in verdict.edits])
             if outcome == "accept":
                 res = self.plan(rd)
-                rec["planned"] = {"ok": res["planned"], "failure": res["failure"]}
+                rec["planned"] = {"ok": res["planned"], "failure": res["failure"],
+                                 "signature": res.get("signature")}
                 if res["planned"]:
                     self.final.update(accepted=True, planned_in_loop=True)
                     return
@@ -430,7 +431,8 @@ class Case:
                     break
             if rejected is None:
                 res = self.plan(rd)
-                self.rounds[-1]["planned"] = {"ok": res["planned"]}
+                self.rounds[-1]["planned"] = {"ok": res["planned"], "failure": res["failure"],
+                                              "signature": res.get("signature")}
                 if res["planned"]:
                     self.final.update(accepted=True, planned_in_loop=True)
                     return

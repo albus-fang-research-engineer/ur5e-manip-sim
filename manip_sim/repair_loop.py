@@ -602,7 +602,7 @@ def plan_and_grade(task: str, spec_dir: Path, seed: int, stage_names: dict,
     report: its last FAILED line is recorded as the failure."""
     import json
     import subprocess
-    from manip_sim.repair_context import failure_from_report
+    from manip_sim.repair_context import failure_from_report, signature
     from scripts.score_authoring_ablation import (grade_command, last_failure, plan_command,
                                                   success)
     spec_dir = Path(spec_dir)
@@ -625,9 +625,13 @@ def plan_and_grade(task: str, spec_dir: Path, seed: int, stage_names: dict,
         rep = (json.loads(rp.read_text()) if rp.exists()
                else {"status": "failed", "failure": last_failure(outp)})
         try:
-            res["failure"] = failure_from_report(rep, stage_names, mover_roles)
+            res["failure"] = failure_from_report(
+                rep, stage_names, mover_roles,
+                log_text=outp.read_text(errors="replace"))
         except ValueError as e:
             res["failure"] = {"stage": None, "type": None, "message": str(e)}
+        # for the study's table only; never part of what the model is shown
+        res["signature"] = signature(res["failure"])
         return res
     with open(plan.with_suffix(".eval.out"), "w") as f:
         subprocess.run(grade_command(task, plan), stdout=f, stderr=subprocess.STDOUT)

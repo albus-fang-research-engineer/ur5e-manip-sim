@@ -1712,7 +1712,9 @@ def _urllib_transport(payload: dict) -> str:
                 continue
             raise VLMError(f"API error {e.code}: "
                            f"{e.read().decode(errors='replace')[:500]}")
-        except urllib.error.URLError as e:
+        except (urllib.error.URLError, ConnectionResetError) as e:
+            # ConnectionResetError covers http.client.RemoteDisconnected ("Remote end
+            # closed connection without response"), which urllib does not wrap
             last = e
             if attempt < HTTP_RETRIES:
                 time.sleep(HTTP_BACKOFF_S * (2 ** attempt))
