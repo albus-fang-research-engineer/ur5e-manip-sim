@@ -1,0 +1,261 @@
+{
+ "fault": {
+  "fault_id": "pour_contradictory_upright",
+  "task": "pour_tea",
+  "category": "contradictory_rows",
+  "role": "pour",
+  "stage": "tilt the teapot to pour into the mug",
+  "pointer": "tilt the teapot to pour into the mug.subgoal.rot[1]",
+  "before": "(no row)",
+  "after": "teapot.up_axis parallel world.z, tol tight",
+  "expect": "empty goal set: upright contradicts the tilted pour row",
+  "unfixable_by": [],
+  "pointers": [],
+  "kind": "compile"
+ },
+ "condition": "render_check",
+ "repeat": 0,
+ "mode": "live",
+ "model": "claude-opus-5",
+ "temperature": null,
+ "call_cap": 8,
+ "round_budget": 2,
+ "start": {
+  "selections": "tasks/repair_study/start/pour_tea/selections.json",
+  "emissions": "tasks/repair_study/start/pour_tea/emissions.json"
+ },
+ "start_sha": "a7ca4443cdf1666a",
+ "rounds": [
+  {
+   "round": 1,
+   "kind": "check",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set1/pour_contradictory_upright/render_check/round_1",
+   "calls": [
+    {
+     "touchpoint": "render_check",
+     "attempts": 1,
+     "input_tokens": 5760,
+     "output_tokens": 791,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      791
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "carry the teapot upright over the mug": "71145e2f12f4",
+    "tilt the teapot to pour into the mug": "403e3ddf46ae"
+   },
+   "stage": "carry the teapot upright over the mug",
+   "labels": [
+    {
+     "stage": "carry the teapot upright over the mug",
+     "label": "success"
+    }
+   ],
+   "reasoning": "The teapot is rendered upright (lid up, handle and spout horizontal), with its spout tip positioned directly over the mug's opening center and the body offset to the side and raised above the mug rim. This is exactly the pre-pour transport pose: no part of the teapot intersects the mug, the roll/pitch bounds (\u00b15 deg) keep it safely upright along the path, and the free yaw/translation samples show no collisions. The slight offset of the teapot body relative to the mug opening is acceptable and even favorable for the subsequent pouring stage.",
+   "compiled": {
+    "carry the teapot upright over the mug": true,
+    "tilt the teapot to pour into the mug": "compile rejected: tilt the teapot to pour into the mug.subgoal.rot[0]: inconsistent with tilt the teapot to pour into the mug.subgoal.rot[1]: the axes are 90 deg apart but the references 180 deg apart, so no attitude satisfies both. Drop one of the two rows \u2014 keep the one naming the direction this stage must point somewhere. Flipping a sign cannot fix it: the two angles would still differ; tilt the teapot to pour into the mug.subgoal.rot[1]: the other row of the pair; see tilt the teapot to pour into the mug.subgoal.rot[0]"
+   }
+  },
+  {
+   "round": 2,
+   "kind": "check",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set1/pour_contradictory_upright/render_check/round_1",
+   "calls": [],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "carry the teapot upright over the mug": "71145e2f12f4",
+    "tilt the teapot to pour into the mug": "403e3ddf46ae"
+   },
+   "stage": "tilt the teapot to pour into the mug",
+   "labels": [
+    {
+     "stage": "tilt the teapot to pour into the mug",
+     "label": "failure"
+    }
+   ],
+   "reasoning": "auto: the stage has no compiled region to render",
+   "compiled": {
+    "carry the teapot upright over the mug": true,
+    "tilt the teapot to pour into the mug": "compile rejected: tilt the teapot to pour into the mug.subgoal.rot[0]: inconsistent with tilt the teapot to pour into the mug.subgoal.rot[1]: the axes are 90 deg apart but the references 180 deg apart, so no attitude satisfies both. Drop one of the two rows \u2014 keep the one naming the direction this stage must point somewhere. Flipping a sign cannot fix it: the two angles would still differ; tilt the teapot to pour into the mug.subgoal.rot[1]: the other row of the pair; see tilt the teapot to pour into the mug.subgoal.rot[0]"
+   }
+  },
+  {
+   "round": 3,
+   "kind": "regenerate",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set1/pour_contradictory_upright/render_check/round_1",
+   "calls": [
+    {
+     "touchpoint": "emit_constraints",
+     "attempts": 1,
+     "input_tokens": 7009,
+     "output_tokens": 1718,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      1718
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "carry the teapot upright over the mug": "71145e2f12f4",
+    "pour": "5dd586d59f9b"
+   },
+   "stage": "tilt the teapot to pour into the mug",
+   "action": "regenerate",
+   "rewrite": {
+    "stage": "pour",
+    "attempts": [
+     {
+      "raw": "{\"stage\": 3, \"name\": \"pour\", \"active\": \"teapot\", \"passive\": \"mug\", \"goal\": \"Tip the teapot about its level +left axis until teapot.+front points down along mug.-up, with teapot.spout_tip held just above mug.opening_center.\", \"path_tsr\": {\"rot\": [{\"axis\": \"teapot.+left\", \"perpendicular_to\": \"mug.+up\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"loose\"}]}, \"subgoal_tsr\": {\"rot\": [{\"axis\": \"teapot.+front\", \"points\": \"mug.-up\", \"tol\": \"loose\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"}, {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"moderate\"}]}, \"verify\": \"teapot.+left stayed level (perpendicular to mug.+up) throughout; at the subgoal teapot.+front points along mug.-up within ~30 deg and teapot.spout_tip sits 3-8 cm above mug.opening_center, within ~2 cm of it in x and y.\"}",
+      "compiled": true
+     }
+    ],
+    "feedback": [],
+    "role": "pour"
+   }
+  },
+  {
+   "round": 4,
+   "kind": "check",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set1/pour_contradictory_upright/render_check/round_2",
+   "calls": [
+    {
+     "touchpoint": "render_check",
+     "attempts": 1,
+     "input_tokens": 5735,
+     "output_tokens": 1015,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      1015
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "carry the teapot upright over the mug": "71145e2f12f4",
+    "pour": "5dd586d59f9b"
+   },
+   "stage": "pour",
+   "labels": [
+    {
+     "stage": "pour",
+     "label": "success"
+    }
+   ],
+   "reasoning": "In the goal render the teapot is held over the mug, tipped forward so the spout points down with the spout tip essentially at/just above the mug's opening center, and the top view confirms the spout tip is aligned with the mug opening. This is the correct pouring configuration: the spout (front) faces the mug, the handle is up and away, and there is vertical clearance so the body does not rest on the mug. The path region keeps the teapot above the mug opening with a tilt range that progresses from near-upright to inverted, which is a natural pour approach; the only mild risk is the lowest z bound (+3 cm), where the inverted body comes close to the mug rim, but the slack and the nominal clearance keep this acceptable.",
+   "compiled": {
+    "carry the teapot upright over the mug": true,
+    "pour": true
+   },
+   "planned": {
+    "ok": true,
+    "failure": null,
+    "signature": null
+   }
+  }
+ ],
+ "final": {
+  "accepted": true,
+  "planned_in_loop": true,
+  "grades": [
+   {
+    "seed": 0,
+    "planned": true,
+    "success": false,
+    "failure": null,
+    "eval": {
+     "goal_pass": false,
+     "path_pass": false,
+     "max_penetration_mm": {
+      "self": 0.0,
+      "table": 0.0,
+      "passive": 0.0,
+      "other": 0.0
+     }
+    }
+   },
+   {
+    "seed": 1,
+    "planned": true,
+    "success": false,
+    "failure": null,
+    "eval": {
+     "goal_pass": false,
+     "path_pass": true,
+     "max_penetration_mm": {
+      "self": 0.0,
+      "table": 0.0,
+      "passive": 0.0,
+      "other": 0.0
+     }
+    }
+   },
+   {
+    "seed": 2,
+    "planned": false,
+    "success": false,
+    "failure": {
+     "stage": "carry the teapot upright over the mug",
+     "type": "planning",
+     "message": "planning failed on all 17 ranked goals: 17x 'no path: iteration budget exhausted (500)'",
+     "evidence": {
+      "n_sampled": 120,
+      "n_ik": 62,
+      "n_collision_free": 17,
+      "n_contained": 17,
+      "offenders": {
+       "mug_main <-> teapot_main": 24,
+       "robot0_upper_arm_link <-> table": 16,
+       "fixed_mount0_pedestal <-> robot0_upper_arm_link": 3,
+       "robot0_forearm_link <-> robot0_wrist_3_link": 2
+      }
+     }
+    },
+    "signature": "no_path"
+   }
+  ],
+  "error": null,
+  "graded_in": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set1/pour_contradictory_upright/render_check/round_2_spec"
+ },
+ "diff": [
+  {
+   "pointer": "tilt the teapot to pour into the mug.path.rot[0]",
+   "before": "teapot.front_axis antiparallel mug.up_axis, tol tight",
+   "after": "teapot.lateral_axis perpendicular mug.up_axis, tol moderate"
+  },
+  {
+   "pointer": "tilt the teapot to pour into the mug.path.trans[0]",
+   "before": "centered on mug.opening_center, tol moderate",
+   "after": "above mug.opening_center, clearance medium, slack loose"
+  },
+  {
+   "pointer": "tilt the teapot to pour into the mug.path.trans[1]",
+   "before": "above mug.opening_center, clearance large, slack snug",
+   "after": "(no row)"
+  },
+  {
+   "pointer": "tilt the teapot to pour into the mug.subgoal.rot[0]",
+   "before": "teapot.front_axis antiparallel mug.up_axis, tol tight",
+   "after": "teapot.front_axis antiparallel mug.up_axis, tol loose"
+  },
+  {
+   "pointer": "tilt the teapot to pour into the mug.subgoal.trans[1]",
+   "before": "above mug.opening_center, clearance large, slack snug",
+   "after": "above mug.opening_center, clearance medium, slack moderate"
+  }
+ ],
+ "n_calls": 3
+}

@@ -1,0 +1,14 @@
+{
+ "fault_id": "pour_contradictory_upright",
+ "task": "pour_tea",
+ "category": "contradictory_rows",
+ "role": "pour",
+ "stage": "tilt the teapot to pour into the mug",
+ "pointer": "tilt the teapot to pour into the mug.subgoal.rot[1]",
+ "before": "(no row)",
+ "after": "teapot.up_axis parallel world.z, tol tight",
+ "expect": "empty goal set: upright contradicts the tilted pour row",
+ "unfixable_by": [],
+ "pointers": [],
+ "kind": "compile"
+}

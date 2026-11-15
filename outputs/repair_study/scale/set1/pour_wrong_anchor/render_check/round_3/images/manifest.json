@@ -1,0 +1,1031 @@
+{
+ "style": "panels",
+ "images": [
+  {
+   "file": "00_state_initial.png",
+   "kind": "state",
+   "state": "initial",
+   "title": "initial scene",
+   "role": null,
+   "mover": null,
+   "panels": [
+    "iso",
+    "top"
+   ],
+   "panel_px": 768,
+   "labels": {
+    "iso": [
+     {
+      "text": "teapot.spout_tip",
+      "pixel": [
+       331.3,
+       330.9
+      ]
+     },
+     {
+      "text": "teapot.handle_center",
+      "pixel": [
+       232.8,
+       303.7
+      ]
+     },
+     {
+      "text": "mug.opening_center",
+      "pixel": [
+       581.2,
+       465.3
+      ]
+     }
+    ],
+    "top": [
+     {
+      "text": "teapot.spout_tip",
+      "pixel": [
+       382.2,
+       294.0
+      ]
+     },
+     {
+      "text": "teapot.handle_center",
+      "pixel": [
+       386.9,
+       98.2
+      ]
+     },
+     {
+      "text": "mug.opening_center",
+      "pixel": [
+       396.0,
+       655.8
+      ]
+     }
+    ]
+   },
+   "tags": {
+    "iso": [
+     {
+      "text": "teapot",
+      "pixel": [
+       276.6,
+       256.5
+      ]
+     },
+     {
+      "text": "mug",
+      "pixel": [
+       578.6,
+       427.9
+      ]
+     }
+    ],
+    "top": [
+     {
+      "text": "teapot",
+      "pixel": [
+       384.4,
+       54.1
+      ]
+     },
+     {
+      "text": "mug",
+      "pixel": [
+       385.2,
+       589.1
+      ]
+     }
+    ]
+   },
+   "collisions": null,
+   "search": null,
+   "notes": [],
+   "poses": {
+    "teapot": [
+     [
+      0.68945,
+      0.72431,
+      0.00567,
+      0.00036
+     ],
+     [
+      -0.72418,
+      0.68944,
+      -0.01501,
+      -0.25096
+     ],
+     [
+      -0.01479,
+      0.00624,
+      0.99987,
+      0.86517
+     ],
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "mug": [
+     [
+      1.0,
+      4e-05,
+      -0.00113,
+      -5e-05
+     ],
+     [
+      -3e-05,
+      1.0,
+      0.00266,
+      0.25011
+     ],
+     [
+      0.00113,
+      -0.00266,
+      1.0,
+      0.8402
+     ],
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "gripper_pose": null
+  },
+  {
+   "file": "01_state_goal_transport_active.png",
+   "kind": "state",
+   "state": "goal:transport_active",
+   "title": "transport_active goal (transport)",
+   "role": "transport_active",
+   "mover": "teapot",
+   "panels": [
+    "iso",
+    "top"
+   ],
+   "panel_px": 768,
+   "labels": {
+    "iso": [
+     {
+      "text": "teapot.spout_tip",
+      "pixel": [
+       546.2,
+       295.0
+      ]
+     },
+     {
+      "text": "teapot.handle_center",
+      "pixel": [
+       302.9,
+       242.6
+      ]
+     },
+     {
+      "text": "mug.opening_center",
+      "pixel": [
+       309.7,
+       410.1
+      ]
+     }
+    ],
+    "top": [
+     {
+      "text": "teapot.spout_tip",
+      "pixel": [
+       381.2,
+       649.6
+      ]
+     },
+     {
+      "text": "teapot.handle_center",
+      "pixel": [
+       390.3,
+       223.5
+      ]
+     },
+     {
+      "text": "mug.opening_center",
+      "pixel": [
+       388.8,
+       255.4
+      ]
+     }
+    ]
+   },
+   "tags": {
+    "iso": [
+     {
+      "text": "teapot",
+      "pixel": [
+       410.2,
+       157.6
+      ]
+     },
+     {
+      "text": "mug",
+      "pixel": [
+       302.8,
+       535.5
+      ]
+     }
+    ],
+    "top": [
+     {
+      "text": "teapot",
+      "pixel": [
+       384.4,
+       151.6
+      ]
+     }
+    ]
+   },
+   "collisions": [],
+   "search": null,
+   "notes": [],
+   "poses": {
+    "teapot": [
+     [
+      0.68949,
+      0.72429,
+      -0.00113,
+      -0.0094
+     ],
+     [
+      -0.72429,
+      0.68949,
+      0.00266,
+      0.34367
+     ],
+     [
+      0.0027,
+      -0.00101,
+      1.0,
+      1.01844
+     ],
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "mug": [
+     [
+      1.0,
+      4e-05,
+      -0.00113,
+      -5e-05
+     ],
+     [
+      -3e-05,
+      1.0,
+      0.00266,
+      0.25011
+     ],
+     [
+      0.00113,
+      -0.00266,
+      1.0,
+      0.8402
+     ],
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   },
+   "gripper_pose": null
+  },
+  {
+   "file": "02_path_transport_active_translation.png",
+   "title": "transport_active path region, translation rows: each row at its bound, others at the center pose (teapot shown solid)",
+   "kind": "path_boundary",
+   "stage": "transport_active",
+   "name": "transport",
+   "group": "translation",
+   "rows": [
+    {
+     "row": "x",
+     "label": "x (along w.x)",
+     "kind": "free",
+     "token": null,
+     "values": [
+      -0.10481754083463855,
+      0.09518245916536146
+     ],
+     "captions": [
+      "x free: -10.0 cm shown",
+      "x free: +10.0 cm shown"
+     ],
+     "view": "+y",
+     "poses": [
+      [
+       [
+        0.6895,
+        0.72429,
+        0.00227,
+        0.09548
+       ],
+       [
+        -0.72426,
+        0.68949,
+        -0.00618,
+        0.04636
+       ],
+       [
+        -0.00604,
+        0.00261,
+        0.99998,
+        0.94192
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ],
+      [
+       [
+        0.6895,
+        0.72429,
+        0.00227,
+        -0.10452
+       ],
+       [
+        -0.72426,
+        0.68949,
+        -0.00618,
+        0.04637
+       ],
+       [
+        -0.00604,
+        0.00261,
+        0.99998,
+        0.94169
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ]
+     ],
+     "panels": [
+      {
+       "value": -0.10481754083463855,
+       "desc": "x -10.0 cm (free)",
+       "collides": false,
+       "collisions": [],
+       "dropped": false
+      },
+      {
+       "value": 0.09518245916536146,
+       "desc": "x +10.0 cm (free)",
+       "collides": false,
+       "collisions": [],
+       "dropped": false
+      }
+     ]
+    },
+    {
+     "row": "y",
+     "label": "y (along w.y)",
+     "kind": "free",
+     "token": null,
+     "values": [
+      0.19712009964949287,
+      0.3971200996494929
+     ],
+     "captions": [
+      "y free: -10.0 cm shown",
+      "y free: +10.0 cm shown"
+     ],
+     "view": "+x",
+     "poses": [
+      [
+       [
+        0.6895,
+        0.72429,
+        0.00227,
+        -0.00452
+       ],
+       [
+        -0.72426,
+        0.68949,
+        -0.00618,
+        0.14636
+       ],
+       [
+        -0.00604,
+        0.00261,
+        0.99998,
+        0.94154
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ],
+      [
+       [
+        0.6895,
+        0.72429,
+        0.00227,
+        -0.00453
+       ],
+       [
+        -0.72426,
+        0.68949,
+        -0.00618,
+        -0.05364
+       ],
+       [
+        -0.00604,
+        0.00261,
+        0.99998,
+        0.94207
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ]
+     ],
+     "panels": [
+      {
+       "value": 0.19712009964949287,
+       "desc": "y -10.0 cm (free)",
+       "collides": true,
+       "collisions": [
+        {
+         "a": "teapot",
+         "b": "mug",
+         "depth_mm": 3.7
+        }
+       ],
+       "dropped": true
+      },
+      {
+       "value": 0.3971200996494929,
+       "desc": "y +10.0 cm (free)",
+       "collides": false,
+       "collisions": [],
+       "dropped": false
+      }
+     ]
+    },
+    {
+     "row": "z",
+     "label": "z (along w.z)",
+     "kind": "free",
+     "token": null,
+     "values": [
+      -0.038243274847676006,
+      0.161756725152324
+     ],
+     "captions": [
+      "z free: -10.0 cm shown",
+      "z free: +10.0 cm shown"
+     ],
+     "view": "-y",
+     "poses": [
+      [
+       [
+        0.6895,
+        0.72429,
+        0.00227,
+        -0.00441
+       ],
+       [
+        -0.72426,
+        0.68949,
+        -0.00618,
+        0.0461
+       ],
+       [
+        -0.00604,
+        0.00261,
+        0.99998,
+        0.8418
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ],
+      [
+       [
+        0.6895,
+        0.72429,
+        0.00227,
+        -0.00464
+       ],
+       [
+        -0.72426,
+        0.68949,
+        -0.00618,
+        0.04663
+       ],
+       [
+        -0.00604,
+        0.00261,
+        0.99998,
+        1.0418
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ]
+     ],
+     "panels": [
+      {
+       "value": -0.038243274847676006,
+       "desc": "z -10.0 cm (free)",
+       "collides": true,
+       "collisions": [
+        {
+         "a": "teapot",
+         "b": "table",
+         "depth_mm": 23.1
+        }
+       ],
+       "dropped": true
+      },
+      {
+       "value": 0.161756725152324,
+       "desc": "z +10.0 cm (free)",
+       "collides": false,
+       "collisions": [],
+       "dropped": false
+      }
+     ]
+    }
+   ],
+   "pinned_rows": [],
+   "notes": [
+    "y -10.0 cm (free): teapot collides with mug (the planner avoids this)",
+    "z -10.0 cm (free): teapot collides with table (the planner avoids this)"
+   ],
+   "center_collides": false,
+   "representative": {
+    "displacement": [
+     -0.00482,
+     0.29712,
+     0.06176,
+     -0.00883,
+     -0.0034,
+     3e-05
+    ],
+    "pose": [
+     [
+      0.6895,
+      0.72429,
+      0.00227,
+      -0.00452
+     ],
+     [
+      -0.72426,
+      0.68949,
+      -0.00618,
+      0.04636
+     ],
+     [
+      -0.00604,
+      0.00261,
+      0.99998,
+      0.9418
+     ],
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "rule": "midpoint of entry and subgoal nominal in path displacement, clamped into the path box",
+    "collisions": [],
+    "search": {
+     "nominal_collides": false,
+     "contacts": [],
+     "shown": "nominal",
+     "pass": null,
+     "n_checked": 0,
+     "n_refine": 0,
+     "delta": null
+    },
+    "shown_displacement": [
+     -0.00482,
+     0.29712,
+     0.06176,
+     -0.00883,
+     -0.0034,
+     3e-05
+    ],
+    "shown_pose": [
+     [
+      0.6895,
+      0.72429,
+      0.00227,
+      -0.00452
+     ],
+     [
+      -0.72426,
+      0.68949,
+      -0.00618,
+      0.04636
+     ],
+     [
+      -0.00604,
+      0.00261,
+      0.99998,
+      0.9418
+     ],
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   }
+  },
+  {
+   "file": "03_path_transport_active_rotation.png",
+   "title": "transport_active path region, rotation rows: each row at its bound, others at the center pose (teapot shown solid)",
+   "kind": "path_boundary",
+   "stage": "transport_active",
+   "name": "transport",
+   "group": "rotation",
+   "rows": [
+    {
+     "row": "roll",
+     "label": "roll (about w.x)",
+     "kind": "bounded",
+     "token": "tight",
+     "values": [
+      -0.08726646259971647,
+      0.08726646259971647
+     ],
+     "captions": [
+      "roll at lower bound -5 deg [tight]",
+      "roll at upper bound +5 deg [tight]"
+     ],
+     "view": "+x",
+     "poses": [
+      [
+       [
+        0.68937,
+        0.72441,
+        0.00226,
+        -0.00451
+       ],
+       [
+        -0.72169,
+        0.68704,
+        -0.08451,
+        0.04618
+       ],
+       [
+        -0.06277,
+        0.05663,
+        0.99642,
+        0.9491
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ],
+      [
+       [
+        0.68965,
+        0.72414,
+        0.00227,
+        -0.00454
+       ],
+       [
+        -0.72135,
+        0.68672,
+        0.0898,
+        0.04581
+       ],
+       [
+        0.06347,
+        -0.06357,
+        0.99596,
+        0.93288
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ]
+     ],
+     "panels": [
+      {
+       "value": -0.08726646259971647,
+       "desc": "roll -5 deg (lower bound)",
+       "collides": false,
+       "collisions": [],
+       "dropped": false
+      },
+      {
+       "value": 0.08726646259971647,
+       "desc": "roll +5 deg (upper bound)",
+       "collides": false,
+       "collisions": [],
+       "dropped": false
+      }
+     ]
+    },
+    {
+     "row": "pitch",
+     "label": "pitch (about w.y)",
+     "kind": "bounded",
+     "token": "tight",
+     "values": [
+      -0.08726646259971647,
+      0.08726646259971647
+     ],
+     "captions": [
+      "pitch at lower bound -5 deg [tight]",
+      "pitch at upper bound +5 deg [tight]"
+     ],
+     "view": "-y",
+     "poses": [
+      [
+       [
+        0.6864,
+        0.72211,
+        0.08603,
+        -0.00462
+       ],
+       [
+        -0.72442,
+        0.68933,
+        -0.00619,
+        0.04636
+       ],
+       [
+        -0.06377,
+        -0.05807,
+        0.99627,
+        0.94159
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ],
+      [
+       [
+        0.68738,
+        0.72091,
+        -0.08828,
+        -0.00444
+       ],
+       [
+        -0.7241,
+        0.68967,
+        -0.00618,
+        0.04636
+       ],
+       [
+        0.05643,
+        0.06817,
+        0.99608,
+        0.94205
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ]
+     ],
+     "panels": [
+      {
+       "value": -0.08726646259971647,
+       "desc": "pitch -5 deg (lower bound)",
+       "collides": false,
+       "collisions": [],
+       "dropped": false
+      },
+      {
+       "value": 0.08726646259971647,
+       "desc": "pitch +5 deg (upper bound)",
+       "collides": false,
+       "collisions": [],
+       "dropped": false
+      }
+     ]
+    },
+    {
+     "row": "yaw",
+     "label": "yaw (about w.z)",
+     "kind": "free",
+     "token": null,
+     "values": [
+      0.7854282303156087,
+      1.5708263937130569
+     ],
+     "captions": [
+      "yaw free: +45 deg shown",
+      "yaw free: +90 deg shown"
+     ],
+     "view": "top",
+     "poses": [
+      [
+       [
+        0.99967,
+        0.02461,
+        0.00752,
+        -0.07113
+       ],
+       [
+        -0.0246,
+        0.9997,
+        -0.00118,
+        0.02096
+       ],
+       [
+        -0.00755,
+        0.001,
+        0.99997,
+        0.9418
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ],
+      [
+       [
+        0.72426,
+        -0.68949,
+        0.0077,
+        -0.10026
+       ],
+       [
+        0.68946,
+        0.7243,
+        0.00606,
+        -0.0441
+       ],
+       [
+        -0.00976,
+        0.00092,
+        0.99995,
+        0.94194
+       ],
+       [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ]
+      ]
+     ],
+     "panels": [
+      {
+       "value": 0.7854282303156087,
+       "desc": "yaw +45 deg (free)",
+       "collides": false,
+       "collisions": [],
+       "dropped": false
+      },
+      {
+       "value": 1.5708263937130569,
+       "desc": "yaw +90 deg (free)",
+       "collides": false,
+       "collisions": [],
+       "dropped": false
+      }
+     ]
+    }
+   ],
+   "pinned_rows": [],
+   "notes": [],
+   "center_collides": false,
+   "representative": {
+    "displacement": [
+     -0.00482,
+     0.29712,
+     0.06176,
+     -0.00883,
+     -0.0034,
+     3e-05
+    ],
+    "pose": [
+     [
+      0.6895,
+      0.72429,
+      0.00227,
+      -0.00452
+     ],
+     [
+      -0.72426,
+      0.68949,
+      -0.00618,
+      0.04636
+     ],
+     [
+      -0.00604,
+      0.00261,
+      0.99998,
+      0.9418
+     ],
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ],
+    "rule": "midpoint of entry and subgoal nominal in path displacement, clamped into the path box",
+    "collisions": [],
+    "search": {
+     "nominal_collides": false,
+     "contacts": [],
+     "shown": "nominal",
+     "pass": null,
+     "n_checked": 0,
+     "n_refine": 0,
+     "delta": null
+    },
+    "shown_displacement": [
+     -0.00482,
+     0.29712,
+     0.06176,
+     -0.00883,
+     -0.0034,
+     3e-05
+    ],
+    "shown_pose": [
+     [
+      0.6895,
+      0.72429,
+      0.00227,
+      -0.00452
+     ],
+     [
+      -0.72426,
+      0.68949,
+      -0.00618,
+      0.04636
+     ],
+     [
+      -0.00604,
+      0.00261,
+      0.99998,
+      0.9418
+     ],
+     [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+     ]
+    ]
+   }
+  }
+ ],
+ "skipped": [
+  {
+   "role": "pour",
+   "name": "tilt the teapot to pour into the mug",
+   "reason": "not compiled"
+  }
+ ],
+ "path_text_only": [],
+ "gripper": "robosuite robotiq_gripper_85.xml @ grip_site",
+ "collision_check": {
+  "bodies": "scene objects, gripper, table (no arm)",
+  "tol_mm": 2.0,
+  "min_points": 3
+ }
+}

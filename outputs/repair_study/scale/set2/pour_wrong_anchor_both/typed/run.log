@@ -1,0 +1,13 @@
+[manip-sim] No GPU detected -> MUJOCO_GL=osmesa (software rendering)
+[case] LIVE (paid): at most 8 VLM request(s) (hard cap), parse retries included; model claude-opus-5, temperature None
+[robosuite WARNING] No private macro file found! (macros.py:57)
+[robosuite WARNING] It is recommended to use a private macro file (macros.py:58)
+[robosuite WARNING] To setup, run: python /opt/venv/lib/python3.10/site-packages/robosuite/scripts/setup_macros.py (macros.py:59)
+[robosuite WARNING] Could not load the mink-based whole-body IK. Make sure you install related import properly, otherwise you will not be able to use the default IK controller setting for GR1 robot. (__init__.py:40)
+WARNING! gymnasium is not installed. We will try to use openai gym instead.
+Warning: make sure gym is installed if you want to use the GymWrapper.
+[robosuite INFO] Loading controller configuration from: /opt/venv/lib/python3.10/site-packages/robosuite/controllers/config/robots/default_ur5e.json (composite_controller_factory.py:121)
+[robosuite INFO] Loading controller configuration from: /opt/venv/lib/python3.10/site-packages/robosuite/controllers/config/robots/default_ur5e.json (composite_controller_factory.py:121)
+[case] fault pour_wrong_anchor_both: carry the teapot upright over the mug.point.teapot: teapot.spout_tip -> teapot.handle_center
+[case] planned seed 0: ok, grader pass
+[case] typed: fixed after 2 call(s), 1 change round(s) -> /home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set2/pour_wrong_anchor_both/typed/record.json

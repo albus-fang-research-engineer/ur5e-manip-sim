@@ -1,0 +1,189 @@
+{
+ "fault": {
+  "fault_id": "pour_wrong_anchor",
+  "task": "pour_tea",
+  "category": "wrong_anchor",
+  "role": "transport_active",
+  "stage": "carry the teapot upright over the mug",
+  "pointer": "carry the teapot upright over the mug.point.teapot",
+  "before": "teapot.spout_tip",
+  "after": "teapot.handle_center",
+  "expect": "carry goal in collision (handle over the mug), or the pour rejects the entry",
+  "unfixable_by": [
+   "render_check"
+  ],
+  "pointers": [],
+  "kind": "plausible"
+ },
+ "condition": "untyped",
+ "repeat": 0,
+ "mode": "live",
+ "model": "claude-opus-5",
+ "temperature": null,
+ "call_cap": 8,
+ "round_budget": 2,
+ "start": {
+  "selections": "tasks/repair_study/start/pour_tea/selections.json",
+  "emissions": "tasks/repair_study/start/pour_tea/emissions.json"
+ },
+ "start_sha": "a7ca4443cdf1666a",
+ "rounds": [
+  {
+   "round": 1,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set2/pour_wrong_anchor/untyped/round_1",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 10281,
+     "output_tokens": 1834,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      1834
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "carry the teapot upright over the mug": "b89dd3948c02",
+    "tilt the teapot to pour into the mug": "dd8475d25334"
+   },
+   "verdict": "reject",
+   "diagnosis": "The transport stage controls teapot.handle_center instead of the pouring point, so at the goal the spout_tip sits 21.4 cm horizontally from mug.opening_center - the pot is not positioned for pouring, and the pour stage's translation rows (spout centered/above the mug) exclude its own start pose. Re-pick the transport point to teapot.spout_tip. Separately, the pour stage failed to compile because its path rotation row repeats the final attitude (front_axis antiparallel mug.up_axis, tight) for the whole motion, which the upright start pose cannot satisfy; re-emit that stage with a path that allows the tilt to sweep from upright to the pouring attitude while keeping the spout over the mug opening.",
+   "edits": [
+    {
+     "target": "carry the teapot upright over the mug.point.teapot",
+     "action": "reselect_point",
+     "token": "teapot.spout_tip",
+     "before": "teapot.handle_center",
+     "after": "teapot.spout_tip",
+     "direction": 0
+    },
+    {
+     "target": "tilt the teapot to pour into the mug",
+     "action": "reemit_stage",
+     "token": null,
+     "before": "emitted",
+     "after": "re-emit",
+     "direction": 0
+    }
+   ],
+   "compiled": {
+    "carry the teapot upright over the mug": true,
+    "tilt the teapot to pour into the mug": "compile rejected: tilt the teapot to pour into the mug.path.trans[0]: the entry pose lies outside the path's y band [-0.020, +0.020] by 0.194 m \u2014 more than the 0.03 m the planner's start projection closes. Path terms hold from entry to subgoal: leave y free on the path, or split the stage (lift, then traverse)"
+   },
+   "reemit": [
+    {
+     "role": "pour",
+     "skipped": "compiles once the earlier stage is fixed; its original rows are kept (upstream-first)"
+    }
+   ]
+  },
+  {
+   "round": 2,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set2/pour_wrong_anchor/untyped/round_2",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 15919,
+     "output_tokens": 11709,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      11709
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "carry the teapot upright over the mug": "71145e2f12f4",
+    "tilt the teapot to pour into the mug": "dd8475d25334"
+   },
+   "verdict": "accept",
+   "diagnosis": "Both editable stages are adequately constrained: the carry keeps the full pot upright with tight roll/pitch over a free-translation transfer, its goal places the spout tip centred and clear above the mug opening, and the pour anchors the spout tip inside the opening band (+/-2 cm, 8-10 cm) with pitch held tight through a roll sweep that ends with the spout aimed down into the mug. No row is free where the task needs it limited, and the point choices (spout_tip for both placement and pour) are the right ones.",
+   "edits": [],
+   "compiled": {
+    "carry the teapot upright over the mug": true,
+    "tilt the teapot to pour into the mug": true
+   },
+   "planned": {
+    "ok": true,
+    "failure": null,
+    "signature": null
+   }
+  }
+ ],
+ "final": {
+  "accepted": true,
+  "planned_in_loop": true,
+  "grades": [
+   {
+    "seed": 0,
+    "planned": true,
+    "success": true,
+    "failure": null,
+    "eval": {
+     "goal_pass": true,
+     "path_pass": true,
+     "max_penetration_mm": {
+      "self": 0.0,
+      "table": 0.0,
+      "passive": 0.0,
+      "other": 0.0
+     }
+    }
+   },
+   {
+    "seed": 1,
+    "planned": true,
+    "success": true,
+    "failure": null,
+    "eval": {
+     "goal_pass": true,
+     "path_pass": true,
+     "max_penetration_mm": {
+      "self": 0.0,
+      "table": 0.0,
+      "passive": 0.0,
+      "other": 0.0
+     }
+    }
+   },
+   {
+    "seed": 2,
+    "planned": false,
+    "success": false,
+    "failure": {
+     "stage": "carry the teapot upright over the mug",
+     "type": "planning",
+     "message": "planning failed on all 16 ranked goals: 16x 'no path: iteration budget exhausted (500)'",
+     "evidence": {
+      "n_sampled": 120,
+      "n_ik": 62,
+      "n_collision_free": 17,
+      "n_contained": 17,
+      "offenders": {
+       "mug_main <-> teapot_main": 24,
+       "robot0_upper_arm_link <-> table": 16,
+       "fixed_mount0_pedestal <-> robot0_upper_arm_link": 3,
+       "robot0_forearm_link <-> robot0_wrist_3_link": 2
+      }
+     }
+    },
+    "signature": "no_path"
+   }
+  ],
+  "error": null,
+  "graded_in": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set2/pour_wrong_anchor/untyped/round_2_spec"
+ },
+ "diff": [],
+ "n_calls": 2
+}

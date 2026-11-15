@@ -1,0 +1,251 @@
+{
+ "fault": {
+  "fault_id": "pour_wrong_anchor",
+  "task": "pour_tea",
+  "category": "wrong_anchor",
+  "role": "transport_active",
+  "stage": "carry the teapot upright over the mug",
+  "pointer": "carry the teapot upright over the mug.point.teapot",
+  "before": "teapot.spout_tip",
+  "after": "teapot.handle_center",
+  "expect": "carry goal in collision (handle over the mug), or the pour rejects the entry",
+  "unfixable_by": [
+   "render_check"
+  ],
+  "pointers": [],
+  "kind": "plausible"
+ },
+ "condition": "render_check",
+ "repeat": 0,
+ "mode": "live",
+ "model": "claude-opus-5",
+ "temperature": null,
+ "call_cap": 8,
+ "round_budget": 2,
+ "start": {
+  "selections": "tasks/repair_study/start/pour_tea/selections.json",
+  "emissions": "tasks/repair_study/start/pour_tea/emissions.json"
+ },
+ "start_sha": "a7ca4443cdf1666a",
+ "rounds": [
+  {
+   "round": 1,
+   "kind": "check",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set2/pour_wrong_anchor/render_check/round_1",
+   "calls": [
+    {
+     "touchpoint": "render_check",
+     "attempts": 1,
+     "input_tokens": 5760,
+     "output_tokens": 1108,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      1108
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "carry the teapot upright over the mug": "b89dd3948c02",
+    "tilt the teapot to pour into the mug": "dd8475d25334"
+   },
+   "stage": "carry the teapot upright over the mug",
+   "labels": [
+    {
+     "stage": "carry the teapot upright over the mug",
+     "label": "refine"
+    }
+   ],
+   "reasoning": "The goal render shows the teapot upright, which satisfies the orientation requirement, and it is near the mug. However, the placement looks off: in the top view the teapot's body center sits well to one side of mug.opening_center (the mug appears behind the teapot handle rather than under the body), so the 'centered on opening' condition is only loosely met, and in the iso view the teapot body appears to hang very low over/next to the mug rim, suggesting the 'large clearance' above the opening is not actually realized and a collision with the mug is plausible. The pose is of the right type (upright, hovering near the mug) but needs to be shifted to be properly centered and raised higher above the mug opening.",
+   "compiled": {
+    "carry the teapot upright over the mug": true,
+    "tilt the teapot to pour into the mug": "compile rejected: tilt the teapot to pour into the mug.path.trans[0]: the entry pose lies outside the path's y band [-0.020, +0.020] by 0.194 m \u2014 more than the 0.03 m the planner's start projection closes. Path terms hold from entry to subgoal: leave y free on the path, or split the stage (lift, then traverse)"
+   }
+  },
+  {
+   "round": 2,
+   "kind": "regenerate",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set2/pour_wrong_anchor/render_check/round_1",
+   "calls": [
+    {
+     "touchpoint": "emit_constraints",
+     "attempts": 1,
+     "input_tokens": 7474,
+     "output_tokens": 939,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      939
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "transport teapot above mug": "0a8a7d322bcc",
+    "tilt the teapot to pour into the mug": "dd8475d25334"
+   },
+   "stage": "carry the teapot upright over the mug",
+   "action": "regenerate_near",
+   "rewrite": {
+    "stage": "transport",
+    "attempts": [
+     {
+      "raw": "{\"stage\": 2, \"name\": \"transport teapot above mug\", \"active\": \"teapot\", \"passive\": \"mug\", \"goal\": \"teapot.handle_center ends up over mug.opening_center at a standoff above the rim, with teapot.+up still pointing the way world.z points.\", \"path_tsr\": {\"rot\": [{\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"free\"}]}, \"subgoal_tsr\": {\"rot\": [{\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"}, {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"medium\", \"slack\": \"moderate\"}]}, \"verify\": \"Throughout the carry teapot.+up stays within a few degrees of world.z so the pot stays upright; at the subgoal teapot.handle_center sits over mug.opening_center within a couple of centimetres in x and y and a few centimetres above the rim, with heading about the vertical left free.\"}",
+      "compiled": true
+     }
+    ],
+    "feedback": [
+     "A visual check of this stage returned: refine (roughly right, somewhat off). Write the stage again, close to your previous answer. Re-emit the JSON object only."
+    ],
+    "role": "transport_active"
+   }
+  },
+  {
+   "round": 3,
+   "kind": "check",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set2/pour_wrong_anchor/render_check/round_2",
+   "calls": [
+    {
+     "touchpoint": "render_check",
+     "attempts": 1,
+     "input_tokens": 5740,
+     "output_tokens": 1576,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      1576
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "transport teapot above mug": "0a8a7d322bcc",
+    "tilt the teapot to pour into the mug": "dd8475d25334"
+   },
+   "stage": "transport teapot above mug",
+   "labels": [
+    {
+     "stage": "transport teapot above mug",
+     "label": "refine"
+    }
+   ],
+   "reasoning": "The teapot is held upright (up axis along world z) above/near the mug, which is the right orientation for a pre-pour transport stage. However, in the rendered goal the teapot's body is not clearly centered over the mug opening \u2014 the mug peeks out behind/left of the teapot in the iso view and the mug opening center projects noticeably off the teapot's vertical axis in the top view \u2014 and the vertical clearance looks marginal, with the teapot body appearing to overlap the mug rim rather than hovering clearly above it. The overall intent is correct, so only a small adjustment in XY centering and lift height is needed.",
+   "compiled": {
+    "transport teapot above mug": true,
+    "tilt the teapot to pour into the mug": "compile rejected: tilt the teapot to pour into the mug.path.trans[0]: the entry pose lies outside the path's y band [-0.020, +0.020] by 0.194 m \u2014 more than the 0.03 m the planner's start projection closes. Path terms hold from entry to subgoal: leave y free on the path, or split the stage (lift, then traverse)"
+   }
+  },
+  {
+   "round": 4,
+   "kind": "regenerate",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set2/pour_wrong_anchor/render_check/round_2",
+   "calls": [
+    {
+     "touchpoint": "emit_constraints",
+     "attempts": 1,
+     "input_tokens": 7001,
+     "output_tokens": 886,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      886
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "transport": "30b05f297ec3",
+    "tilt the teapot to pour into the mug": "dd8475d25334"
+   },
+   "stage": "transport teapot above mug",
+   "action": "regenerate",
+   "rewrite": {
+    "stage": "transport",
+    "attempts": [
+     {
+      "raw": "{\"stage\": 2, \"name\": \"transport\", \"active\": \"teapot\", \"passive\": \"mug\", \"goal\": \"Carry the teapot upright until teapot.handle_center hovers over mug.opening_center, well clear above the mug rim, with teapot.+up still pointing up.\", \"path_tsr\": {\"rot\": [{\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"free\"}]}, \"subgoal_tsr\": {\"rot\": [{\"axis\": \"teapot.+up\", \"points\": \"world.z\", \"tol\": \"tight\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"loose\"}, {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"large\", \"slack\": \"moderate\"}]}, \"verify\": \"Teapot stays upright (its +up within tolerance of world.z) for the whole motion, and ends with handle_center within a few cm of mug.opening_center in x/y and in a band starting about 8 cm above the mug opening.\"}",
+      "compiled": true
+     }
+    ],
+    "feedback": [],
+    "role": "transport_active"
+   }
+  },
+  {
+   "round": 5,
+   "kind": "check",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/scale/set2/pour_wrong_anchor/render_check/round_3",
+   "calls": [
+    {
+     "touchpoint": "render_check",
+     "attempts": 1,
+     "input_tokens": 5701,
+     "output_tokens": 803,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      803
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "transport": "30b05f297ec3",
+    "tilt the teapot to pour into the mug": "dd8475d25334"
+   },
+   "stage": "transport",
+   "labels": [
+    {
+     "stage": "transport",
+     "label": "refine"
+    }
+   ],
+   "reasoning": "The teapot is brought over the mug with its up-axis vertical, which is right for an approach before pouring. However, in the iso view the teapot appears to sit at essentially table/mug height, with its body occluding and overlapping the mug rather than hovering clearly above it, so the 'above mug.opening_center with large clearance' requirement is not visibly met and a collision with the mug is likely. Also, centering the teapot body (rather than the spout) over the mug opening leaves the spout off to the side, which is only marginally useful for the subsequent pour. The XY placement and upright orientation are roughly correct, so a nearby version with more vertical clearance (and a slight offset so the spout sits over the opening) would work.",
+   "compiled": {
+    "transport": true,
+    "tilt the teapot to pour into the mug": "compile rejected: tilt the teapot to pour into the mug.path.trans[0]: the entry pose lies outside the path's y band [-0.020, +0.020] by 0.194 m \u2014 more than the 0.03 m the planner's start projection closes. Path terms hold from entry to subgoal: leave y free on the path, or split the stage (lift, then traverse); tilt the teapot to pour into the mug.path.trans[1]: the entry pose lies outside the path's z band [+0.080, +0.100] by 0.042 m \u2014 more than the 0.03 m the planner's start projection closes. Path terms hold from entry to subgoal: leave z free on the path, or split the stage (lift, then traverse)"
+   }
+  }
+ ],
+ "final": {
+  "accepted": false,
+  "planned_in_loop": false,
+  "grades": [],
+  "error": null,
+  "stopped": "round budget spent"
+ },
+ "diff": [
+  {
+   "pointer": "carry the teapot upright over the mug.point.teapot",
+   "before": "mark 3",
+   "after": "mark 1"
+  },
+  {
+   "pointer": "carry the teapot upright over the mug.path.rot[0]",
+   "before": "teapot.up_axis parallel world.z, tol tight",
+   "after": "teapot.up_axis parallel world.z, tol moderate"
+  },
+  {
+   "pointer": "carry the teapot upright over the mug.subgoal.trans[0]",
+   "before": "centered on mug.opening_center, tol moderate",
+   "after": "centered on mug.opening_center, tol loose"
+  },
+  {
+   "pointer": "carry the teapot upright over the mug.subgoal.trans[1]",
+   "before": "above mug.opening_center, clearance large, slack snug",
+   "after": "above mug.opening_center, clearance large, slack moderate"
+  }
+ ],
+ "n_calls": 5
+}

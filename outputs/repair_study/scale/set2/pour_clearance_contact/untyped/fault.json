@@ -1,0 +1,14 @@
+{
+ "fault_id": "pour_clearance_contact",
+ "task": "pour_tea",
+ "category": "clearance",
+ "role": "transport_active",
+ "stage": "carry the teapot upright over the mug",
+ "pointer": "carry the teapot upright over the mug.subgoal.trans[1]",
+ "before": "above mug.opening_center, clearance large, slack snug",
+ "after": "above mug.opening_center, clearance contact, slack snug",
+ "expect": "goal region in collision: no collision-free carry goal, teapot body against the mug",
+ "unfixable_by": [],
+ "pointers": [],
+ "kind": "plausible"
+}
