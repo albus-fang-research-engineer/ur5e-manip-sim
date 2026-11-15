@@ -486,9 +486,11 @@ re-plans once).
 comparison:** its grading still has an open grader-side issue (below), and its failures
 are being diagnosed. Insert numbers are more settled but also interim.
 
-5 answers per variant per task, 3 planner seeds each, all graded with the same code (fecef1b;
-the A0 tags' files record 3f5c951, a docs-only commit later) (insert: final tilt
-<= 30 deg, tilt inside the cup reported; pour: carry tilt per axis <= 15 deg, spout <= 25 deg).
+5 answers per variant per task, 3 planner seeds each, all rescored at 3edfaf7 with the same
+grading (insert: final tilt
+<= 30 deg, tilt inside the cup reported; pour: carry tilt per axis <= 15 deg + 1 deg frame
+tolerance, spout <= 25 deg). Numbers unchanged by the rescoring (re-planned seeds reproduce,
+being seeded); with the tolerance one A0-with-ranges pour seed now passes the carry check.
 "Answers" = succeeding in a majority of seeds.
 
 | Variant | Insert (upright), answers (seeds) | Pour tea, answers (seeds) **NOT READY** | Pour seeds planned |
@@ -499,11 +501,15 @@ the A0 tags' files record 3f5c951, a docs-only commit later) (insert: final tilt
 | A4 unconstrained code (`pilot2`) | 4/5 (12/15) | 1/5 (3/15) | 10/15 |
 | A5 direct bounds (`pilot2`) | 5/5 (15/15) | 1/5 (3/15) | 10/15 |
 
-Open on pour: (1) the per-axis carry check reads ~0.6 deg more than the planner's own bound
-at waypoints the planner put on the region's edge (15.6 vs 15.0): a grader-side frame
-difference, not a plan violation; it fails 5 A0 seeds. (2) the dominant failure is the spout
+Open on pour: (1) [addressed: 1 deg frame tolerance, ablation spec] the per-axis carry check
+read ~0.6 deg over the planner's own bound at waypoints on the region's edge. (2) the dominant failure is the spout
 not pointing down enough at the end (A4 7/15, A5 7/15, A0 8/15 seeds): authored pour attitudes
 looser than the 25 deg spout criterion, with goals sampled anywhere in the region. (3) planner
 failures on 5-6 seeds per code variant (search limit, no reachable goal, and a few
 grasp-stage "no candidate survived"; the scorer now files search-limit and grasp failures
 as their own cached categories).
+- **Rescoring cost:** with the two-layer cache (3edfaf7) a grading or spec change re-grades
+  saved plans only. The first run under it took 48 min because an earlier input-hash change
+  (8682d88) re-planned every insert seed once; pour was re-graded except 7 seeds whose plans
+  an interrupted run had deleted. Still uncached on every run: the robot-free handoff
+  diagnostic (slow for A4, one subprocess per sample).
