@@ -498,10 +498,13 @@ being seeded); with the tolerance one A0-with-ranges pour seed now passes the ca
 | Variant | Insert (upright), answers (seeds) | Pour tea, answers (seeds) **NOT READY** | Pour seeds planned |
 |---|---|---|---|
 | A0 framed-chained, words without meanings (tag `pilot2`) | 5/5 (15/15) | 0/5 (0/15) | 0/15 |
-| A0 framed-chained, words with ranges (tag `a0-meanings-neutral`) | 4/5 (12/15) | 0/5 (2/15) | 15/15 |
-| A3 constrained code (`pilot2`) | 5/5 (15/15) | 2/5 (5/15) | 9/15 |
-| A4 unconstrained code (`pilot2`) | 4/5 (12/15) | 1/5 (3/15) | 10/15 |
-| A5 direct bounds (`pilot2`) | 5/5 (15/15) | 1/5 (3/15) | 10/15 |
+| A0 framed-chained, words with ranges (tag `a0-meanings-neutral`) | 4/5 (12/15) | 2/5 (8/15) | 15/15 |
+| A3 constrained code (`pilot2`) | 5/5 (15/15) | 3/5 (7/15) | 9/15 |
+| A4 unconstrained code (`pilot2`) | 4/5 (12/15) | 2/5 (4/15) | 10/15 |
+| A5 direct bounds (`pilot2`) | 5/5 (15/15) | 2/5 (6/15) | 10/15 |
+
+(Re-graded at 6dfd7d0 with the spout limit at 30 deg: 3.5 min, re-grade only. Open: whether
+to also grade where a straight stream from the spout lands; see below.)
 
 Open on pour: (1) [addressed: 1 deg frame tolerance, ablation spec] the per-axis carry check
 read ~0.6 deg over the planner's own bound at waypoints on the region's edge. (2) the dominant failure is the spout
