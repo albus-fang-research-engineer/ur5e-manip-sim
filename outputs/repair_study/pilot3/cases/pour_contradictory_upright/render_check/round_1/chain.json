@@ -1,0 +1,20 @@
+[
+ {
+  "role": "grasp",
+  "stage": "grasp the teapot by its handle",
+  "compiled": false,
+  "error": null
+ },
+ {
+  "role": "transport_active",
+  "stage": "carry the teapot upright over the mug",
+  "compiled": true,
+  "error": null
+ },
+ {
+  "role": "pour",
+  "stage": "tilt the teapot to pour into the mug",
+  "compiled": false,
+  "error": "compile rejected: tilt the teapot to pour into the mug.subgoal.rot[0]: inconsistent with tilt the teapot to pour into the mug.subgoal.rot[1]: the axes are 90 deg apart but the references 180 deg apart, so no attitude satisfies both. Drop one of the two rows \u2014 keep the one naming the direction this stage must point somewhere. Flipping a sign cannot fix it: the two angles would still differ; tilt the teapot to pour into the mug.subgoal.rot[1]: the other row of the pair; see tilt the teapot to pour into the mug.subgoal.rot[0]"
+ }
+]

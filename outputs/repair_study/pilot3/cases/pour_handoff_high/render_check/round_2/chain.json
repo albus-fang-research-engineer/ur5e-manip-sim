@@ -1,0 +1,20 @@
+[
+ {
+  "role": "grasp",
+  "stage": "grasp the teapot by its handle",
+  "compiled": false,
+  "error": null
+ },
+ {
+  "role": "transport_active",
+  "stage": "transport teapot over mug",
+  "compiled": true,
+  "error": null
+ },
+ {
+  "role": "pour",
+  "stage": "tilt the teapot to pour into the mug",
+  "compiled": true,
+  "error": null
+ }
+]

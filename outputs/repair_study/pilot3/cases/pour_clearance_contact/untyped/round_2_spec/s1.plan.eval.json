@@ -1,0 +1,39 @@
+{
+  "plan": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/pilot3/cases/pour_clearance_contact/untyped/round_2_spec/s1.plan.npz",
+  "carrying": {
+    "max_tilt_deg": 5.2,
+    "tilt_at_quarters_deg": [
+      4.4,
+      37.3,
+      67.7
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 27.2,
+    "spout_wander_mm": 23.8,
+    "tilt_axis_off_level_deg": 15.0
+  },
+  "end": {
+    "lateral_mm": 13.0,
+    "height_mm": 44.8,
+    "tilt_deg": 85.2,
+    "spout_off_down_deg": 5.1,
+    "stream_off_mm": 10.7
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {},
+  "colliding_points": 0,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

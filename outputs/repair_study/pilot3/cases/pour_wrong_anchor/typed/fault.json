@@ -1,0 +1,16 @@
+{
+ "fault_id": "pour_wrong_anchor",
+ "task": "pour_tea",
+ "category": "wrong_anchor",
+ "role": "transport_active",
+ "stage": "carry the teapot upright over the mug",
+ "pointer": "carry the teapot upright over the mug.point.teapot",
+ "before": "teapot.spout_tip",
+ "after": "teapot.handle_center",
+ "expect": "carry goal in collision (handle over the mug), or the pour rejects the entry",
+ "unfixable_by": [
+  "render_check"
+ ],
+ "pointers": [],
+ "kind": "plausible"
+}
