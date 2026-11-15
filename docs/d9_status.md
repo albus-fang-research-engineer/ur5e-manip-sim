@@ -49,23 +49,40 @@ is written up). Branch `worktree-d9-omnimanip` (worktree
 
 ## Results
 
-### Scale-up set 1 (2026-11-15): current loop for every condition
+### Scale-up sets 1-2 (2026-11-15): current loop for every condition
 
-5 shared pour faults x 3 conditions x 1 run; upstream-first rule and the new call #3
-prompt; outputs/repair_study/scale/set1; logged cost $7.99.
+Pour tea, upstream-first rule and the new call #3 prompt for every condition.
+Set 1: 5 shared faults x 3 conditions (outputs/repair_study/scale/set1, $7.99).
+Set 2a: the 2 Langfold-only faults x 3 conditions (also scale/set1). Set 2b: a
+second run of the 5 shared faults (scale/set2). Sets 2a + 2b: 21 runs, $11.71.
+Fixed = runs fixed / runs; calls = VLM calls per run, on average.
 
-| Fault | Langfold fixed | Langfold calls | Withheld fixed | Withheld calls | OmniManip-style fixed | OmniManip-style calls |
-|---|---|---|---|---|---|---|
-| wrong anchor, both stages | 1/1 | 2 | 1/1 | 2 | 0/1 | 6 |
-| wrong anchor, carry only | 1/1 | 2 | 1/1 | 2 | 0/1 | 5 |
-| height contact | 0/1 | 5 | 0/1 | 5 | 0/1 | 6 |
-| height small | 1/1 | 5 | 0/1 | 5 | 0/1 | 6 |
-| clearance contact | 1/1 | 3 | 0/1 | 4 | 0/1 | 7 |
-| **Shared total** | **4/5** | **3.4** | **2/5** | **3.6** | **0/5** | **6.0** |
+| Fault | Type | Langfold fixed | Langfold calls | Withheld fixed | Withheld calls | OmniManip-style fixed | OmniManip-style calls |
+|---|---|---|---|---|---|---|---|
+| wrong anchor, both stages | shared | 2/2 | 2 | 2/2 | 2 | 0/2 | 5.5 |
+| wrong anchor, carry only | shared | 2/2 | 2 | 2/2 | 2 | 0/2 | 5 |
+| height contact | shared | 1/2 | 4.5 | 0/2 | 5 | 0/2 | 6 |
+| height small | shared | 2/2 | 5 | 0/2 | 6 | 0/2 | 6 |
+| clearance contact | shared | 1/2 | 3.5 | 0/2 | 4 | 0/2 | 6.5 |
+| **Shared total** | | **8/10** | **3.4** | **4/10** | **3.8** | **0/10** | **5.8** |
+| handoff | Langfold-only | 0/1 | 5 | 0/1 | 4 | 0/1 | 5 |
+| contradictory rows | Langfold-only | 0/1 | 4 | 0/1 | 4 | 0/1 | 3 |
+| **All faults** | | **8/12** | **3.6** | **4/12** | **3.8** | **0/12** | **5.5** |
 
-Langfold's height-contact loss: the fault spans the carry and the pour (one height
-for both), so both stages needed rewriting, one per round; call #3's pour rewrite
-came out looser and the last round went to tightening it (round budget 2).
+Calls per fixed run: Langfold 5.4, withheld 11.5, OmniManip-style none fixed.
+
+Langfold's losses share one pattern: a round went to re-tightening the pour after
+call #3 rewrote it, not to the fault (round budget 2).
+- Height contact (set 1): the fault spans the carry and the pour (one height for
+  both), so both stages needed rewriting, one per round; the pour rewrite came out
+  looser and the last round went to tightening it.
+- Contradictory rows: round 1 fixed the fault; round 2 tightened the pour path
+  unprompted; accepted, but passed the grader on seed 0 only (seed 1 goal check
+  failed, seed 2 no path).
+- Handoff: round 1 fixed the carry, round 2 tightened the pour; round 3 saw that the
+  pour still started from the high carry height, with the budget spent.
+Possibly a side effect of the new call #3 prompt (word ranges); the pilot (old
+prompt) fixed handoff 2/3 and contradictory rows 1/1. One run each: a signal.
 
 ### Earlier results (mixed versions)
 
@@ -98,8 +115,8 @@ Insert marker, pilot 2 (outputs/repair_study/pilot2): wrong anchor typed fixed (
 untyped fixed (3), render_check not (6, cannot by construction); contradictory rows
 and handoff (compile-time) fixed by all three conditions in 3 calls.
 
-Spend so far ~$33 (pilot 1 $4.06, pilot 2 $2.89, controls ~$0.70, probes ~$0.10,
-pilot 3 $11.25, rule reruns $5.43, etc.).
+Spend so far ~$53 (pilot 1 $4.06, pilot 2 $2.89, controls ~$0.70, probes ~$0.10,
+pilot 3 $11.25, rule reruns $5.43, scale-up set 1 $7.99, sets 2a + 2b $11.71, etc.).
 
 ## How to run
 
@@ -117,7 +134,8 @@ pilot 3 $11.25, rule reruns $5.43, etc.).
 1. Grader step: pour spout limit 25 deg (and the compiler's 5 deg allowance?) into D9,
    then re-qualify the starting specs and faults.
 2. Scale-up bit by bit on the current loop (upstream-first + new call #3 prompt), so
-   every condition runs on one version. Set 1 (approved 2026-11-15): the 5 shared pour
-   faults x 3 conditions x 1 run -> outputs/repair_study/scale/set1.
+   every condition runs on one version. Done: set 1 (5 shared faults x 3 conditions)
+   and sets 2a + 2b (2 Langfold-only faults; second run of the shared faults).
+   Open: whether call #3's pour rewrites cause Langfold's extra tightening rounds.
 3. docs/deferred.md D9 entry to update with the decisions above.
 4. Paper (extended abstract): H5 as a hypothesis only; not edited (user on hold).
