@@ -933,3 +933,21 @@ def test_a0_prompt_shows_each_word_as_the_range_the_compiler_uses(vocab):
     assert "neutral-pick-2026-11-14" in PROMPT_DELTAS
     system, _ = build_emission_prompt(STAGE, vocab)
     assert text in system
+
+
+def test_critic_review_text_is_opt_in_and_names_rounds_and_history():
+    from manip_sim.vlm import critic_review_text
+    system, block = critic_review_text({"round": 1, "rounds_max": 3, "earlier": []})
+    assert "at most 3 rounds and this is round 1" in system and "EVERY edit" in system
+    assert block == ""
+    system, block = critic_review_text({"round": 2, "rounds_max": 3, "earlier": [{
+        "round": 1, "diagnosis": "heading free at the carry goal",
+        "stages": [{"stage": "pour", "observed": "rows are adequate"}],
+        "edits": [{"target": "carry.path.rot[0]", "action": "tighten_tolerance",
+                   "before": "tol moderate", "after": "tol tight"}],
+        "reemitted": ["carry"]}]})
+    assert "round 2" in system
+    assert "Round 1: rejected. Diagnosis: heading free at the carry goal" in block
+    assert "observed, pour: rows are adequate" in block
+    assert "applied: tighten_tolerance on carry.path.rot[0] (tol moderate -> tol tight)" in block
+    assert "re-emitted since: carry" in block and "stays accepted" in block

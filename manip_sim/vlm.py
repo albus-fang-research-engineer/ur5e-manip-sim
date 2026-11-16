@@ -1518,8 +1518,51 @@ def _licensed_tokens(vocab: Vocabulary) -> str:
         for o, t in sorted(vocab.objects.items()))
 
 
+def critic_review_text(review: dict) -> tuple[str, str]:
+    """(system paragraph, user-turn block) that give the critic its place in
+    the loop. `review`: {"round": n, "rounds_max": m, "earlier": [{"round",
+    "stages": [{"stage", "observed"}], "edits": [{"target", "action",
+    "before", "after"}], "reemitted": [stage names], "diagnosis"}]}.
+    Without it every round is a fresh, memoryless judgment: on hardware
+    20261114_230303 the critic called a row "reasonable" in round 1 and
+    rejected that unchanged row in round 2, one edit per round, and ran out
+    of rounds in 4 of 6 runs."""
+    n, m = int(review["round"]), int(review["rounds_max"])
+    system = (
+        f"This review has at most {m} rounds and this is round {n}. Report "
+        "EVERY edit you need in order to accept, in this one answer: go "
+        "through every row of every editable stage before deciding. An edit "
+        "you leave out now cannot be asked for after the last round, and a "
+        "specification still rejected then is discarded.\n\n")
+    earlier = review.get("earlier") or []
+    if not earlier:
+        return system, ""
+    lines = ["Earlier rounds of this review (your own verdicts and what "
+             "was changed after each):"]
+    for r in earlier:
+        lines.append(f"Round {r['round']}: rejected. Diagnosis: {r['diagnosis']}")
+        for s in r.get("stages", ()):
+            lines.append(f"  observed, {s['stage']}: {s['observed']}")
+        for e in r.get("edits", ()):
+            lines.append(f"  applied: {e['action']} on {e['target']}"
+                         + (f" ({e['before']} -> {e['after']})"
+                            if e.get("before") else ""))
+        for name in r.get("reemitted", ()):
+            lines.append(f"  re-emitted since: {name} (its rows are new)")
+    lines.append(
+        "Rules for this round: (1) The applied edits are in the report "
+        "above; check that they did what your diagnosis asked. (2) A row "
+        "you looked at in an earlier round without asking to edit it, and "
+        "that has not changed since, stays accepted: do not edit it now. "
+        "(3) The rows of a stage re-emitted since are new: judge them "
+        "afresh. Accept when the earlier diagnoses are resolved and the "
+        "new rows are sound.")
+    return system, "\n".join(lines)
+
+
 def build_critic_prompt_v2(report: dict, views: list[tuple[str, Path]],
-                           vocab: Vocabulary) -> tuple[str, list]:
+                           vocab: Vocabulary, review: dict | None = None
+                           ) -> tuple[str, list]:
     """Call #4, critic v2 (opt-in; Client.critique_preview_v2). `report` is
     critic.build_preview_report's output; `views` are (caption, image)
     pairs from the preview renderer: one image per state (the initial scene,
@@ -1586,6 +1629,12 @@ def build_critic_prompt_v2(report: dict, views: list[tuple[str, Path]],
         "str|null}], \"diagnosis\": str}. A reject needs at least one edit "
         "and a diagnosis; an accept has no edits. " + _JSON_ONLY)
     content: list[dict] = [_text("Preview report:\n" + report_json(report))]
+    if review is not None:          # opt-in; None leaves the request unchanged
+        rounds, earlier = critic_review_text(review)
+        marker = "Accept, or reject with typed edits."
+        system = system.replace(marker, rounds + marker, 1)
+        if earlier:
+            content.append(_text(earlier))
     for caption, p in views:
         content += [_text(caption), image_block(p)]
     return system, [{"role": "user", "content": content}]
@@ -1971,12 +2020,14 @@ class Client:
     def critique_preview_v2(self, report: dict,
                             views: list[tuple[str, Path]],
                             vocab: Vocabulary, state,
-                            ledger=None) -> "object":
+                            ledger=None, review: dict | None = None
+                            ) -> "object":
         """Opt-in critic v2: build_critic_prompt_v2 + parse_critic_v2
         (state: manip_sim.critic.SpecState; ledger: critic.LoopLedger, so
         a reversal is refused inside the parse-retry loop). The v1 method
         above is unchanged."""
-        system, messages = build_critic_prompt_v2(report, views, vocab)
+        system, messages = build_critic_prompt_v2(report, views, vocab,
+                                                  review=review)
         return self._ask("critique_preview_v2", system, messages,
                          lambda raw: parse_critic_v2(raw, vocab, state, ledger),
                          max_tokens=CRITIC_MAX_TOKENS)
