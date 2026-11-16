@@ -379,6 +379,51 @@ def _case_c5_repair_v2_withheld(views, monkeypatch):
                                   reason_withheld=True)
 
 
+REVIEW = {"round": 3, "rounds_max": 3, "earlier": [
+    {"round": 1, "diagnosis": "transport goal leaves heading free",
+     "stages": [{"stage": "transport", "observed": "yaw free at the goal"},
+                {"stage": "pour", "observed": "rows adequate"}],
+     "edits": [], "reemitted": ["transport"]},
+    {"round": 2, "diagnosis": "pour path centering too loose",
+     "stages": [{"stage": "transport", "observed": "heading now pinned"},
+                {"stage": "pour", "observed": "tip may drift 2 cm"}],
+     "edits": [{"target": "pour.path.trans[0]", "action": "tighten_tolerance",
+                "before": "centered on mug.rim_center, tol moderate",
+                "after": "centered on mug.rim_center, tol snug"}],
+     "reemitted": []}]}
+
+
+def _case_c4_critic_v2_review(views, monkeypatch):
+    return build_critic_prompt_v2(
+        _critic_report(), [("state 0: initial scene", views["iso"]),
+                        ("state 2: transport goal (subgoal nominal)", views["top"])],
+        VOCAB, review=REVIEW)
+
+
+def test_critic_v2_review_is_opt_in_and_placed(tmp_path):
+    from PIL import Image
+    img = tmp_path / "v.png"
+    Image.new("RGB", (4, 4)).save(img)
+    views = [("state 0: initial scene", img)]
+    base = build_critic_prompt_v2(_critic_report(), views, VOCAB)
+    assert build_critic_prompt_v2(_critic_report(), views, VOCAB, review=None) == base
+    system, messages = build_critic_prompt_v2(_critic_report(), views, VOCAB, review=REVIEW)
+    marker = "Accept, or reject with typed edits."
+    assert system.count("This review has at most 3 rounds and this is round 3.") == 1
+    assert "This is the last round: edits are not applied any more." in system
+    assert system.index("This review has at most") < system.index(marker)
+    assert system.replace(system[system.index("This review has at most"):system.index(marker)], "") == base[0]
+    texts = [b["text"] for b in messages[0]["content"] if b.get("type") == "text"]
+    assert texts[0].startswith("Preview report:")
+    assert texts[1].startswith("Earlier rounds of this review") and texts[2] == views[0][0]
+    # round 1's view of the stage re-emitted in round 1 is withheld; round 2's is kept
+    assert "observed, transport: (rows since replaced by a re-emission)" in texts[1]
+    assert "yaw free at the goal" not in texts[1] and "heading now pinned" in texts[1]
+    first = build_critic_prompt_v2(_critic_report(), views, VOCAB,
+                                   review={"round": 1, "rounds_max": 3, "earlier": []})
+    assert "This is the last round" not in first[0] and len(first[1][0]["content"]) == len(base[1][0]["content"])
+
+
 # name -> (call, builder, variant, build(views, monkeypatch))
 CASES = {
     # #1 plan_stages ---------------------------------------------------
@@ -477,6 +522,14 @@ CASES = {
         "repair v2, reason withheld (the study's untyped condition): the same "
         "inputs, the failure record replaced by one sentence",
         _case_c5_repair_v2_withheld),
+
+
+    "c4_critic_v2_review": (
+        "#4 critique_preview", "build_critic_prompt_v2",
+        "critic v2: action table, expected before observed, licensed "
+        "tokens, a one-stage report built by critic.build_preview_report, "
+        "two captioned views",
+        _case_c4_critic_v2_review),
     "c3_compile_rejection": (
         "#3 emit_constraints", "Client.emit_constraints",
         "text variant with one replayed compile-gate rejection",

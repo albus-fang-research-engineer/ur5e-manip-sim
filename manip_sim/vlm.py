@@ -1531,18 +1531,31 @@ def critic_review_text(review: dict) -> tuple[str, str]:
     system = (
         f"This review has at most {m} rounds and this is round {n}. Report "
         "EVERY edit you need in order to accept, in this one answer: go "
-        "through every row of every editable stage before deciding. An edit "
-        "you leave out now cannot be asked for after the last round, and a "
-        "specification still rejected then is discarded.\n\n")
+        "through every row of every editable stage before deciding. Edit "
+        "only a row for which you can name a pose its region allows that "
+        "would fail the task; a row that is merely loose is not a defect. "
+        "An edit you leave out now cannot be asked for after the last "
+        "round, and a specification still rejected then is discarded."
+        + (" This is the last round: edits are not applied any more. "
+           "Accept, or reject and the specification is discarded."
+           if n >= m else "") + "\n\n")
     earlier = review.get("earlier") or []
     if not earlier:
         return system, ""
     lines = ["Earlier rounds of this review (your own verdicts and what "
              "was changed after each):"]
+    # a stage re-emitted in round k or later has new rows: what was observed
+    # of it up to round k describes rows that no longer exist
+    last_reemit = {name: r["round"] for r in earlier
+                   for name in r.get("reemitted", ())}
     for r in earlier:
         lines.append(f"Round {r['round']}: rejected. Diagnosis: {r['diagnosis']}")
         for s in r.get("stages", ()):
-            lines.append(f"  observed, {s['stage']}: {s['observed']}")
+            if last_reemit.get(s["stage"], 0) >= r["round"]:
+                lines.append(f"  observed, {s['stage']}: (rows since "
+                             "replaced by a re-emission)")
+            else:
+                lines.append(f"  observed, {s['stage']}: {s['observed']}")
         for e in r.get("edits", ()):
             lines.append(f"  applied: {e['action']} on {e['target']}"
                          + (f" ({e['before']} -> {e['after']})"
@@ -1553,7 +1566,11 @@ def critic_review_text(review: dict) -> tuple[str, str]:
         "Rules for this round: (1) The applied edits are in the report "
         "above; check that they did what your diagnosis asked. (2) A row "
         "you looked at in an earlier round without asking to edit it, and "
-        "that has not changed since, stays accepted: do not edit it now. "
+        "that has not changed since, stays accepted: do not edit it now, "
+        "unless something it depends on changed since (the previous "
+        "stage's goal, or a stage re-emitted since) or the report now shows "
+        "a compile error or 'no collision-free pose found in the region' "
+        "for its stage; then name that change in your diagnosis. "
         "(3) The rows of a stage re-emitted since are new: judge them "
         "afresh. Accept when the earlier diagnoses are resolved and the "
         "new rows are sound.")
@@ -1632,6 +1649,9 @@ def build_critic_prompt_v2(report: dict, views: list[tuple[str, Path]],
     if review is not None:          # opt-in; None leaves the request unchanged
         rounds, earlier = critic_review_text(review)
         marker = "Accept, or reject with typed edits."
+        if system.count(marker) != 1:      # a reworded prompt must not drop
+            raise ValueError("critic v2 system prompt: review insertion "
+                             f"point {marker!r} not found exactly once")
         system = system.replace(marker, rounds + marker, 1)
         if earlier:
             content.append(_text(earlier))

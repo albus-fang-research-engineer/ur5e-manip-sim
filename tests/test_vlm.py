@@ -951,3 +951,7 @@ def test_critic_review_text_is_opt_in_and_names_rounds_and_history():
     assert "observed, pour: rows are adequate" in block
     assert "applied: tighten_tolerance on carry.path.rot[0] (tol moderate -> tol tight)" in block
     assert "re-emitted since: carry" in block and "stays accepted" in block
+    assert "unless something it depends on changed since" in block
+    assert "merely loose is not a defect" in system and "This is the last round" not in system
+    assert "last round: edits are not applied" in critic_review_text(
+        {"round": 3, "rounds_max": 3, "earlier": []})[0]
