@@ -1531,10 +1531,11 @@ def critic_review_text(review: dict) -> tuple[str, str]:
     system = (
         f"This review has at most {m} rounds and this is round {n}. Report "
         "EVERY edit you need in order to accept, in this one answer: go "
-        "through every row of every editable stage before deciding. Edit "
-        "only a row for which you can name a pose its region allows that "
-        "would fail the task; a row that is merely loose is not a defect. "
-        "An edit you leave out now cannot be asked for after the last "
+        "through every row of every editable stage before deciding. "
+        + ("Edit only a row for which you can name a pose its region "
+           "allows that would fail the task; a row that is merely loose is "
+           "not a defect. " if review.get("name_failing_pose", True) else "")
+        + "An edit you leave out now cannot be asked for after the last "
         "round, and a specification still rejected then is discarded."
         + (" This is the last round: edits are not applied any more. "
            "Accept, or reject and the specification is discarded."
