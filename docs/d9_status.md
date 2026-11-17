@@ -54,7 +54,8 @@ is written up). Branch `worktree-d9-omnimanip` (worktree
 Pour tea, upstream-first rule and the new call #3 prompt for every condition.
 Set 1: 5 shared faults x 3 conditions (outputs/repair_study/scale/set1, $7.99).
 Set 2a: the 2 Langfold-only faults x 3 conditions (also scale/set1). Set 2b: a
-second run of the 5 shared faults (scale/set2). Sets 2a + 2b: 21 runs, $11.71.
+second run of the 5 shared faults (scale/set2). Sets 2a + 2b: 21 runs, $11.06
+(first reported as $11.71: that sum counted re-emit calls twice).
 Fixed = runs fixed / runs; calls = VLM calls per run, on average.
 
 | Fault | Type | Langfold fixed | Langfold calls | Withheld fixed | Withheld calls | OmniManip-style fixed | OmniManip-style calls |
@@ -83,6 +84,36 @@ call #3 rewrote it, not to the fault (round budget 2).
   pour still started from the high carry height, with the budget spent.
 Possibly a side effect of the new call #3 prompt (word ranges); the pilot (old
 prompt) fixed handoff 2/3 and contradictory rows 1/1. One run each: a signal.
+
+### Critic memory check (2026-11-16, branch d9-critic-memory)
+
+Langfold (typed) with `--critic-memory` (vlm.critic_review_text from the hardware
+session's critic-memory branch: round n of 3, all edits at once, edit only rows
+with a nameable failing pose, earlier verdicts and what changed; sim loop: rounds
+from the shared ledger, no planner text in the history). 7 pour faults x 1 run
+(outputs/repair_study/memory/faults), $3.32; controls on the unfaulted start spec,
+one critic call each, 3 with and 3 without memory (memory/control), $1.59.
+
+| Fault | No memory fixed | No memory calls | Memory fixed | Memory calls |
+|---|---|---|---|---|
+| wrong anchor, both stages | 2/2 | 2 | 1/1 | 2 |
+| wrong anchor, carry only | 2/2 | 2 | 1/1 | 2 |
+| height contact | 1/2 | 4.5 | 1/1 | 5 |
+| height small | 2/2 | 5 | 1/1 | 5 |
+| clearance contact | 1/2 | 3.5 | 1/1 | 4 |
+| handoff | 0/1 | 5 | 1/1 | 5 |
+| contradictory rows | 0/1 | 4 | 0/1 | 3 |
+| **All** | **8/12** | **3.6** | **6/7** | **3.7** |
+
+- False accepts (the critic accepted, then the spec failed the planner or grader):
+  no memory 1 of 9 accepts (contradictory rows, last round); memory 1 of 7 (the same
+  fault, round 2). Last-round accepts with memory: 3 of 3 then passed.
+- Contradictory rows fails the same way with and without memory (seed 1 goal check,
+  seed 2 no path on the unchanged carry): call #3's rewritten pour, not the critic.
+- False rejects on the correct spec: 0 of 3 with memory, 0 of 3 without (all 6
+  accepted and passed).
+- Memory turned the round-3 rejects that spent the budget (handoff, height contact)
+  into round-3 accepts that passed. One run per fault: a signal, not a rate.
 
 ### Earlier results (mixed versions)
 
@@ -115,8 +146,9 @@ Insert marker, pilot 2 (outputs/repair_study/pilot2): wrong anchor typed fixed (
 untyped fixed (3), render_check not (6, cannot by construction); contradictory rows
 and handoff (compile-time) fixed by all three conditions in 3 calls.
 
-Spend so far ~$53 (pilot 1 $4.06, pilot 2 $2.89, controls ~$0.70, probes ~$0.10,
-pilot 3 $11.25, rule reruns $5.43, scale-up set 1 $7.99, sets 2a + 2b $11.71, etc.).
+Spend so far ~$57 (pilot 1 $4.06, pilot 2 $2.89, controls ~$0.70, probes ~$0.10,
+pilot 3 $11.25, rule reruns $5.43, scale-up set 1 $7.99, sets 2a + 2b $11.06,
+critic memory check $4.91, etc.).
 
 ## How to run
 

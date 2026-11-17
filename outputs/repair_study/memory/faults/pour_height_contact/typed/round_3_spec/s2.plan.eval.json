@@ -1,0 +1,39 @@
+{
+  "plan": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/memory/faults/pour_height_contact/typed/round_3_spec/s2.plan.npz",
+  "carrying": {
+    "max_tilt_deg": 2.7,
+    "tilt_at_quarters_deg": [
+      2.8,
+      33.4,
+      65.0
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 27.3,
+    "spout_wander_mm": 52.3,
+    "tilt_axis_off_level_deg": 10.6
+  },
+  "end": {
+    "lateral_mm": 18.0,
+    "height_mm": 8.1,
+    "tilt_deg": 86.1,
+    "spout_off_down_deg": 4.7,
+    "stream_off_mm": 17.6
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {},
+  "colliding_points": 0,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": true,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": true,
+  "path_pass": true
+}

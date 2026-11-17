@@ -1,0 +1,247 @@
+{
+ "fault": {
+  "fault_id": "pour_contradictory_upright",
+  "task": "pour_tea",
+  "category": "contradictory_rows",
+  "role": "pour",
+  "stage": "tilt the teapot to pour into the mug",
+  "pointer": "tilt the teapot to pour into the mug.subgoal.rot[1]",
+  "before": "(no row)",
+  "after": "teapot.up_axis parallel world.z, tol tight",
+  "expect": "empty goal set: upright contradicts the tilted pour row",
+  "unfixable_by": [],
+  "pointers": [],
+  "kind": "compile"
+ },
+ "condition": "typed",
+ "repeat": 0,
+ "mode": "live",
+ "model": "claude-opus-5",
+ "temperature": null,
+ "call_cap": 8,
+ "round_budget": 2,
+ "critic_memory": true,
+ "start": {
+  "selections": "tasks/repair_study/start/pour_tea/selections.json",
+  "emissions": "tasks/repair_study/start/pour_tea/emissions.json"
+ },
+ "start_sha": "a7ca4443cdf1666a",
+ "rounds": [
+  {
+   "round": 1,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/memory/faults/pour_contradictory_upright/typed/round_1",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 11074,
+     "output_tokens": 2647,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      2647
+     ]
+    },
+    {
+     "touchpoint": "emit_constraints",
+     "attempts": 1,
+     "input_tokens": 8161,
+     "output_tokens": 672,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      672
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "carry the teapot upright over the mug": "71145e2f12f4",
+    "tilt the teapot to pour into the mug": "403e3ddf46ae"
+   },
+   "verdict": "reject",
+   "diagnosis": "The pour stage is unusable as written. (1) Its subgoal holds two contradictory attitude rows \u2014 'teapot.front_axis antiparallel mug.up_axis' and 'teapot.up_axis parallel world.z' \u2014 which the compiler rejects as an empty region; keep only the row naming the direction the pour must point somewhere (the spout direction pointing down into the mug) and drop the upright row. (2) The path rotation row fixes 'teapot.front_axis antiparallel mug.up_axis' at tight tolerance along the entire path; the stage begins from the upright carry pose, so neither the entry attitude nor any intermediate tilt angle lies in the path region and the tilt itself is impossible. The path must leave the tilt angle about the teapot's lateral axis free (while still keeping the spout_tip centered above and above mug.opening_center so nothing is poured outside the mug), e.g. by constraining the lateral axis to stay horizontal rather than fixing the spout direction. Rewrite the stage with a single consistent subgoal attitude row and a path that admits the upright-to-tilted rotation.",
+   "edits": [
+    {
+     "target": "tilt the teapot to pour into the mug",
+     "action": "reemit_stage",
+     "token": null,
+     "before": "emitted",
+     "after": "re-emit",
+     "direction": 0
+    }
+   ],
+   "review_round": [
+    1,
+    3
+   ],
+   "compiled": {
+    "carry the teapot upright over the mug": true,
+    "tilt the teapot to pour into the mug": "compile rejected: tilt the teapot to pour into the mug.subgoal.rot[0]: inconsistent with tilt the teapot to pour into the mug.subgoal.rot[1]: the axes are 90 deg apart but the references 180 deg apart, so no attitude satisfies both. Drop one of the two rows \u2014 keep the one naming the direction this stage must point somewhere. Flipping a sign cannot fix it: the two angles would still differ; tilt the teapot to pour into the mug.subgoal.rot[1]: the other row of the pair; see tilt the teapot to pour into the mug.subgoal.rot[0]"
+   },
+   "reemit": [
+    {
+     "stage": "pour",
+     "attempts": [
+      {
+       "raw": "{\"stage\": 3, \"name\": \"tilt the teapot to pour into the mug\", \"active\": \"teapot\", \"passive\": \"mug\", \"goal\": \"The teapot tips forward about its lateral axis until teapot.+front, the spout direction, points the way mug.-up points, with teapot.spout_tip held above and centered on mug.opening_center so the tea falls into the mug.\", \"path_tsr\": {\"rot\": [{\"axis\": \"teapot.+left\", \"perpendicular_to\": \"world.z\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"}, {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"large\", \"slack\": \"loose\"}]}, \"subgoal_tsr\": {\"rot\": [{\"axis\": \"teapot.+front\", \"points\": \"mug.-up\", \"tol\": \"moderate\"}], \"trans\": [{\"term\": \"centered\", \"anchor\": \"mug.opening_center\", \"tol\": \"moderate\"}, {\"term\": \"above\", \"anchor\": \"mug.opening_center\", \"clearance\": \"large\", \"slack\": \"loose\"}]}, \"verify\": \"The teapot rotates about its level lateral axis, spout first, until teapot.+front points the way mug.-up points; teapot.spout_tip stays above and centered on mug.opening_center throughout the tilt.\"}",
+       "compiled": true
+      }
+     ],
+     "feedback": [
+      "The compiler rejected that emission: compile rejected: tilt the teapot to pour into the mug.subgoal.rot[0]: inconsistent with tilt the teapot to pour into the mug.subgoal.rot[1]: the axes are 90 deg apart but the references 180 deg apart, so no attitude satisfies both. Drop one of the two rows \u2014 keep the one naming the direction this stage must point somewhere. Flipping a sign cannot fix it: the two angles would still differ; tilt the teapot to pour into the mug.subgoal.rot[1]: the other row of the pair; see tilt the teapot to pour into the mug.subgoal.rot[0]. A preview critic also reviewed the stage before planning: The pour stage is unusable as written. (1) Its subgoal holds two contradictory attitude rows \u2014 'teapot.front_axis antiparallel mug.up_axis' and 'teapot.up_axis parallel world.z' \u2014 which the compiler rejects as an empty region; keep only the row naming the direction the pour must point somewhere (the spout direction pointing down into the mug) and drop the upright row. (2) The path rotation row fixes 'teapot.front_axis antiparallel mug.up_axis' at tight tolerance along the entire path; the stage begins from the upright carry pose, so neither the entry attitude nor any intermediate tilt angle lies in the path region and the tilt itself is impossible. The path must leave the tilt angle about the teapot's lateral axis free (while still keeping the spout_tip centered above and above mug.opening_center so nothing is poured outside the mug), e.g. by constraining the lateral axis to stay horizontal rather than fixing the spout direction. Rewrite the stage with a single consistent subgoal attitude row and a path that admits the upright-to-tilted rotation.. Re-emit the corrected JSON object only, changing as little as needed."
+     ],
+     "role": "pour",
+     "emitted": true,
+     "calls": [
+      {
+       "touchpoint": "emit_constraints",
+       "attempts": 1,
+       "input_tokens": 8161,
+       "output_tokens": 672,
+       "rejections": [],
+       "stop_reasons": [
+        "end_turn"
+       ],
+       "output_tokens_per_attempt": [
+        672
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "round": 2,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/memory/faults/pour_contradictory_upright/typed/round_2",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 17649,
+     "output_tokens": 2887,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      2887
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "carry the teapot upright over the mug": "71145e2f12f4",
+    "tilt the teapot to pour into the mug": "e37ecdc5de3b"
+   },
+   "verdict": "accept",
+   "diagnosis": "The re-emitted pour stage fixes both round-1 faults: the subgoal now carries a single consistent attitude row (spout direction antiparallel to the mug's up axis) with no upright row, and the path leaves the tilt about the lateral axis free while keeping that axis horizontal and the spout_tip centered above and above the mug opening, so the upright-to-tilted rotation is admissible and nothing can be poured outside the mug. The carry stage is unchanged and its goal still supplies a valid entry to the new pour path.",
+   "edits": [],
+   "review_round": [
+    2,
+    3
+   ],
+   "compiled": {
+    "carry the teapot upright over the mug": true,
+    "tilt the teapot to pour into the mug": true
+   },
+   "planned": {
+    "ok": true,
+    "failure": null,
+    "signature": null
+   }
+  }
+ ],
+ "final": {
+  "accepted": true,
+  "planned_in_loop": true,
+  "grades": [
+   {
+    "seed": 0,
+    "planned": true,
+    "success": true,
+    "failure": null,
+    "eval": {
+     "goal_pass": true,
+     "path_pass": true,
+     "max_penetration_mm": {
+      "self": 0.0,
+      "table": 0.0,
+      "passive": 0.0,
+      "other": 0.0
+     }
+    }
+   },
+   {
+    "seed": 1,
+    "planned": true,
+    "success": false,
+    "failure": null,
+    "eval": {
+     "goal_pass": false,
+     "path_pass": true,
+     "max_penetration_mm": {
+      "self": 0.0,
+      "table": 0.0,
+      "passive": 0.0,
+      "other": 0.0
+     }
+    }
+   },
+   {
+    "seed": 2,
+    "planned": false,
+    "success": false,
+    "failure": {
+     "stage": "carry the teapot upright over the mug",
+     "type": "planning",
+     "message": "planning failed on all 16 ranked goals: 16x 'no path: iteration budget exhausted (500)'",
+     "evidence": {
+      "n_sampled": 120,
+      "n_ik": 62,
+      "n_collision_free": 17,
+      "n_contained": 17,
+      "offenders": {
+       "mug_main <-> teapot_main": 24,
+       "robot0_upper_arm_link <-> table": 16,
+       "fixed_mount0_pedestal <-> robot0_upper_arm_link": 3,
+       "robot0_forearm_link <-> robot0_wrist_3_link": 2
+      }
+     }
+    },
+    "signature": "no_path"
+   }
+  ],
+  "error": null,
+  "graded_in": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/memory/faults/pour_contradictory_upright/typed/round_2_spec"
+ },
+ "diff": [
+  {
+   "pointer": "tilt the teapot to pour into the mug.path.rot[0]",
+   "before": "teapot.front_axis antiparallel mug.up_axis, tol tight",
+   "after": "teapot.lateral_axis perpendicular world.z, tol moderate"
+  },
+  {
+   "pointer": "tilt the teapot to pour into the mug.path.trans[1]",
+   "before": "above mug.opening_center, clearance large, slack snug",
+   "after": "above mug.opening_center, clearance large, slack loose"
+  },
+  {
+   "pointer": "tilt the teapot to pour into the mug.subgoal.rot[0]",
+   "before": "teapot.front_axis antiparallel mug.up_axis, tol tight",
+   "after": "teapot.front_axis antiparallel mug.up_axis, tol moderate"
+  },
+  {
+   "pointer": "tilt the teapot to pour into the mug.subgoal.trans[1]",
+   "before": "above mug.opening_center, clearance large, slack snug",
+   "after": "above mug.opening_center, clearance large, slack loose"
+  }
+ ],
+ "n_calls": 3
+}

@@ -1,0 +1,97 @@
+=== system ===
+You are the critic for a robot manipulation specification. Each stage of the task has a SUBGOAL region (where the moving object must end) and a PATH region (every pose it may pass through on the way). A planner will produce any motion inside these regions, so check the regions, not one motion.
+
+Evidence:
+- One image per state: the initial scene, then each stage's goal at the center of its subgoal region. A stage starts where the previous stage's goal is.
+- Path-boundary images: the moving object with one path row at its bound and the others centered, labeled with the row and its tolerance. The planner may use any pose up to that bound. A row shown at several sample angles is FREE: nothing limits it. If the motion needs that rotation limited (e.g. the object must stay upright), a constraint is missing.
+- The report: per stage the rows as text with their pointers, the compiled bounds (free rows say "free"), and the moving object's labeled points relative to the target point at the goal (horizontal distance and height).
+- State images carry point labels (their token names) and object name tags where there is room. Path images have no labels: their caption names the moving object, and each object keeps the color it has in the state images.
+
+Collisions: the planner avoids collisions with the scene, so judge what it cannot check: orientation, spilling, alignment, contact. Collision notes in the image captions are facts, not requests to tighten a row. When a goal's nominal pose or a path's center pose collides, the image shows the nearest collision-free pose of the same region instead and its caption says so; that is the planner's job, not a fault of the specification. Only "no collision-free pose found in the region" is evidence against the specification: find its cause. A path pose that collides is left out of the images and listed as text, unless the region has no collision-free pose.
+
+For EVERY stage write first what the task needs at that stage ("expected"), then what the evidence shows ("observed"), then decide. Judge each goal against what the next stage needs too.
+
+This review has at most 3 rounds and this is round 1. Report EVERY edit you need in order to accept, in this one answer: go through every row of every editable stage before deciding. Edit only a row for which you can name a pose its region allows that would fail the task; a row that is merely loose is not a defect. An edit you leave out now cannot be asked for after the last round, and a specification still rejected then is discarded.
+
+Accept, or reject with typed edits. You can only remove poses that should not be allowed, never add poses: tighten, re-pick a point or a direction, or ask for a stage to be written again. Stages marked editable=false (the grasp) are context: do not edit them.
+
+Edit actions:
+  tighten_tolerance: one step tighter on a rotation row's tol (loose -> moderate -> tight) or a centered term's tol (loose -> moderate -> snug). Token: the next level name. Target: a row pointer
+  tighten_slack: one step narrower band on an above/below/inside term's slack (loose -> moderate -> snug). Token: the next level name. Target: a row pointer
+  reselect_point: replace the stage's call #2 point on the active object with another grounded point of that object. Token: a point token "<object>.<point>" of the stage's active object. Target: the stage's point pointer
+  reselect_axis: replace a rotation row's constrained direction with another signed canonical direction of the active object. Token: a signed direction "<object>.<+|-><front|left|up>" of the stage's active object. Target: a row pointer
+  reemit_stage: ask call #3 to write the stage again, with your diagnosis appended (e.g. a path row the motion needs is missing). Token: null. Target: the stage name
+
+Pointers: rows are "<stage>.<path|subgoal>.<rot|trans>[i]", the point choice is "<stage>.point.<object>", a stage is its name; use only the report's editable_pointers. At most one edit per pointer. Level tokens: name the next level, one step only. Tolerance on a rotation row: tight / moderate / loose; tolerance on a centered term and slack: snug / moderate / loose (tightest first). Never give a number.
+
+Licensed tokens per object:
+  mug: points mug.opening_center; directions mug.+up, mug.-up
+  teapot: points teapot.handle_center, teapot.spout_tip; directions teapot.+front, teapot.-front, teapot.+left, teapot.-left, teapot.+up, teapot.-up
+
+Output schema: {"stages": [{"stage": <name>, "expected": str, "observed": str}, ...], "verdict": "accept"|"reject", "edits": [{"target": <pointer>, "action": str, "token": str|null}], "diagnosis": str}. A reject needs at least one edit and a diagnosis; an accept has no edits. Respond with a single JSON object and nothing else — no prose, no markdown fences.
+=== user ===
+Preview report:
+{
+ "stages": [
+  {"stage": "grasp the teapot by its handle", "role": "grasp", "active": "teapot", "editable": false, "goal": "The gripper closes on the teapot's handle at teapot.handle_center, with the teapot still upright at its spawn pose.", "point_choice": {"pointer": "grasp the teapot by its handle.point.teapot", "current": "teapot.handle_center"}},
+  {"stage": "carry the teapot upright over the mug", "role": "transport_active", "active": "teapot", "passive": "mug", "editable": true, "goal": "teapot.spout_tip ends up centered above mug.opening_center, at a standoff that keeps the pot's body clear of the mug's rim, with teapot.+up pointing the way world.+z points; the pot stays upright the whole way.", "point_choice": {"pointer": "carry the teapot upright over the mug.point.teapot", "current": "teapot.handle_center"}, "path": {"rows": [{"pointer": "carry the teapot upright over the mug.path.rot[0]", "text": "teapot.up_axis parallel world.z, tol tight"}, {"pointer": "carry the teapot upright over the mug.path.trans[0]", "text": "free"}], "bounds_in_w": {"x": "free", "y": "free", "z": "free", "roll": "-5 to +5 deg", "pitch": "-5 to +5 deg", "yaw": "free"}}, "subgoal": {"rows": [{"pointer": "carry the teapot upright over the mug.subgoal.rot[0]", "text": "teapot.up_axis parallel world.z, tol tight"}, {"pointer": "carry the teapot upright over the mug.subgoal.trans[0]", "text": "centered on mug.opening_center, tol moderate"}, {"pointer": "carry the teapot upright over the mug.subgoal.trans[1]", "text": "above mug.opening_center, clearance large, slack snug"}], "bounds_in_w": {"x": "-2.0 to +2.0 cm", "y": "-2.0 to +2.0 cm", "z": "+8.0 to +10.0 cm", "roll": "-5 to +5 deg", "pitch": "-5 to +5 deg", "yaw": "free"}}, "points_at_goal": {"relative_to": "w origin (mug's selected point), height along mug up", "at": "subgoal nominal", "points": {"spout_tip": {"horizontal_cm": 21.4, "height_cm": 12.7}, "handle_center": {"horizontal_cm": 0.0, "height_cm": 9.0}}}},
+  {"stage": "tilt the teapot to pour into the mug", "role": "pour", "active": "teapot", "passive": "mug", "editable": true, "goal": "The teapot tips forward about its lateral (tilt) axis until teapot.+front, the spout direction, points the way mug.-up points, with teapot.spout_tip held centered above mug.opening_center so the tea falls into the mug.", "point_choice": {"pointer": "tilt the teapot to pour into the mug.point.teapot", "current": "teapot.handle_center"}, "path": {"rows": [{"pointer": "tilt the teapot to pour into the mug.path.rot[0]", "text": "teapot.front_axis antiparallel mug.up_axis, tol tight"}, {"pointer": "tilt the teapot to pour into the mug.path.trans[0]", "text": "centered on mug.opening_center, tol moderate"}, {"pointer": "tilt the teapot to pour into the mug.path.trans[1]", "text": "above mug.opening_center, clearance large, slack snug"}], "bounds_in_w": {"x": "-2.0 to +2.0 cm", "y": "-2.0 to +2.0 cm", "z": "+8.0 to +10.0 cm", "roll": "-95.2 to +5 deg", "pitch": "-5 to +5 deg", "yaw": "free"}}, "subgoal": {"rows": [{"pointer": "tilt the teapot to pour into the mug.subgoal.rot[0]", "text": "teapot.front_axis antiparallel mug.up_axis, tol tight"}, {"pointer": "tilt the teapot to pour into the mug.subgoal.trans[0]", "text": "centered on mug.opening_center, tol moderate"}, {"pointer": "tilt the teapot to pour into the mug.subgoal.trans[1]", "text": "above mug.opening_center, clearance large, slack snug"}], "bounds_in_w": {"x": "-2.0 to +2.0 cm", "y": "-2.0 to +2.0 cm", "z": "+8.0 to +10.0 cm", "roll": "-5 to +5 deg", "pitch": "-5 to +5 deg", "yaw": "free"}}, "points_at_goal": {"relative_to": "w origin (mug's selected point), height along mug up", "at": "subgoal nominal", "points": {"spout_tip": {"horizontal_cm": 3.7, "height_cm": -12.4}, "handle_center": {"horizontal_cm": 0.0, "height_cm": 9.0}}}}
+ ],
+ "editable_pointers": ["carry the teapot upright over the mug", "carry the teapot upright over the mug.path.rot[0]", "carry the teapot upright over the mug.path.trans[0]", "carry the teapot upright over the mug.point.teapot", "carry the teapot upright over the mug.subgoal.rot[0]", "carry the teapot upright over the mug.subgoal.trans[0]", "carry the teapot upright over the mug.subgoal.trans[1]", "tilt the teapot to pour into the mug", "tilt the teapot to pour into the mug.path.rot[0]", "tilt the teapot to pour into the mug.path.trans[0]", "tilt the teapot to pour into the mug.path.trans[1]", "tilt the teapot to pour into the mug.point.teapot", "tilt the teapot to pour into the mug.subgoal.rot[0]", "tilt the teapot to pour into the mug.subgoal.trans[0]", "tilt the teapot to pour into the mug.subgoal.trans[1]"]
+}
+Image 1 of 7: initial scene (spawn poses, before any stage).
+Panels, left to right: iso view; top view.
+Collision checks in these images: scene objects, gripper, table (no arm), tolerance 2.0 mm.
+Colors: teapot = textured, mug = red, gripper = gray.
+[image]
+Image 2 of 7: stage goal -- stage "carry the teapot upright over the mug" (role transport_active): the teapot at the center of its subgoal region.
+Panels, left to right: iso view; top view.
+Collisions: none.
+Colors: teapot = textured, mug = red, gripper = gray.
+[image]
+Image 3 of 7: stage goal -- stage "tilt the teapot to pour into the mug" (role pour): the teapot at the center of its subgoal region (no collision-free pose found).
+Panels, left to right: iso view; top view.
+Collisions at the subgoal center: teapot intersects mug and table.
+Renderer: no collision-free pose found in the region (128 samples): teapot collides with mug and table.
+Colors: teapot = textured, mug = red, gripper = gray.
+[image]
+Image 4 of 7: path translation rows -- stage "carry the teapot upright over the mug" (role transport_active): the teapot with one path row at a time at its bound, the other rows at the center pose (midpoint of the stage's entry and goal, inside the path region).
+Moving object: teapot. No point labels in path images; every object keeps its color from the state images.
+Panels, left to right then top to bottom:
+  1. x free: -10.0 cm shown (side (+y) view)
+  2. x free: +10.0 cm shown (side (+y) view)
+  3. y free: +10.0 cm shown (side (+x) view)
+  4. z free: +10.0 cm shown (side (-y) view)
+Not drawn: y -10.0 cm (free): teapot collides with mug (the planner avoids this); z -10.0 cm (free): teapot collides with table (the planner avoids this).
+Colors: teapot = textured, mug = red, gripper = gray.
+[image]
+Image 5 of 7: path rotation rows -- stage "carry the teapot upright over the mug" (role transport_active): the teapot with one path row at a time at its bound, the other rows at the center pose (midpoint of the stage's entry and goal, inside the path region).
+Moving object: teapot. No point labels in path images; every object keeps its color from the state images.
+Panels, left to right then top to bottom:
+  1. roll at lower bound -5 deg [tight] (side (+x) view)
+  2. roll at upper bound +5 deg [tight] (side (+x) view)
+  3. pitch at lower bound -5 deg [tight] (side (-y) view)
+  4. pitch at upper bound +5 deg [tight] (side (-y) view)
+  5. yaw free: +45 deg shown (top view)
+  6. yaw free: +90 deg shown (top view)
+Colors: teapot = textured, mug = red, gripper = gray.
+[image]
+Image 6 of 7: path translation rows -- stage "tilt the teapot to pour into the mug" (role pour): the teapot with one path row at a time at its bound, the other rows at the center pose (midpoint of the stage's entry and goal, inside the path region).
+Moving object: teapot. No point labels in path images; every object keeps its color from the state images.
+Panels, left to right then top to bottom:
+  1. x at upper bound +2.0 cm (side (+y) view)
+  2. y at lower bound -2.0 cm (side (+x) view)
+  3. z at upper bound +10.0 cm (side (-y) view)
+Renderer: center pose collides with mug; nearest collision-free pose shown (Δ 1.6 cm, 14.9 deg; needed rotation).
+Not drawn: x -2.0 cm (lower bound): teapot collides with mug (the planner avoids this); y +2.0 cm (upper bound): teapot collides with mug (the planner avoids this); z +8.0 cm (lower bound): teapot collides with mug (the planner avoids this).
+Colors: teapot = textured, mug = red, gripper = gray.
+[image]
+Image 7 of 7: path rotation rows -- stage "tilt the teapot to pour into the mug" (role pour): the teapot with one path row at a time at its bound, the other rows at the center pose (midpoint of the stage's entry and goal, inside the path region).
+Moving object: teapot. No point labels in path images; every object keeps its color from the state images.
+Panels, left to right then top to bottom:
+  1. roll at lower bound -95 deg (side (+x) view)
+  2. pitch at upper bound +5 deg [tight] (side (-y) view)
+Renderer: center pose collides with mug; nearest collision-free pose shown (Δ 1.6 cm, 14.9 deg; needed rotation).
+Not drawn: roll +5 deg (upper bound): teapot collides with mug and table (the planner avoids this); pitch -5 deg (lower bound): teapot collides with mug (the planner avoids this); yaw +45 deg (free): teapot collides with mug (the planner avoids this); yaw +90 deg (free): teapot collides with mug (the planner avoids this).
+Colors: teapot = textured, mug = red, gripper = gray.
+[image]

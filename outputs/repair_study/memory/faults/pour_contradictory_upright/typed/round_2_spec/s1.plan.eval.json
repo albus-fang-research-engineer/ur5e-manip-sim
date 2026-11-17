@@ -1,0 +1,39 @@
+{
+  "plan": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/memory/faults/pour_contradictory_upright/typed/round_2_spec/s1.plan.npz",
+  "carrying": {
+    "max_tilt_deg": 5.2,
+    "tilt_at_quarters_deg": [
+      3.9,
+      20.3,
+      60.5
+    ]
+  },
+  "pouring": {
+    "max_off_axis_mm": 26.2,
+    "spout_wander_mm": 51.3,
+    "tilt_axis_off_level_deg": 9.5
+  },
+  "end": {
+    "lateral_mm": 22.1,
+    "height_mm": 181.2,
+    "tilt_deg": 77.0,
+    "spout_off_down_deg": 16.2,
+    "stream_off_mm": 71.0
+  },
+  "max_penetration_mm": {
+    "self": 0.0,
+    "table": 0.0,
+    "passive": 0.0,
+    "other": 0.0
+  },
+  "pairs_max_depth_mm": {},
+  "colliding_points": 0,
+  "checks": {
+    "end_over_rim": true,
+    "spout_down": false,
+    "carry_tilt": true,
+    "spout_in_rim": true
+  },
+  "goal_pass": false,
+  "path_pass": true
+}
