@@ -90,31 +90,61 @@ def request_text(doc: dict, images: list) -> str:
 
 # ------------------------------------------------------------------ transports
 
+def save_request(d: Path | None, kind: str, i: int, payload: dict) -> None:
+    """requests/<kind>_NN.txt: what the model was asked, in prompt.txt's format
+    (request_text), one "=== <role> ===" header per turn, so a parse retry's
+    rejected answer and the correction stay apart from the prompt."""
+    if d is None:
+        return
+    parts = ["=== system ===", str(payload.get("system", ""))]
+    for m in payload.get("messages", ()):
+        parts.append(f"=== {m.get('role', 'user')} ===")
+        content = m.get("content")
+        for b in (content if isinstance(content, list) else [{"type": "text", "text": content}]):
+            parts.append(b.get("text", "") if b.get("type") == "text" else "[image]")
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{kind}_{i:02d}.txt").write_text("\n".join(parts) + "\n")
+
+
 class Replay:
     """Canned responses <kind>_NN.txt, in order; running out is an error."""
 
-    def __init__(self, d: Path, kind: str):
+    def __init__(self, d: Path, kind: str, requests: Path | None = None):
         self.files = sorted(Path(d).glob(f"{kind}_*.txt"))
-        self.kind, self.i = kind, 0
+        self.kind, self.i, self.requests = kind, 0, requests
 
     def __call__(self, payload: dict) -> str:
         if self.i >= len(self.files):
             raise RuntimeError(f"replay: no {self.kind} response #{self.i + 1}")
         self.i += 1
+        save_request(self.requests, self.kind, self.i, payload)
         return self.files[self.i - 1].read_text()
 
 
 class Record:
-    """Live transport that saves every raw response, for replay."""
+    """Live transport that saves every raw response, for replay, and every
+    request's text (requests/<kind>_NN.txt, the same NN)."""
 
-    def __init__(self, d: Path, kind: str):
+    def __init__(self, d: Path, kind: str, requests: Path | None = None):
         from manip_sim.vlm import _urllib_transport
         self.send, self.d, self.kind, self.i = _urllib_transport, Path(d), kind, 0
+        self.requests = requests
 
     def __call__(self, payload: dict) -> str:
-        raw = self.send(payload)
-        self.i += 1
+        from manip_sim.vlm import ResponseTruncated
+        # the request file takes the number the response will get; a send that
+        # fails before any answer (a network error the client retries) leaves no
+        # response and its retry overwrites this request file
+        save_request(self.requests, self.kind, self.i + 1, payload)
         self.d.mkdir(parents=True, exist_ok=True)
+        try:
+            raw = self.send(payload)
+        except ResponseTruncated as cut:
+            # billed: keep the cut answer, out of replay's <kind>_NN.txt glob
+            self.i += 1
+            (self.d / f"{self.kind}_{self.i:02d}.truncated").write_text(cut.text)
+            raise
+        self.i += 1
         (self.d / f"{self.kind}_{self.i:02d}.txt").write_text(raw)
         return raw
 
@@ -190,8 +220,8 @@ class Case:
         self.clients = {}
         if a.mode != "dry_run":
             for kind in ("critic", "repair", "check", "emit"):
-                t = (Replay(a.responses, kind) if a.mode == "replay"
-                     else Record(self.out / "responses", kind))
+                t = (Replay(a.responses, kind, self.out / "requests") if a.mode == "replay"
+                     else Record(self.out / "responses", kind, self.out / "requests"))
                 self.clients[kind] = Client(transport=t)
         self.rounds: list[dict] = []
         self.n_preview, self.last_plan = 0, None
@@ -297,11 +327,58 @@ class Case:
         if em is not None:
             self.state = replace(self.state, emissions={**self.state.emissions, role: em})
         rec["role"] = role
+        rec["emitted"] = em is not None        # False: the stage keeps its old rows
         return rec
 
     # -- conditions ---------------------------------------------------
+    def review(self, ledger) -> dict | None:
+        """--critic-memory: the critic's place in the loop (vlm.critic_review_text).
+        Rounds count from the ledger, which the critic and repair calls both spend,
+        so after a repair round the critic is not told it has more rounds than it
+        does; the last one (rounds_used == budget) is the one whose reject ends the
+        run."""
+        if not self.a.critic_memory:
+            return None
+        # entries keep roles; names are resolved now, since call #3 may rename a
+        # stage it writes again (and critic_review_text matches observations to
+        # re-emits by name)
+        names = self.stage_names()
+        # an edit on a stage written again since names a row that no longer exists
+        reemit_round: dict = {}
+        for e in self.earlier:
+            for r in e["reemitted"]:
+                reemit_round[r] = e["round"]
+        return {"round": ledger.rounds_used + 1, "rounds_max": ledger.budget + 1,
+                "earlier": [{**e, "stages": [{"stage": names.get(s["role"], s["stage"]),
+                                              "observed": s["observed"]}
+                                             for s in e["stages"]],
+                             "edits": [x for x in e["edits"]
+                                       if reemit_round.get(x["role"], 0) < e["round"]],
+                             "reemitted": [names[r] for r in e["reemitted"]]}
+                            for e in self.earlier]}
+
+    def remember(self, n: int, names_then: dict, stages, verdict, reemitted: list,
+                 after_accept: bool):
+        """One entry of the critic's memory after an applied round. stages: the
+        critic's own per-stage observations (that round's critic call), named as
+        in names_then (role -> stage name when it was called). A repair round
+        (after_accept) carries only the edits and re-emits, never the planner
+        failure or the repair call's diagnosis (untyped withholds both)."""
+        role_of = {v: k for k, v in names_then.items()}
+        self.earlier.append({
+            "round": n, "after_accept": after_accept,
+            "diagnosis": None if after_accept else verdict.diagnosis,
+            "stages": [{"role": role_of.get(s.stage), "stage": s.stage,
+                        "observed": s.observed} for s in stages],
+            "edits": [{**self._edit(e), "role": next(
+                          (r for n, r in role_of.items() if e.target.startswith(n + ".")),
+                          None)}
+                      for e in verdict.edits if e.action != "reemit_stage"],
+            "reemitted": list(reemitted)})
+
     def run_langfold(self, untyped: bool):
         ledger = cr.LoopLedger(budget=self.a.budget)
+        self.earlier: list[dict] = []
         while True:
             rd = self.next_round_dir()
             chain, manifest, report = self.preview(rd)
@@ -314,16 +391,21 @@ class Case:
             if not self.room():
                 return self.stop("call cap reached before the critic")
             m = self.marks()
+            review = self.review(ledger)
+            n = review["round"] if review else None
+            names_then = self.stage_names()
             try:
                 verdict = self.clients["critic"].critique_preview_v2(
-                    rep, views, self.vocab, self.state, ledger)
+                    rep, views, self.vocab, self.state, ledger, review=review)
             except Exception as e:           # noqa: BLE001 -- recorded, the run ends
                 self.round_rec("critic", rd, m, chain, error=str(e))
                 return self.stop(f"critic: {e}", error=True)
             outcome = self._admit(ledger, verdict)
             rec = self.round_rec("critic", rd, m, chain, verdict=verdict.verdict,
                                  diagnosis=verdict.diagnosis,
-                                 edits=[self._edit(e) for e in verdict.edits])
+                                 edits=[self._edit(e) for e in verdict.edits],
+                                 **({"review_round": [n, review["rounds_max"]]}
+                                    if review else {}))
             if outcome == "accept":
                 res = self.plan(rd)
                 rec["planned"] = {"ok": res["planned"], "failure": res["failure"],
@@ -348,11 +430,17 @@ class Case:
                                       edits=[self._edit(e) for e in fix.edits])
                 if outcome != "apply":
                     return self.stop("round budget spent (repair)")
-                self._apply(ledger, fix, rd, chain, untyped, rrec)
+                done = self._apply(ledger, fix, rd, chain, untyped, rrec)
+                if review:
+                    self.remember(n, names_then, verdict.stages, fix, done,
+                                  after_accept=True)
                 continue
             if outcome != "apply":
                 return self.stop("round budget spent (critic)")
-            self._apply(ledger, verdict, rd, chain, untyped, rec)
+            done = self._apply(ledger, verdict, rd, chain, untyped, rec)
+            if review:
+                self.remember(n, names_then, verdict.stages, verdict, done,
+                              after_accept=False)
 
     def _admit(self, ledger, verdict):
         try:
@@ -402,6 +490,9 @@ class Case:
             rec["reemit"] = reemits
             for r in reemits:
                 rec["calls"] += r.get("calls", [])
+        # what the critic's memory may call "re-emitted": only stages call #3 actually
+        # wrote again (not skipped by upstream-first, not failed, not over the cap)
+        return [r["role"] for r in reemits if r.get("emitted")]
 
     def run_render_check(self):
         refined: set[str] = set()
@@ -515,6 +606,8 @@ class Case:
                   "condition": self.a.condition, "repeat": self.a.repeat,
                   "mode": self.a.mode, "model": _model(), "temperature": _temperature(),
                   "call_cap": self.a.call_cap, "round_budget": self.a.budget,
+                  "critic_memory": bool(self.a.critic_memory)
+                  and self.a.condition in ("typed", "untyped"),
                   "start": {"selections": self.a.selections, "emissions": self.a.emissions},
                   "start_sha": sha(Path(self.a.selections), Path(self.a.emissions)),
                   "rounds": self.rounds, "final": self.final,
@@ -549,7 +642,9 @@ def dry_run(a) -> int:
             report = rl.withheld_report(report)
         else:
             views = rl.views_from_manifest(manifest, rd / "images", chain, case.colors)
-        system, messages = build_critic_prompt_v2(report, views, case.vocab)
+        review = ({"round": 1, "rounds_max": a.budget + 1, "earlier": []}
+                  if a.critic_memory else None)
+        system, messages = build_critic_prompt_v2(report, views, case.vocab, review=review)
         doc = request_doc(system, messages)
         _w(rd / "prompt.json", doc)
         (rd / "prompt.txt").write_text(request_text(doc, [str(p) for _, p in views]))
@@ -583,6 +678,13 @@ def main(argv=None) -> int:
     ap.add_argument("--budget", type=int, default=2)
     ap.add_argument("--call-cap", type=int, default=8)
     ap.add_argument("--repeat", type=int, default=0)
+    ap.add_argument("--critic-memory", action="store_true",
+                    help="typed/untyped: the critic is told its round and the round limit "
+                         "and, from its second call, its earlier verdicts and what changed "
+                         "(vlm.critic_review_text; default off = the request as before). "
+                         "Round numbers follow --budget, not --call-cap: a control with "
+                         "--call-cap 3 makes one critic call and it sees the round-1 "
+                         "prompt of a full run, which is what a control measures")
     a = ap.parse_args(argv)
     if a.mode == "dry_run":
         return dry_run(a)

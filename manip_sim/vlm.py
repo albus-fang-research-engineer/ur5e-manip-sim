@@ -1522,7 +1522,9 @@ def critic_review_text(review: dict) -> tuple[str, str]:
     """(system paragraph, user-turn block) that give the critic its place in
     the loop. `review`: {"round": n, "rounds_max": m, "earlier": [{"round",
     "stages": [{"stage", "observed"}], "edits": [{"target", "action",
-    "before", "after"}], "reemitted": [stage names], "diagnosis"}]}.
+    "before", "after"}], "reemitted": [stage names], "diagnosis"}]}; an
+    entry with "after_accept": True (no diagnosis) is a round the critic
+    accepted before a later step changed the specification.
     Without it every round is a fresh, memoryless judgment: on hardware
     20261114_230303 the critic called a row "reasonable" in round 1 and
     rejected that unchanged row in round 2, one edit per round, and ran out
@@ -1549,9 +1551,22 @@ def critic_review_text(review: dict) -> tuple[str, str]:
     # of it up to round k describes rows that no longer exist
     last_reemit = {name: r["round"] for r in earlier
                    for name in r.get("reemitted", ())}
+    # after_accept: the critic accepted and a later check (the sim loop's
+    # planner, then repair call #5) failed and changed the specification. The
+    # rows it accepted up to then are what failed, so rule (2) must not keep
+    # them: their observations are left out and (2) covers later rounds only.
+    # Neither the failure nor the repair's reasoning is shown: the untyped
+    # condition withholds every failure detail.
+    failed_through = max((r["round"] for r in earlier if r.get("after_accept")),
+                         default=0)
     for r in earlier:
-        lines.append(f"Round {r['round']}: rejected. Diagnosis: {r['diagnosis']}")
+        lines.append(f"Round {r['round']}: you accepted; the specification then "
+                     "failed a later check and was changed as listed below. What "
+                     "you accepted then is not settled." if r.get("after_accept") else
+                     f"Round {r['round']}: rejected. Diagnosis: {r['diagnosis']}")
         for s in r.get("stages", ()):
+            if r["round"] <= failed_through:
+                continue
             if last_reemit.get(s["stage"], 0) >= r["round"]:
                 lines.append(f"  observed, {s['stage']}: (rows since "
                              "replaced by a re-emission)")
@@ -1574,7 +1589,11 @@ def critic_review_text(review: dict) -> tuple[str, str]:
         "for its stage; then name that change in your diagnosis. "
         "(3) The rows of a stage re-emitted since are new: judge them "
         "afresh. Accept when the earlier diagnoses are resolved and the "
-        "new rows are sound.")
+        "new rows are sound."
+        + (f" Rule (2) covers only rounds after round {failed_through}: the "
+           f"specification you accepted in round {failed_through} failed a "
+           "later check, so judge the rows from then afresh."
+           if failed_through else ""))
     return system, "\n".join(lines)
 
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # D9 pilot (PAID): the qualified faults x 3 conditions x 1 repeat, run_repair_case.py
 # --mode live, PILOT_JOBS cases at a time (default 3) in the sim image.
-# Hard bound: 8 requests per case (call cap 8; a call starts only if its retries fit).
+# Hard bound: --call-cap requests per case (default 8; a call starts only if its retries
+# fit); PILOT_ARGS may set another --call-cap: state the bound before a paid run.
 # Resumable: a case with a record.json is skipped; a case folder without one (stopped
 # mid-run) is left alone and reported, move it aside to rerun that case.
 #   ANTHROPIC_API_KEY=... [PILOT_TASK=pour_tea PILOT_SEL=.. PILOT_EM=.. PILOT_FAULTS=".."]
-#     scripts/run_repair_pilot.sh OUT_DIR
+#     [PILOT_ARGS="--critic-memory --call-cap 3"] scripts/run_repair_pilot.sh OUT_DIR
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
 out="$(realpath -m "${1:?usage: run_repair_pilot.sh OUT_DIR}")"
@@ -16,6 +17,14 @@ TASK=${PILOT_TASK:-insert_marker_upright}
 SEL=${PILOT_SEL:-tasks/repair_study/start/insert_marker/selections.json}
 EM=${PILOT_EM:-tasks/repair_study/start/insert_marker/emissions.json}
 mkdir -p "$out"
+# one OUT_DIR, one setting: resuming with other PILOT_ARGS would mix records
+args_file="$out/pilot_args.txt"
+if [ -f "$args_file" ] && [ "$(cat "$args_file")" != "${PILOT_ARGS:-}" ]; then
+  echo "[pilot] $out was run with PILOT_ARGS='$(cat "$args_file")', not '${PILOT_ARGS:-}';" \
+       "use another OUT_DIR" >&2
+  exit 1
+fi
+printf '%s' "${PILOT_ARGS:-}" > "$args_file"
 run_one() {
   local f=$1 c=$2 d="$out/$1/$2"
   if [ -f "$d/record.json" ]; then        # resume: a finished case is never rerun (or paid again)
@@ -32,10 +41,10 @@ run_one() {
     -e MANIP_VLM_MAX_TOKENS=4000 \
     manip-sim:latest python scripts/run_repair_case.py --task "$TASK" \
     --selections "$SEL" --emissions "$EM" --fault "$f" --condition "$c" \
-    --out "$d" --mode live > "$d/run.log" 2>&1
+    --out "$d" --mode live ${PILOT_ARGS:-} > "$d/run.log" 2>&1
   echo "[pilot] $f / $c: $(grep '^\[case\] '"$c"':' "$d/run.log" | tail -1)"
 }
-export -f run_one; export out here SEL EM TASK
+export -f run_one; export out here SEL EM TASK PILOT_ARGS
 jobs=()
 for f in "${FAULTS[@]}"; do for c in "${CONDITIONS[@]}"; do jobs+=("$f $c"); done; done
 printf '%s\n' "${jobs[@]}" | xargs -P "${PILOT_JOBS:-3}" -L 1 bash -c 'run_one "$0" "$1"'
