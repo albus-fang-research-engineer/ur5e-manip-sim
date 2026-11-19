@@ -1,0 +1,17 @@
+{
+ "fault_id": "pour_spout_up",
+ "task": "pour_tea",
+ "category": "wrong_direction",
+ "role": "pour",
+ "stage": "tilt the teapot to pour into the mug",
+ "pointer": "tilt the teapot to pour into the mug.subgoal.rot[0]",
+ "before": "teapot.front_axis antiparallel mug.up_axis, tol tight",
+ "after": "teapot.front_axis parallel mug.up_axis, tol tight",
+ "expect": "the pour tips the teapot backward (spout up): the pour goal region has no collision-free pose and no handle grasp reaches it (the grasp lookahead fails on every seed); the renders show the pot upside down",
+ "unfixable_by": [],
+ "pointers": [
+  "tilt the teapot to pour into the mug.subgoal.rot[0]",
+  "tilt the teapot to pour into the mug.path.rot[0]"
+ ],
+ "kind": "visible"
+}

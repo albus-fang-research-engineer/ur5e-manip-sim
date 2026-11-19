@@ -85,6 +85,37 @@ call #3 rewrote it, not to the fault (round budget 2).
 Possibly a side effect of the new call #3 prompt (word ranges); the pilot (old
 prompt) fixed handoff 2/3 and contradictory rows 1/1. One run each: a signal.
 
+### Angle faults: OmniManip's own repair class (2026-11-18)
+
+Real OmniManip's RRC re-picks only the interaction direction (its points come from a
+fixed keypoint set, its distances are set once), so the shared faults above are
+errors it makes but cannot repair. These two are errors it makes AND is built to
+repair; both appear in its own hardware RRC traces
+(/home/mehta355/omnimanip/outputs/runs/*/rrc/rrc.json: of 103 checks, the checker
+named "not tilted enough / level" in ~7 runs and "tilted backward, spout up" in ~4,
+e.g. 20261104_025927 rank 3.2; keyword counts, approximate). Qualified with
+scripts/qualify_fault.py (outputs/repair_study/qualify). 2 faults x 3 conditions x 2
+runs, current loop, memory off (outputs/repair_study/angle/r1, r2); $5.09, 39 requests.
+
+| Fault | Langfold fixed | Langfold calls | Withheld fixed | Withheld calls | OmniManip-style fixed | OmniManip-style calls |
+|---|---|---|---|---|---|---|
+| spout up (pot tipped backward) | 2/2 | 2 | 2/2 | 2 | 0/2 | 5 |
+| no tilt (spout held level) | 2/2 | 3 | 2/2 | 3.5 | 0/2 | 4 |
+| **Total** | **4/4** | **2.5** | **4/4** | **2.8** | **0/4** | **4.5** |
+
+- Detection was equal: every condition flagged the pour in round 1 (the critic in
+  4/4 Langfold and 4/4 withheld runs; the checker labeled it refine/failure in 4/4).
+- The repair differed. Langfold: spout up by one typed edit (reselect_axis
+  teapot.-front on the path and goal rows); no tilt by a re-emit with the critic's
+  diagnosis. OmniManip-style: a reasonless call #3 rewrite; its goal looked right,
+  the checker said success (once while noting "center path pose is nearly fully
+  inverted"), and the rewritten pour failed the grader's path or goal check on seeds
+  0-1 (seed 2: no path on the unedited carry, the starting spec's weak seed).
+- The other errors its traces name most: tilt too steep (~21 runs) and rolled on its
+  side (~13) are compile-time in Langfold (pour_tilt_too_steep, pour_tilt_sideways:
+  the entry-attitude check rejects them before any render or call); spout too low /
+  body against the rim (~21) is the shared height/clearance class above.
+
 ### Critic memory check (2026-11-16, branch d9-critic-memory)
 
 Langfold (typed) with `--critic-memory` (vlm.critic_review_text from the hardware
@@ -146,9 +177,9 @@ Insert marker, pilot 2 (outputs/repair_study/pilot2): wrong anchor typed fixed (
 untyped fixed (3), render_check not (6, cannot by construction); contradictory rows
 and handoff (compile-time) fixed by all three conditions in 3 calls.
 
-Spend so far ~$57 (pilot 1 $4.06, pilot 2 $2.89, controls ~$0.70, probes ~$0.10,
+Spend so far ~$62 (pilot 1 $4.06, pilot 2 $2.89, controls ~$0.70, probes ~$0.10,
 pilot 3 $11.25, rule reruns $5.43, scale-up set 1 $7.99, sets 2a + 2b $11.06,
-critic memory check $4.91, etc.).
+critic memory check $4.91, angle faults $5.09, etc.).
 
 ## How to run
 

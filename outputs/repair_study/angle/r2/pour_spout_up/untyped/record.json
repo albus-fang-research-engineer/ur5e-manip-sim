@@ -1,0 +1,185 @@
+{
+ "fault": {
+  "fault_id": "pour_spout_up",
+  "task": "pour_tea",
+  "category": "wrong_direction",
+  "role": "pour",
+  "stage": "tilt the teapot to pour into the mug",
+  "pointer": "tilt the teapot to pour into the mug.subgoal.rot[0]",
+  "before": "teapot.front_axis antiparallel mug.up_axis, tol tight",
+  "after": "teapot.front_axis parallel mug.up_axis, tol tight",
+  "expect": "the pour tips the teapot backward (spout up): the pour goal region has no collision-free pose and no handle grasp reaches it (the grasp lookahead fails on every seed); the renders show the pot upside down",
+  "unfixable_by": [],
+  "pointers": [
+   "tilt the teapot to pour into the mug.subgoal.rot[0]",
+   "tilt the teapot to pour into the mug.path.rot[0]"
+  ],
+  "kind": "visible"
+ },
+ "condition": "untyped",
+ "repeat": 0,
+ "mode": "live",
+ "model": "claude-opus-5",
+ "temperature": null,
+ "call_cap": 8,
+ "round_budget": 2,
+ "critic_memory": false,
+ "start": {
+  "selections": "tasks/repair_study/start/pour_tea/selections.json",
+  "emissions": "tasks/repair_study/start/pour_tea/emissions.json"
+ },
+ "start_sha": "a7ca4443cdf1666a",
+ "rounds": [
+  {
+   "round": 1,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/angle/r2/pour_spout_up/untyped/round_1",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 13515,
+     "output_tokens": 4128,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      4128
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "carry the teapot upright over the mug": "71145e2f12f4",
+    "tilt the teapot to pour into the mug": "8c6d2de31259"
+   },
+   "verdict": "reject",
+   "diagnosis": "The pour stage constrains teapot.+front (the spout direction) parallel to mug.+up, which tips the pot the wrong way: the goal image shows the spout tip raised and the handle 12.4 cm below the mug opening, so no liquid would reach the mug and the body is swung down through the mug's level. Pouring requires the spout to end pointing the way mug.-up points, i.e. constrain teapot.-front parallel to mug.up_axis on both the path and subgoal rotation rows. The translation rows and the upright transport stage are otherwise adequate.",
+   "edits": [
+    {
+     "target": "tilt the teapot to pour into the mug.subgoal.rot[0]",
+     "action": "reselect_axis",
+     "token": "teapot.-front",
+     "before": "teapot.front_axis parallel mug.up_axis, tol tight",
+     "after": "teapot.front_axis antiparallel mug.up_axis, tol tight",
+     "direction": 0
+    },
+    {
+     "target": "tilt the teapot to pour into the mug.path.rot[0]",
+     "action": "reselect_axis",
+     "token": "teapot.-front",
+     "before": "teapot.front_axis parallel mug.up_axis, tol tight",
+     "after": "teapot.front_axis antiparallel mug.up_axis, tol tight",
+     "direction": 0
+    }
+   ],
+   "compiled": {
+    "carry the teapot upright over the mug": true,
+    "tilt the teapot to pour into the mug": true
+   }
+  },
+  {
+   "round": 2,
+   "kind": "critic",
+   "dir": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/angle/r2/pour_spout_up/untyped/round_2",
+   "calls": [
+    {
+     "touchpoint": "critique_preview_v2",
+     "attempts": 1,
+     "input_tokens": 15919,
+     "output_tokens": 8189,
+     "rejections": [],
+     "stop_reasons": [
+      "end_turn"
+     ],
+     "output_tokens_per_attempt": [
+      8189
+     ]
+    }
+   ],
+   "stage_sha": {
+    "grasp the teapot by its handle": "c88535ae176d",
+    "carry the teapot upright over the mug": "71145e2f12f4",
+    "tilt the teapot to pour into the mug": "dd8475d25334"
+   },
+   "verdict": "accept",
+   "diagnosis": "Both editable stages keep the teapot upright during transport and keep the spout centered and at a fixed standoff over the mug throughout the tilt, with only the pour axis opened; no spill-, alignment- or orientation-related freedom remains that the planner could abuse.",
+   "edits": [],
+   "compiled": {
+    "carry the teapot upright over the mug": true,
+    "tilt the teapot to pour into the mug": true
+   },
+   "planned": {
+    "ok": true,
+    "failure": null,
+    "signature": null
+   }
+  }
+ ],
+ "final": {
+  "accepted": true,
+  "planned_in_loop": true,
+  "grades": [
+   {
+    "seed": 0,
+    "planned": true,
+    "success": true,
+    "failure": null,
+    "eval": {
+     "goal_pass": true,
+     "path_pass": true,
+     "max_penetration_mm": {
+      "self": 0.0,
+      "table": 0.0,
+      "passive": 0.0,
+      "other": 0.0
+     }
+    }
+   },
+   {
+    "seed": 1,
+    "planned": true,
+    "success": true,
+    "failure": null,
+    "eval": {
+     "goal_pass": true,
+     "path_pass": true,
+     "max_penetration_mm": {
+      "self": 0.0,
+      "table": 0.0,
+      "passive": 0.0,
+      "other": 0.0
+     }
+    }
+   },
+   {
+    "seed": 2,
+    "planned": false,
+    "success": false,
+    "failure": {
+     "stage": "carry the teapot upright over the mug",
+     "type": "planning",
+     "message": "planning failed on all 16 ranked goals: 16x 'no path: iteration budget exhausted (500)'",
+     "evidence": {
+      "n_sampled": 120,
+      "n_ik": 62,
+      "n_collision_free": 17,
+      "n_contained": 17,
+      "offenders": {
+       "mug_main <-> teapot_main": 24,
+       "robot0_upper_arm_link <-> table": 16,
+       "fixed_mount0_pedestal <-> robot0_upper_arm_link": 3,
+       "robot0_forearm_link <-> robot0_wrist_3_link": 2
+      }
+     }
+    },
+    "signature": "no_path"
+   }
+  ],
+  "error": null,
+  "graded_in": "/home/albusfang/ur5e-manip-sim/.claude/worktrees/d9-omnimanip/outputs/repair_study/angle/r2/pour_spout_up/untyped/round_2_spec"
+ },
+ "diff": [],
+ "n_calls": 2
+}

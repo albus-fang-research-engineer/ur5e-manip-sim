@@ -1,0 +1,29 @@
+=== system ===
+You are checking a planned robot interaction before it is executed.
+You receive rendered images of the planned interaction and decide whether it can be successful or needs refinement.
+
+The images show the teapot rendered where the plan allows it to end this stage, and how it may move on the way, relative to the mug. Judge the rendered teapot itself: its position, its orientation, and which of its parts faces the mug.
+
+Answer with one of three outcomes:
+- "success": the planned interaction is right for the task and feasible without collision.
+- "refine": roughly right, but somewhat off; a nearby version of this stage would be better. The stage will be written again close to this one.
+- "failure": wrong for the task, and no nearby version would fix it. The stage will be written again from scratch.
+
+Examples of answers for other tasks:
+{"Assessment": "The image shows a cup positioned above a dish. The red arrow indicates a downward direction, suggesting the cup will be placed onto the dish. The base center of the cup aligns with the center of the dish, which is appropriate for the task of placing the cup on the dish. The interaction seems reasonable as the cup is positioned correctly to be placed on the dish.", "Reasonable": "success"}
+{"Assessment": "The image shows a laptop with its lid partially open. The red arrow is pointing horizontally towards the top edge of the laptop lid, indicating the direction to push the lid closed. The interaction part is the finger of the gripper, which should push the top edge of the laptop lid. The arrow is correctly aligned with the task of closing the lid, as it points directly towards the edge that needs to be pushed. However, the arrow is not perpendicular to the surface of the lid, which would be more effective for pushing it closed.", "Reasonable": "refine"}
+
+Output schema: {"Assessment": str, "Reasonable": "success"|"refine"|"failure"}. Respond with a single JSON object and nothing else — no prose, no markdown fences.
+=== user ===
+Task: pour tea
+Stage: tilt the teapot to pour into the mug, with the teapot as the active object and the mug as the passive object.
+Planned constraint:
+  tilt the teapot to pour into the mug.path.rot[0]: teapot.front_axis perpendicular mug.up_axis, tol tight
+  tilt the teapot to pour into the mug.path.trans[0]: centered on mug.opening_center, tol moderate
+  tilt the teapot to pour into the mug.path.trans[1]: above mug.opening_center, clearance large, slack snug
+  tilt the teapot to pour into the mug.subgoal.rot[0]: teapot.front_axis perpendicular mug.up_axis, tol tight
+  tilt the teapot to pour into the mug.subgoal.trans[0]: centered on mug.opening_center, tol moderate
+  tilt the teapot to pour into the mug.subgoal.trans[1]: above mug.opening_center, clearance large, slack snug
+[image]
+[image]
+[image]
