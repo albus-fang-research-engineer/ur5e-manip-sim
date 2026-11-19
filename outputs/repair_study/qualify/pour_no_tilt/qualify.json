@@ -1,0 +1,64 @@
+{
+ "fault": "pour_no_tilt",
+ "compiled": {
+  "carry the teapot upright over the mug": true,
+  "tilt the teapot to pour into the mug": true
+ },
+ "grades": [
+  {
+   "seed": 0,
+   "planned": true,
+   "success": false,
+   "failure": null,
+   "eval": {
+    "goal_pass": false,
+    "path_pass": true,
+    "max_penetration_mm": {
+     "self": 0.0,
+     "table": 0.0,
+     "passive": 0.0,
+     "other": 0.0
+    }
+   }
+  },
+  {
+   "seed": 1,
+   "planned": true,
+   "success": false,
+   "failure": null,
+   "eval": {
+    "goal_pass": false,
+    "path_pass": true,
+    "max_penetration_mm": {
+     "self": 0.0,
+     "table": 0.0,
+     "passive": 0.0,
+     "other": 0.0
+    }
+   }
+  },
+  {
+   "seed": 2,
+   "planned": false,
+   "success": false,
+   "failure": {
+    "stage": "carry the teapot upright over the mug",
+    "type": "planning",
+    "message": "planning failed on all 22 ranked goals: 22x 'no path: iteration budget exhausted (500)'",
+    "evidence": {
+     "n_sampled": 120,
+     "n_ik": 61,
+     "n_collision_free": 23,
+     "n_contained": 23,
+     "offenders": {
+      "mug_main <-> teapot_main": 36,
+      "robot0_upper_arm_link <-> table": 2
+     }
+    }
+   },
+   "signature": "no_path"
+  }
+ ],
+ "passed": "0/3",
+ "verdict": "keep"
+}

@@ -1,0 +1,17 @@
+{
+ "fault_id": "carry_on_back",
+ "task": "pour_tea",
+ "category": "wrong_direction",
+ "role": "transport_active",
+ "stage": "carry the teapot upright over the mug",
+ "pointer": "carry the teapot upright over the mug.subgoal.rot[0]",
+ "before": "teapot.up_axis parallel world.z, tol tight",
+ "after": "teapot.front_axis parallel world.z, tol tight",
+ "expect": "the teapot is carried spout-up on its back (front_axis to world.z): spills; the pour's entry may then reject the hand-off (compile-time)",
+ "unfixable_by": [],
+ "pointers": [
+  "carry the teapot upright over the mug.subgoal.rot[0]",
+  "carry the teapot upright over the mug.path.rot[0]"
+ ],
+ "kind": "visible"
+}

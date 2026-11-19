@@ -28,8 +28,10 @@ The record names the target with the critic's pointer grammar
 (`<stage>.<ctx>.<table>[i]`, `<stage>.point.<object>`), which is the ground
 truth for localization: did the first edit or resample hit this stage, this
 row? Whether a fault really makes the specification infeasible is not
-decided here: qualification plans the faulty specification and keeps the
-fault only if planning fails.
+decided here: qualification (scripts/qualify_fault.py) plans and grades the
+faulty specification on seeds 0-2 and keeps the fault only if no stage fails to
+compile and it passes the grader on none of them (planning fails, or the plan
+fails the grader).
 """
 
 from __future__ import annotations
@@ -40,23 +42,28 @@ from pathlib import Path
 
 from .critic import candidate_for_point, row_text
 from .selection import selection_from_json, selection_to_json
-from .vlm import (CLEARANCES, ROT_TOLS, SLACKS, PointAxisSelection, RotRow,
+from .vlm import (CLEARANCES, ROT_RELATIONS, ROT_TOLS, SLACKS, PointAxisSelection, RotRow,
                   StageEmission, TransTerm, emission_from_json)
 
 CATEGORIES = ("clearance", "wrong_anchor", "handoff_rejected",
-              "contradictory_rows", "tolerance_too_tight")
+              "contradictory_rows", "tolerance_too_tight",
+              "wrong_direction")   # an axis turned the wrong way: the one kind of fault
+                                   # real OmniManip's RRC repairs itself (it re-picks the
+                                   # direction); our render_check port regenerates the
+                                   # stage with call #3 instead (no direction resampling)
 CONDITIONS = ("typed", "render_check", "untyped")
-# how a fault shows itself; the repair-study table groups by it (pilot 2: compile-time
-# faults fix equally in every condition, the other two separate them)
+# how a fault shows itself (recorded per fault; pilot 2: compile-time faults fix
+# equally in every condition, the others separate them)
 KINDS = ("compile",     # the faulty stage does not compile: every condition sees which
          "magnitude",   # right direction, wrong amount (OmniManip's refine has no direction)
-         "plausible")   # compiles and renders plausibly, but no goal / path can be planned
+         "plausible",   # compiles and renders plausibly, but no goal / path can be planned
+         "visible")     # compiles; the renders show it wrong; planning or the grader fails
 OPS = ("set_field", "set_point", "add_row")
 
 # fields a set_field may change, and the values each may take
 _FIELD_VALUES = {
     "clearance": CLEARANCES, "slack": SLACKS, "tol": ROT_TOLS + SLACKS,
-    "axis": None, "reference": None, "relation": None, "anchor": None,
+    "axis": None, "reference": None, "relation": ROT_RELATIONS, "anchor": None,
     "term": None,
 }
 

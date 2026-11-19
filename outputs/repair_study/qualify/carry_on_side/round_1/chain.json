@@ -1,0 +1,20 @@
+[
+ {
+  "role": "grasp",
+  "stage": "grasp the teapot by its handle",
+  "compiled": false,
+  "error": null
+ },
+ {
+  "role": "transport_active",
+  "stage": "carry the teapot upright over the mug",
+  "compiled": false,
+  "error": "compile rejected: carry the teapot upright over the mug.path.rot[0]: this path row asks for a 90 deg rotation from the entry attitude (axis in w [-0.0, 1.0, -0.0]) that is about w.y (pitch), which the path box does not hold as a corridor; the path box cannot hold it. Restate the row as a hold \u2014 'perpendicular_to' or 'points' with the relation already true at entry \u2014 or leave the path rotation free"
+ },
+ {
+  "role": "pour",
+  "stage": "tilt the teapot to pour into the mug",
+  "compiled": false,
+  "error": "not compiled: stage 'carry the teapot upright over the mug' did not compile, so this stage has no entry pose"
+ }
+]

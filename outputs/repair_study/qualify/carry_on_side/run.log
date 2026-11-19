@@ -1,0 +1,11 @@
+[manip-sim] No GPU detected -> MUJOCO_GL=osmesa (software rendering)
+[robosuite WARNING] No private macro file found! (macros.py:57)
+[robosuite WARNING] It is recommended to use a private macro file (macros.py:58)
+[robosuite WARNING] To setup, run: python /opt/venv/lib/python3.10/site-packages/robosuite/scripts/setup_macros.py (macros.py:59)
+[robosuite WARNING] Could not load the mink-based whole-body IK. Make sure you install related import properly, otherwise you will not be able to use the default IK controller setting for GR1 robot. (__init__.py:40)
+WARNING! gymnasium is not installed. We will try to use openai gym instead.
+Warning: make sure gym is installed if you want to use the GymWrapper.
+[robosuite INFO] Loading controller configuration from: /opt/venv/lib/python3.10/site-packages/robosuite/controllers/config/robots/default_ur5e.json (composite_controller_factory.py:121)
+[robosuite INFO] Loading controller configuration from: /opt/venv/lib/python3.10/site-packages/robosuite/controllers/config/robots/default_ur5e.json (composite_controller_factory.py:121)
+[case] fault carry_on_side: carry the teapot upright over the mug.subgoal.rot[0]: teapot.up_axis parallel world.z, tol tight -> teapot.lateral_axis parallel world.z, tol tight
+[qualify] carry_on_side: compile-time (not planned): carry the teapot upright over the mug: compile rejected: carry the teapot upright over the mug.path.rot[0]: this path row asks for a 90 deg rotation from the entry attitude (axis in w [-0.0, 1.0, -0.0]) that is about w.y (pitch), which the path box does not hold as a corridor; the path box cannot hold it. Restate the row as a hold — 'perpendicular_to' or 'points' with the relation already true at entry — or leave the path rotation free; tilt the teapot to pour into the mug: not compiled: stage 'carry the teapot upright over the mug' did not compile, so this stage has no entry pose

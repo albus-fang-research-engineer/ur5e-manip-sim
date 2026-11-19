@@ -1,0 +1,9 @@
+{
+ "fault": "carry_on_back",
+ "compiled": {
+  "carry the teapot upright over the mug": true,
+  "tilt the teapot to pour into the mug": "compile rejected: tilt the teapot to pour into the mug.path.rot[0]: axis is within 0 deg of a half-turn from the reference at entry: the rotation axis is ambiguous (which way to flip). Relate an axis that is not already (anti)parallel to the reference, or split the stage; tilt the teapot to pour into the mug.subgoal.rot[0]: axis is within 0 deg of a half-turn from the reference at entry: the rotation axis is ambiguous (which way to flip). Relate an axis that is not already (anti)parallel to the reference, or split the stage"
+ },
+ "grades": [],
+ "verdict": "compile-time (not planned): tilt the teapot to pour into the mug: compile rejected: tilt the teapot to pour into the mug.path.rot[0]: axis is within 0 deg of a half-turn from the reference at entry: the rotation axis is ambiguous (which way to flip). Relate an axis that is not already (anti)parallel to the reference, or split the stage; tilt the teapot to pour into the mug.subgoal.rot[0]: axis is within 0 deg of a half-turn from the reference at entry: the rotation axis is ambiguous (which way to flip). Relate an axis that is not already (anti)parallel to the reference, or split the stage"
+}

@@ -1,5 +1,5 @@
 {
- "about": "Repair study (docs/deferred.md D9): one fault per case, injected by manip_sim/fault_injection.py into a starting specification that plans and passes the grader. Rows are found by `match`, so entries survive row reordering; an entry that does not apply to a starting specification raises FaultNotApplicable. A fault is kept only if qualification shows the faulty specification fails to plan. `expect` is our prediction of the typed failure, logged and never sent to a model. Point and axis names: pour tea uses the sim pools (assets/objects/*/candidates.json); insert marker uses the grounded pools of outputs/grounding/insert_marker_gt_opus1, as run_authoring_ablation.TASKS does.",
+ "about": "Repair study (docs/deferred.md D9): one fault per case, injected by manip_sim/fault_injection.py into a starting specification that plans and passes the grader. Rows are found by `match`, so entries survive row reordering; an entry that does not apply to a starting specification raises FaultNotApplicable. A fault is kept only if qualification (scripts/qualify_fault.py, seeds 0-2) shows every stage compiles and the faulty specification passes the grader on none of the seeds; kind 'compile' entries are kept as a record of what the compiler catches. `expect` is our prediction of the typed failure, logged and never sent to a model. Point and axis names: pour tea uses the sim pools (assets/objects/*/candidates.json); insert marker uses the grounded pools of outputs/grounding/insert_marker_gt_opus1, as run_authoring_ablation.TASKS does.",
  "faults": [
   {
    "id": "pour_clearance_contact",
@@ -298,6 +298,74 @@
    ],
    "expect": "carry and pour anchored on the handle (consistent hand-off): the handle over the mug, the body in the way, no collision-free goal",
    "note": "the 11/05 hardware failure, on both stages so the pour's entry check passes"
+  },
+  {
+   "id": "pour_spout_up",
+   "task": "pour_tea",
+   "category": "wrong_direction",
+   "kind": "visible",
+   "role": "pour",
+   "op": "set_field",
+   "ctx": "both",
+   "table": "rot",
+   "match": {
+    "axis": "teapot.front_axis"
+   },
+   "field": "relation",
+   "value": "parallel",
+   "expect": "the pour tips the teapot backward (spout up): the pour goal region has no collision-free pose and no handle grasp reaches it (the grasp lookahead fails on every seed); the renders show the pot upside down",
+   "note": "angle only, in OmniManip's repair space (its RRC re-picks the interaction direction); path and goal together so the stage still compiles; qualified 2026-11-18: 0/3, all seeds fail at the grasp lookahead (unreachable), which the direction fix removes"
+  },
+  {
+   "id": "carry_on_back",
+   "task": "pour_tea",
+   "category": "wrong_direction",
+   "kind": "compile",
+   "role": "transport_active",
+   "op": "set_field",
+   "ctx": "both",
+   "table": "rot",
+   "match": {
+    "axis": "teapot.up_axis"
+   },
+   "field": "axis",
+   "value": "teapot.front_axis",
+   "expect": "the teapot is carried spout-up on its back (front_axis to world.z): spills; the pour's entry may then reject the hand-off (compile-time)",
+   "note": "angle only; qualified 2026-11-18 as compile-time (the entry-attitude check rejects it: the pour's path cannot start from a pot on its back): our compiler catches it in every condition, so it is not in the head-to-head"
+  },
+  {
+   "id": "carry_on_side",
+   "task": "pour_tea",
+   "category": "wrong_direction",
+   "kind": "compile",
+   "role": "transport_active",
+   "op": "set_field",
+   "ctx": "both",
+   "table": "rot",
+   "match": {
+    "axis": "teapot.up_axis"
+   },
+   "field": "axis",
+   "value": "teapot.lateral_axis",
+   "expect": "the teapot is carried on its side (lateral_axis to world.z): spills",
+   "note": "angle only; qualified 2026-11-18 as compile-time (the entry-attitude check rejects it: the carry path asks for a 90 deg turn from the lifted entry): our compiler catches it in every condition, so it is not in the head-to-head"
+  },
+  {
+   "id": "pour_no_tilt",
+   "task": "pour_tea",
+   "category": "wrong_direction",
+   "kind": "visible",
+   "role": "pour",
+   "op": "set_field",
+   "ctx": "both",
+   "table": "rot",
+   "match": {
+    "axis": "teapot.front_axis"
+   },
+   "field": "relation",
+   "value": "perpendicular",
+   "expect": "the spout is held level (front_axis perpendicular to mug.up): the teapot stays upright over the mug and never pours; plans, the grader's spout check fails",
+   "note": "angle only, in OmniManip's repair space (its RRC re-picks the interaction direction); replaces the carry candidates, which both failed at compile time (the entry-attitude check); qualified 2026-11-18: 0/3 (seeds 0-1 plan and fail the grader's goal check; seed 2 has no path on the unedited carry, the starting spec's weak seed)"
   }
  ]
 }

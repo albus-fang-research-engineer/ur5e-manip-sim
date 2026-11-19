@@ -1,0 +1,44 @@
+{
+ "fault": "pour_spout_up",
+ "compiled": {
+  "carry the teapot upright over the mug": true,
+  "tilt the teapot to pour into the mug": true
+ },
+ "grades": [
+  {
+   "seed": 0,
+   "planned": false,
+   "success": false,
+   "failure": {
+    "stage": "grasp the teapot by its handle",
+    "type": "grasp",
+    "message": "no candidate survived pre-grasp/approach/reach feasibility"
+   },
+   "signature": "grasp"
+  },
+  {
+   "seed": 1,
+   "planned": false,
+   "success": false,
+   "failure": {
+    "stage": "grasp the teapot by its handle",
+    "type": "grasp",
+    "message": "no candidate survived pre-grasp/approach/reach feasibility"
+   },
+   "signature": "grasp"
+  },
+  {
+   "seed": 2,
+   "planned": false,
+   "success": false,
+   "failure": {
+    "stage": "grasp the teapot by its handle",
+    "type": "grasp",
+    "message": "no candidate survived pre-grasp/approach/reach feasibility"
+   },
+   "signature": "grasp"
+  }
+ ],
+ "passed": "0/3",
+ "verdict": "keep"
+}

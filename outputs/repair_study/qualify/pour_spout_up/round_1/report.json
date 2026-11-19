@@ -1,0 +1,176 @@
+{
+ "stages": [
+  {
+   "stage": "grasp the teapot by its handle",
+   "role": "grasp",
+   "active": "teapot",
+   "editable": false,
+   "goal": "The gripper closes on the teapot's handle at teapot.handle_center, with the teapot still upright at its spawn pose.",
+   "point_choice": {
+    "pointer": "grasp the teapot by its handle.point.teapot",
+    "current": "teapot.handle_center"
+   }
+  },
+  {
+   "stage": "carry the teapot upright over the mug",
+   "role": "transport_active",
+   "active": "teapot",
+   "passive": "mug",
+   "editable": true,
+   "goal": "teapot.spout_tip ends up centered above mug.opening_center, at a standoff that keeps the pot's body clear of the mug's rim, with teapot.+up pointing the way world.+z points; the pot stays upright the whole way.",
+   "point_choice": {
+    "pointer": "carry the teapot upright over the mug.point.teapot",
+    "current": "teapot.spout_tip"
+   },
+   "path": {
+    "rows": [
+     {
+      "pointer": "carry the teapot upright over the mug.path.rot[0]",
+      "text": "teapot.up_axis parallel world.z, tol tight"
+     },
+     {
+      "pointer": "carry the teapot upright over the mug.path.trans[0]",
+      "text": "free"
+     }
+    ],
+    "bounds_in_w": {
+     "x": "free",
+     "y": "free",
+     "z": "free",
+     "roll": "-5 to +5 deg",
+     "pitch": "-5 to +5 deg",
+     "yaw": "free"
+    }
+   },
+   "subgoal": {
+    "rows": [
+     {
+      "pointer": "carry the teapot upright over the mug.subgoal.rot[0]",
+      "text": "teapot.up_axis parallel world.z, tol tight"
+     },
+     {
+      "pointer": "carry the teapot upright over the mug.subgoal.trans[0]",
+      "text": "centered on mug.opening_center, tol moderate"
+     },
+     {
+      "pointer": "carry the teapot upright over the mug.subgoal.trans[1]",
+      "text": "above mug.opening_center, clearance large, slack snug"
+     }
+    ],
+    "bounds_in_w": {
+     "x": "-2.0 to +2.0 cm",
+     "y": "-2.0 to +2.0 cm",
+     "z": "+8.0 to +10.0 cm",
+     "roll": "-5 to +5 deg",
+     "pitch": "-5 to +5 deg",
+     "yaw": "free"
+    }
+   },
+   "points_at_goal": {
+    "relative_to": "w origin (mug's selected point), height along mug up",
+    "at": "subgoal nominal",
+    "points": {
+     "spout_tip": {
+      "horizontal_cm": 0.0,
+      "height_cm": 9.0
+     },
+     "handle_center": {
+      "horizontal_cm": 21.4,
+      "height_cm": 5.3
+     }
+    }
+   }
+  },
+  {
+   "stage": "tilt the teapot to pour into the mug",
+   "role": "pour",
+   "active": "teapot",
+   "passive": "mug",
+   "editable": true,
+   "goal": "The teapot tips forward about its lateral (tilt) axis until teapot.+front, the spout direction, points the way mug.-up points, with teapot.spout_tip held centered above mug.opening_center so the tea falls into the mug.",
+   "point_choice": {
+    "pointer": "tilt the teapot to pour into the mug.point.teapot",
+    "current": "teapot.spout_tip"
+   },
+   "path": {
+    "rows": [
+     {
+      "pointer": "tilt the teapot to pour into the mug.path.rot[0]",
+      "text": "teapot.front_axis parallel mug.up_axis, tol tight"
+     },
+     {
+      "pointer": "tilt the teapot to pour into the mug.path.trans[0]",
+      "text": "centered on mug.opening_center, tol moderate"
+     },
+     {
+      "pointer": "tilt the teapot to pour into the mug.path.trans[1]",
+      "text": "above mug.opening_center, clearance large, slack snug"
+     }
+    ],
+    "bounds_in_w": {
+     "x": "-2.0 to +2.0 cm",
+     "y": "-2.0 to +2.0 cm",
+     "z": "+8.0 to +10.0 cm",
+     "roll": "-5 to +94.8 deg",
+     "pitch": "-5 to +5 deg",
+     "yaw": "free"
+    }
+   },
+   "subgoal": {
+    "rows": [
+     {
+      "pointer": "tilt the teapot to pour into the mug.subgoal.rot[0]",
+      "text": "teapot.front_axis parallel mug.up_axis, tol tight"
+     },
+     {
+      "pointer": "tilt the teapot to pour into the mug.subgoal.trans[0]",
+      "text": "centered on mug.opening_center, tol moderate"
+     },
+     {
+      "pointer": "tilt the teapot to pour into the mug.subgoal.trans[1]",
+      "text": "above mug.opening_center, clearance large, slack snug"
+     }
+    ],
+    "bounds_in_w": {
+     "x": "-2.0 to +2.0 cm",
+     "y": "-2.0 to +2.0 cm",
+     "z": "+8.0 to +10.0 cm",
+     "roll": "-5 to +5 deg",
+     "pitch": "-5 to +5 deg",
+     "yaw": "free"
+    }
+   },
+   "points_at_goal": {
+    "relative_to": "w origin (mug's selected point), height along mug up",
+    "at": "subgoal nominal",
+    "points": {
+     "spout_tip": {
+      "horizontal_cm": 0.0,
+      "height_cm": 9.0
+     },
+     "handle_center": {
+      "horizontal_cm": 3.7,
+      "height_cm": -12.4
+     }
+    }
+   }
+  }
+ ],
+ "editable_pointers": [
+  "carry the teapot upright over the mug",
+  "carry the teapot upright over the mug.path.rot[0]",
+  "carry the teapot upright over the mug.path.trans[0]",
+  "carry the teapot upright over the mug.point.teapot",
+  "carry the teapot upright over the mug.subgoal.rot[0]",
+  "carry the teapot upright over the mug.subgoal.trans[0]",
+  "carry the teapot upright over the mug.subgoal.trans[1]",
+  "tilt the teapot to pour into the mug",
+  "tilt the teapot to pour into the mug.path.rot[0]",
+  "tilt the teapot to pour into the mug.path.trans[0]",
+  "tilt the teapot to pour into the mug.path.trans[1]",
+  "tilt the teapot to pour into the mug.point.teapot",
+  "tilt the teapot to pour into the mug.subgoal.rot[0]",
+  "tilt the teapot to pour into the mug.subgoal.trans[0]",
+  "tilt the teapot to pour into the mug.subgoal.trans[1]"
+ ]
+}
