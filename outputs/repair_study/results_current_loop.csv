@@ -1,0 +1,28 @@
+fault,group,label,condition,runs,fixed,calls_total,calls_per_run
+pour_wrong_anchor_both,shared,"wrong anchor, both stages",typed,2,2,4,2.0
+pour_wrong_anchor_both,shared,"wrong anchor, both stages",untyped,2,2,4,2.0
+pour_wrong_anchor_both,shared,"wrong anchor, both stages",render_check,2,0,11,5.5
+pour_wrong_anchor,shared,"wrong anchor, carry only",typed,2,2,4,2.0
+pour_wrong_anchor,shared,"wrong anchor, carry only",untyped,2,2,4,2.0
+pour_wrong_anchor,shared,"wrong anchor, carry only",render_check,2,0,10,5.0
+pour_height_contact,shared,height contact,typed,2,1,9,4.5
+pour_height_contact,shared,height contact,untyped,2,0,10,5.0
+pour_height_contact,shared,height contact,render_check,2,0,12,6.0
+pour_height_small,shared,height small,typed,2,2,10,5.0
+pour_height_small,shared,height small,untyped,2,0,12,6.0
+pour_height_small,shared,height small,render_check,2,0,12,6.0
+pour_clearance_contact,shared,clearance contact,typed,2,1,7,3.5
+pour_clearance_contact,shared,clearance contact,untyped,2,0,8,4.0
+pour_clearance_contact,shared,clearance contact,render_check,2,0,13,6.5
+pour_spout_up,angle,spout up (pot tipped backward),typed,2,2,4,2.0
+pour_spout_up,angle,spout up (pot tipped backward),untyped,2,2,4,2.0
+pour_spout_up,angle,spout up (pot tipped backward),render_check,2,0,10,5.0
+pour_no_tilt,angle,no tilt (spout held level),typed,2,2,6,3.0
+pour_no_tilt,angle,no tilt (spout held level),untyped,2,2,7,3.5
+pour_no_tilt,angle,no tilt (spout held level),render_check,2,0,8,4.0
+pour_handoff_high,Langfold-only,handoff,typed,1,0,5,5.0
+pour_handoff_high,Langfold-only,handoff,untyped,1,0,4,4.0
+pour_handoff_high,Langfold-only,handoff,render_check,1,0,5,5.0
+pour_contradictory_upright,Langfold-only,contradictory rows,typed,1,0,4,4.0
+pour_contradictory_upright,Langfold-only,contradictory rows,untyped,1,0,4,4.0
+pour_contradictory_upright,Langfold-only,contradictory rows,render_check,1,0,3,3.0

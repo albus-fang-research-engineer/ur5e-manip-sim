@@ -49,28 +49,40 @@ is written up). Branch `worktree-d9-omnimanip` (worktree
 
 ## Results
 
-### Scale-up sets 1-2 (2026-11-15): current loop for every condition
+### Main table: current loop, every fault class
 
-Pour tea, upstream-first rule and the new call #3 prompt for every condition.
-Set 1: 5 shared faults x 3 conditions (outputs/repair_study/scale/set1, $7.99).
-Set 2a: the 2 Langfold-only faults x 3 conditions (also scale/set1). Set 2b: a
-second run of the 5 shared faults (scale/set2). Sets 2a + 2b: 21 runs, $11.06
-(first reported as $11.71: that sum counted re-emit calls twice).
-Fixed = runs fixed / runs; calls = VLM calls per run, on average.
+Generated from the run records by `python3 scripts/d9_results.py` (also writes
+outputs/repair_study/results_current_loop.csv). To append runs: add their folder to
+RUN_GLOBS there (and a new fault to FAULTS), rerun, paste the table here.
+Pour tea; upstream-first rule and the word-ranges call #3 prompt in every condition;
+critic memory off. Fixed = runs fixed / runs (the final spec passes the grader on a
+majority of seeds 0-2); calls = VLM calls per run, on average.
 
-| Fault | Type | Langfold fixed | Langfold calls | Withheld fixed | Withheld calls | OmniManip-style fixed | OmniManip-style calls |
-|---|---|---|---|---|---|---|---|
-| wrong anchor, both stages | shared | 2/2 | 2 | 2/2 | 2 | 0/2 | 5.5 |
-| wrong anchor, carry only | shared | 2/2 | 2 | 2/2 | 2 | 0/2 | 5 |
-| height contact | shared | 1/2 | 4.5 | 0/2 | 5 | 0/2 | 6 |
-| height small | shared | 2/2 | 5 | 0/2 | 6 | 0/2 | 6 |
-| clearance contact | shared | 1/2 | 3.5 | 0/2 | 4 | 0/2 | 6.5 |
-| **Shared total** | | **8/10** | **3.4** | **4/10** | **3.8** | **0/10** | **5.8** |
-| handoff | Langfold-only | 0/1 | 5 | 0/1 | 4 | 0/1 | 5 |
-| contradictory rows | Langfold-only | 0/1 | 4 | 0/1 | 4 | 0/1 | 3 |
-| **All faults** | | **8/12** | **3.6** | **4/12** | **3.8** | **0/12** | **5.5** |
+Runs: set 1, the 5 shared faults (scale/set1, 2026-11-15, $7.99); set 2a, the 2
+Langfold-only faults (also scale/set1) and set 2b, a second run of the shared faults
+(scale/set2), $11.06 together (first reported as $11.71: re-emit calls counted
+twice); angle faults, 2 runs each (angle/r1, r2, 2026-11-18, $5.09).
 
-Calls per fixed run: Langfold 5.4, withheld 11.5, OmniManip-style none fixed.
+| Fault | Langfold fixed | Langfold calls | Withheld fixed | Withheld calls | OmniManip-style fixed | OmniManip-style calls |
+|---|---|---|---|---|---|---|
+| *Shared: OmniManip makes it, its retry cannot repair it (point or distance)* | | | | | | |
+| wrong anchor, both stages | 2/2 | 2 | 2/2 | 2 | 0/2 | 5.5 |
+| wrong anchor, carry only | 2/2 | 2 | 2/2 | 2 | 0/2 | 5 |
+| height contact | 1/2 | 4.5 | 0/2 | 5 | 0/2 | 6 |
+| height small | 2/2 | 5 | 0/2 | 6 | 0/2 | 6 |
+| clearance contact | 1/2 | 3.5 | 0/2 | 4 | 0/2 | 6.5 |
+| **shared total** | **8/10** | **3.4** | **4/10** | **3.8** | **0/10** | **5.8** |
+| *Angle: OmniManip makes it and its retry is built to repair it (direction)* | | | | | | |
+| spout up (pot tipped backward) | 2/2 | 2 | 2/2 | 2 | 0/2 | 5 |
+| no tilt (spout held level) | 2/2 | 3 | 2/2 | 3.5 | 0/2 | 4 |
+| **angle total** | **4/4** | **2.5** | **4/4** | **2.8** | **0/4** | **4.5** |
+| *Langfold-only: exists because Langfold's specifications are richer* | | | | | | |
+| handoff | 0/1 | 5 | 0/1 | 4 | 0/1 | 5 |
+| contradictory rows | 0/1 | 4 | 0/1 | 4 | 0/1 | 3 |
+| **Langfold-only total** | **0/2** | **4.5** | **0/2** | **4** | **0/2** | **4** |
+| **All faults** | **12/16** | **3.3** | **8/16** | **3.6** | **0/16** | **5.2** |
+
+Calls per fixed run: Langfold 4.4, withheld 7.1, OmniManip-style none fixed.
 
 Langfold's losses share one pattern: a round went to re-tightening the pour after
 call #3 rewrote it, not to the fault (round budget 2).
@@ -97,11 +109,8 @@ e.g. 20261104_025927 rank 3.2; keyword counts, approximate). Qualified with
 scripts/qualify_fault.py (outputs/repair_study/qualify). 2 faults x 3 conditions x 2
 runs, current loop, memory off (outputs/repair_study/angle/r1, r2); $5.09, 39 requests.
 
-| Fault | Langfold fixed | Langfold calls | Withheld fixed | Withheld calls | OmniManip-style fixed | OmniManip-style calls |
-|---|---|---|---|---|---|---|
-| spout up (pot tipped backward) | 2/2 | 2 | 2/2 | 2 | 0/2 | 5 |
-| no tilt (spout held level) | 2/2 | 3 | 2/2 | 3.5 | 0/2 | 4 |
-| **Total** | **4/4** | **2.5** | **4/4** | **2.8** | **0/4** | **4.5** |
+Results: the angle rows of the main table (Langfold 4/4, withheld 4/4,
+OmniManip-style 0/4).
 
 - Detection was equal: every condition flagged the pour in round 1 (the critic in
   4/4 Langfold and 4/4 withheld runs; the checker labeled it refine/failure in 4/4).
